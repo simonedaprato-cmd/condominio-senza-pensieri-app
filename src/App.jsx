@@ -89,13 +89,20 @@ function LogoMark() {
   const [logoError, setLogoError] = useState(false);
 
   return (
+    function LogoMark() {
+  const [logoError, setLogoError] = useState(false);
+
+  return (
     <div className="flex items-center">
-      <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-transparent border-0 shadow-none flex items-center justify-center overflow-visible shrink-0">
+      <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-transparent border-0 shadow-none flex items-center justify-center overflow-visible shrink-0 relative">
+        {/* Halo/ombra per effetto premium */}
+        <div className="absolute inset-0 -z-10 blur-xl bg-emerald-200/50 rounded-full" />
+
         {!logoError ? (
           <img
             src={LOGO_SRC}
             alt="Condominio Senza Pensieri"
-            className="h-28 w-28 md:h-32 md:w-32 object-contain scale-110"
+            className="h-44 w-44 md:h-52 md:w-52 object-contain scale-125 drop-shadow-2xl transition-transform duration-300 hover:scale-110"
             onError={() => setLogoError(true)}
           />
         ) : (
@@ -1109,10 +1116,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <header className="rounded-3xl bg-gradient-to-r from-slate-100 via-white to-emerald-50 p-5 md:p-6 shadow-sm border border-slate-200">
+        <header className="relative rounded-3xl bg-gradient-to-r from-slate-100 via-white to-emerald-50 pt-10 md:pt-12 pb-5 md:pb-6 px-5 md:px-6 shadow-sm border border-slate-200 overflow-visible">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4 flex-wrap">
-              <LogoMark />
+              <div className="relative -mt-12 md:-mt-16 z-20">
+                <LogoMark />
+              </div>
 
               <div className="text-slate-900 max-w-full">
                 <h1 className="text-xl md:text-2xl font-bold leading-tight">
