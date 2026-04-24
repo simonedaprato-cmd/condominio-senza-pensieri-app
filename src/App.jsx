@@ -89,24 +89,19 @@ function LogoMark() {
   const [logoError, setLogoError] = useState(false);
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="h-40 w-40 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0 relative">
-        {!logoError && (
+    <div className="flex items-center">
+      <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-transparent border-0 shadow-none flex items-center justify-center overflow-hidden shrink-0">
+        {!logoError ? (
           <img
             src={LOGO_SRC}
             alt="Condominio Senza Pensieri"
-            className="h-36 w-36 object-contain relative z-10"
-            onError={() => {
-              console.error('Logo non trovato:', LOGO_SRC);
-              setLogoError(true);
-            }}
+            className="h-16 w-16 md:h-20 md:w-20 object-contain"
+            onError={() => setLogoError(true)}
           />
-        )}
-
-        {logoError && (
+        ) : (
           <div className="text-center px-2">
-            <p className="text-xl font-black text-emerald-800 leading-tight">CSP</p>
-            <p className="text-[10px] text-red-600 leading-tight">logo non trovato</p>
+            <p className="text-sm font-bold text-emerald-700">CSP</p>
+            <p className="text-[9px] text-red-600">logo non trovato</p>
           </div>
         )}
       </div>
@@ -593,6 +588,75 @@ function DashboardStat({ label, value, tone = 'slate' }) {
   );
 }
 
+function ActionBar({
+  condomini,
+  filtroCondominioId,
+  onChangeFiltroCondominio,
+  searchTerm,
+  onChangeSearchTerm,
+  onRefresh,
+  loading,
+  ruolo,
+}) {
+  return (
+    <section className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-emerald-700 font-bold">Azioni rapide</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Filtra le pratiche, cerca una segnalazione o aggiorna i dati in tempo reale.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+          <select
+            value={filtroCondominioId}
+            onChange={(e) => onChangeFiltroCondominio(e.target.value)}
+            className="w-full sm:w-56 border border-slate-200 px-3 py-2.5 rounded-2xl text-sm bg-slate-50"
+          >
+            <option value="">Tutti i condomini</option>
+            {condomini.map((c) => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
+
+          <input
+            value={searchTerm}
+            onChange={(e) => onChangeSearchTerm(e.target.value)}
+            placeholder="Cerca pratica..."
+            className="w-full sm:w-64 border border-slate-200 px-3 py-2.5 rounded-2xl text-sm bg-slate-50"
+          />
+
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold disabled:opacity-60"
+          >
+            {loading ? 'Aggiorno...' : 'Aggiorna'}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 font-semibold">
+          Vista: {ruolo}
+        </span>
+        <span className="rounded-full bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1.5">
+          Condomini visibili: {condomini.length}
+        </span>
+        {filtroCondominioId && (
+          <button
+            onClick={() => onChangeFiltroCondominio('')}
+            className="rounded-full bg-white text-slate-600 border border-slate-300 px-3 py-1.5 hover:bg-slate-50"
+          >
+            Rimuovi filtro
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.stato === 'Urgente').length;
@@ -713,6 +777,8 @@ export default function App() {
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [condomini, setCondomini] = useState([]);
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
+  const [filtroCondominioId, setFiltroCondominioId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -745,6 +811,21 @@ export default function App() {
     const condominiIds = userProfile?.condominiIds || [];
     return condomini.filter((c) => condominiIds.includes(c.id));
   }, [ruoloNormalizzato, condomini, userProfile]);
+
+  const segnalazioniVisualizzate = useMemo(() => {
+    const testo = searchTerm.toLowerCase().trim();
+
+    return segnalazioniFiltrate.filter((s) => {
+      const passaCondominio = filtroCondominioId ? String(s.condominio_id) === String(filtroCondominioId) : true;
+      const passaRicerca = !testo
+        ? true
+        : [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(testo));
+
+      return passaCondominio && passaRicerca;
+    });
+  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
 
   const carica = async () => {
     setLoading(true);
@@ -1028,25 +1109,21 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <header className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 p-8 shadow-lg">
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_white,_transparent_60%)]" />
+        <header className="rounded-3xl bg-gradient-to-r from-slate-100 via-white to-emerald-50 p-5 md:p-6 shadow-sm border border-slate-200">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <LogoMark />
 
-          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <div className="scale-110 md:scale-125">
-                <LogoMark />
-              </div>
-
-              <div className="text-white">
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+              <div className="text-slate-900 max-w-full">
+                <h1 className="text-xl md:text-2xl font-bold leading-tight">
                   Condominio Senza Pensieri
                 </h1>
-                <p className="text-white/70 mt-1 text-sm md:text-base">
-                  Gestione intelligente delle segnalazioni condominiali
+                <p className="text-slate-500 mt-1 text-xs md:text-sm">
+                  Gestione intelligente delle segnalazioni
                 </p>
 
-                <div className="mt-3 text-xs md:text-sm text-white/60 space-y-1">
-                  <p>Utente: {utente.email}</p>
+                <div className="mt-2 text-[11px] md:text-xs text-slate-500 space-y-0.5">
+                  <p className="break-all">Utente: {utente.email}</p>
                   <p>Ruolo: {ruoloNormalizzato}</p>
                   {userProfile?.condominio && (
                     <p>Condominio: {userProfile.condominio}</p>
@@ -1065,12 +1142,23 @@ export default function App() {
                 setUserProfile(null);
                 setDettaglioAperto(null);
               }}
-              className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow hover:bg-slate-100"
+              className="self-start md:self-auto px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800"
             >
               Logout
             </button>
           </div>
         </header>
+
+        <ActionBar
+          condomini={condominiVisibili}
+          filtroCondominioId={filtroCondominioId}
+          onChangeFiltroCondominio={setFiltroCondominioId}
+          searchTerm={searchTerm}
+          onChangeSearchTerm={setSearchTerm}
+          onRefresh={carica}
+          loading={loading}
+          ruolo={ruoloNormalizzato}
+        />
 
         {ruolo === 'non_configurato' && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
@@ -1080,7 +1168,7 @@ export default function App() {
 
         <DashboardOperativa
           ruolo={ruoloNormalizzato}
-          segnalazioni={segnalazioniFiltrate}
+          segnalazioni={segnalazioniVisualizzate}
           condomini={condominiVisibili}
           onOpen={setDettaglioAperto}
         />
@@ -1114,13 +1202,13 @@ export default function App() {
             <div className="bg-white border border-slate-200 rounded-2xl p-6">
               <p className="text-slate-500">Caricamento segnalazioni...</p>
             </div>
-          ) : segnalazioniFiltrate.length === 0 ? (
+          ) : segnalazioniVisualizzate.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-6">
               <p className="text-slate-500">Nessuna segnalazione presente.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {segnalazioniFiltrate.map((s) => (
+              {segnalazioniVisualizzate.map((s) => (
                 <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />
               ))}
             </div>
