@@ -446,7 +446,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <h3 className="text-xl font-bold">{segnalazione.titolo}</h3>
             <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
           </div>
-          </div>
           <button onClick={onClose} className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700">
             Chiudi
           </button>
