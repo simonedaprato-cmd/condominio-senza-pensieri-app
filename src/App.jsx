@@ -89,29 +89,24 @@ function LogoMark() {
   const [logoError, setLogoError] = useState(false);
 
   return (
-    function LogoMark() {
-  const [logoError, setLogoError] = useState(false);
+    <div className="relative flex items-center justify-center shrink-0 h-24 w-24 md:h-28 md:w-28 overflow-visible">
+      <div className="absolute inset-0 rounded-full bg-emerald-200/50 blur-2xl" />
 
-  return (
-    <div className="flex items-center">
-      <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-transparent border-0 shadow-none flex items-center justify-center overflow-visible shrink-0 relative">
-        {/* Halo/ombra per effetto premium */}
-        <div className="absolute inset-0 -z-10 blur-xl bg-emerald-200/50 rounded-full" />
-
-        {!logoError ? (
-          <img
-            src={LOGO_SRC}
-            alt="Condominio Senza Pensieri"
-            className="h-44 w-44 md:h-52 md:w-52 object-contain scale-125 drop-shadow-2xl transition-transform duration-300 hover:scale-110"
-            onError={() => setLogoError(true)}
-          />
-        ) : (
-          <div className="text-center px-2">
-            <p className="text-sm font-bold text-emerald-700">CSP</p>
-            <p className="text-[9px] text-red-600">logo non trovato</p>
+      {!logoError ? (
+        <img
+          src={LOGO_SRC}
+          alt="Condominio Senza Pensieri"
+          className="relative z-10 h-40 w-40 md:h-52 md:w-52 object-contain drop-shadow-2xl transition-transform duration-300 hover:scale-105"
+          onError={() => setLogoError(true)}
+        />
+      ) : (
+        <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
+          <div>
+            <p className="text-lg font-black text-emerald-800 leading-tight">CSP</p>
+            <p className="text-[10px] text-red-600 leading-tight">logo non trovato</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
