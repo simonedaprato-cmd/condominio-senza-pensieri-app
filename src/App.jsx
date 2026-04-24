@@ -1002,16 +1002,27 @@ export default function App() {
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img src={LOGO_SRC} alt="Logo" className="h-12 w-auto" />
+            <div className="h-16 w-16 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+              <img
+                src={LOGO_SRC}
+                alt="Condominio Senza Pensieri"
+                className="h-14 w-14 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+
             <div>
-          <div>
-            <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
-            <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
-            <p className="text-sm text-slate-500 mt-1">Ruolo: {ruoloNormalizzato}</p>
-            {userProfile?.condominio && (
-              <p className="text-sm text-slate-500 mt-1">Condominio: {userProfile.condominio}</p>
-            )}
+              <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
+              <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
+              <p className="text-sm text-slate-500 mt-1">Ruolo: {ruoloNormalizzato}</p>
+              {userProfile?.condominio && (
+                <p className="text-sm text-slate-500 mt-1">Condominio: {userProfile.condominio}</p>
+              )}
+            </div>
           </div>
+
           <button
             onClick={async () => {
               if (supabase && utente?.mode !== 'demo') {
@@ -1022,7 +1033,7 @@ export default function App() {
               setUserProfile(null);
               setDettaglioAperto(null);
             }}
-            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700"
+            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
           >
             Logout
           </button>
