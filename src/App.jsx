@@ -84,6 +84,36 @@ function priorityClass(priorita) {
   return 'text-emerald-700';
 }
 
+async function loadUserProfile(email) {
+  if (!supabase || !email) {
+    return {
+      email,
+      ruolo: 'gestore',
+      condominio: '',
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('utenti')
+    .select('email, ruolo, condominio')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return {
+      email,
+      ruolo: 'non_configurato',
+      condominio: '',
+    };
+  }
+
+  return data;
+}
+
 function Login({ onLogin, disabled, loading }) {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -468,13 +498,24 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState('');
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [userProfile, setUserProfile] = useState(null);
 
   const segnalazioniFiltrate = useMemo(() => {
     if (ruolo === 'gestore') return segnalazioni;
-    if (ruolo === 'amministratore') return segnalazioni.filter(s => s.condominio.includes('Demo'));
-    if (ruolo === 'condominio') return segnalazioni.filter(s => s.condominio === 'Demo Condominio');
-    return segnalazioni;
-  }, [ruolo, segnalazioni]);
+
+    if (ruolo === 'amministratore') {
+      return segnalazioni.filter((s) => {
+        if (userProfile?.condominio) return s.condominio === userProfile.condominio;
+        return false;
+      });
+    }
+
+    if (ruolo === 'condominio') {
+      return segnalazioni.filter((s) => s.condominio === userProfile?.condominio);
+    }
+
+    return [];
+  }, [ruolo, segnalazioni, userProfile]);
 
   const carica = async () => {
     setLoading(true);
@@ -518,13 +559,22 @@ export default function App() {
 
     let isMounted = true;
 
-    const applySession = (session) => {
+    const applySession = async (session) => {
       const sessionUser = session?.user;
       if (sessionUser?.email) {
         setUtente({ email: sessionUser.email, mode: 'supabase-session' });
-        setRuolo('gestore');
+        try {
+          const profile = await loadUserProfile(sessionUser.email);
+          setUserProfile(profile);
+          setRuolo(profile.ruolo || 'non_configurato');
+        } catch (error) {
+          setStatusMessage(`Errore caricamento profilo: ${error.message}`);
+          setUserProfile({ email: sessionUser.email, ruolo: 'non_configurato', condominio: '' });
+          setRuolo('non_configurato');
+        }
       } else {
         setUtente(null);
+        setUserProfile(null);
         setRuolo('gestore');
       }
     };
@@ -534,15 +584,15 @@ export default function App() {
       if (error) {
         setStatusMessage(`Errore sessione: ${error.message}`);
       } else {
-        applySession(data.session);
+        await applySession(data.session);
       }
       setAuthReady(true);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      applySession(session);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      await applySession(session);
       setAuthReady(true);
     });
 
@@ -699,6 +749,7 @@ export default function App() {
           if (u.mode === 'demo') {
             setUtente(u);
             setRuolo('gestore');
+            setUserProfile({ email: u.email, ruolo: 'gestore', condominio: '' });
           }
         }}
         disabled={!isSupabaseConfigured}
@@ -714,6 +765,10 @@ export default function App() {
           <div>
             <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
             <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
+            <p className="text-sm text-slate-500 mt-1">Ruolo: {ruolo}</p>
+            {userProfile?.condominio && (
+              <p className="text-sm text-slate-500 mt-1">Condominio: {userProfile.condominio}</p>
+            )}
           </div>
           <button
             onClick={async () => {
@@ -722,6 +777,7 @@ export default function App() {
               }
               setUtente(null);
               setRuolo('gestore');
+              setUserProfile(null);
               setDettaglioAperto(null);
             }}
             className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700"
@@ -730,11 +786,11 @@ export default function App() {
           </button>
         </header>
 
-        <div className="flex gap-2">
-          <button onClick={() => setRuolo('gestore')} className="px-3 py-1 border rounded">Gestore</button>
-          <button onClick={() => setRuolo('amministratore')} className="px-3 py-1 border rounded">Amministratore</button>
-          <button onClick={() => setRuolo('condominio')} className="px-3 py-1 border rounded">Condominio</button>
-        </div>
+        {ruolo === 'non_configurato' && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
+            Il tuo profilo non è ancora configurato nella tabella utenti. Chiedi al gestore di associare la tua email a un ruolo.
+          </div>
+        )}
 
         <FormSegnalazione onSave={salvaSegnalazione} saving={saving} disabled={!isSupabaseConfigured} />
 
