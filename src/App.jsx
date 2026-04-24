@@ -93,11 +93,15 @@ async function loadUserProfile(email) {
     };
   }
 
+  const normalizedEmail = email.toLowerCase().trim();
+
   const { data, error } = await supabase
     .from('utenti')
     .select('email, ruolo, condominio')
-    .eq('email', email.toLowerCase().trim())
+    .ilike('email', normalizedEmail)
     .maybeSingle();
+
+  console.log('Profilo utente cercato:', normalizedEmail, 'Risultato:', data, 'Errore:', error);
 
   if (error) {
     throw error;
@@ -560,10 +564,18 @@ export default function App() {
 
     let isMounted = true;
 
+    const safetyTimer = window.setTimeout(() => {
+      if (!isMounted) return;
+      console.warn('Timeout controllo sessione: sblocco schermata login.');
+      setAuthReady(true);
+    }, 5000);
+
     const applySession = async (session) => {
       const sessionUser = session?.user;
+
       if (sessionUser?.email) {
         setUtente({ email: sessionUser.email, mode: 'supabase-session' });
+
         try {
           const profile = await loadUserProfile(sessionUser.email);
           setUserProfile(profile);
@@ -580,26 +592,41 @@ export default function App() {
       }
     };
 
-    supabase.auth.getSession().then(async ({ data, error }) => {
-      if (!isMounted) return;
-      if (error) {
-        setStatusMessage(`Errore sessione: ${error.message}`);
-      } else {
-        await applySession(data.session);
-      }
-      setAuthReady(true);
-    });
+    const inizializzaAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      await applySession(session);
-      setAuthReady(true);
+        if (!isMounted) return;
+
+        if (error) {
+          setStatusMessage(`Errore sessione: ${error.message}`);
+        } else {
+          await applySession(data.session);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setStatusMessage(`Errore controllo accesso: ${error.message || 'sessione non disponibile'}`);
+        }
+      } finally {
+        if (isMounted) {
+          window.clearTimeout(safetyTimer);
+          setAuthReady(true);
+        }
+      }
+    };
+
+    inizializzaAuth();
+
+    const authListener = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session).finally(() => {
+        if (isMounted) setAuthReady(true);
+      });
     });
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      window.clearTimeout(safetyTimer);
+      authListener?.data?.subscription?.unsubscribe?.();
     };
   }, []);
 
