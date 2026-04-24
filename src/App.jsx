@@ -27,13 +27,14 @@ const DEMO_DATA = [
     titolo: 'Infiltrazione nel vano scale',
     descrizione: 'Presenza di aloni umidi vicino alla copertura, soprattutto dopo la pioggia.',
     condominio: 'Demo Condominio',
+    condominio_id: null,
     stato: 'In verifica',
     priorita: 'Media',
     categoria: 'Infiltrazioni',
     luogo: 'Scala A - ultimo piano',
     referente: 'Mario Rossi',
     telefono: '3331234567',
-    allegatoNome: '',
+    allegatonome: '',
     allegatoUrl: '',
     note: [
       {
@@ -197,7 +198,7 @@ function Login({ onLogin, disabled, loading }) {
   );
 }
 
-function FormSegnalazione({ onSave, saving, disabled }) {
+function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCondominioId, onChangeCondominio }) {
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
   const [categoria, setCategoria] = useState('Infiltrazioni');
@@ -207,6 +208,7 @@ function FormSegnalazione({ onSave, saving, disabled }) {
   const [telefono, setTelefono] = useState('');
   const [file, setFile] = useState(null);
   const [errore, setErrore] = useState('');
+  const [condominioId, setCondominioId] = useState(selectedCondominioId || '');
 
   const reset = () => {
     setTitolo('');
@@ -248,7 +250,7 @@ function FormSegnalazione({ onSave, saving, disabled }) {
         luogo: luogo.trim(),
         referente: referente.trim(),
         telefono: telefono.trim(),
-        condominio: 'Demo Condominio',
+        condominioId,
         stato: 'In verifica',
         file,
       });
@@ -267,6 +269,24 @@ function FormSegnalazione({ onSave, saving, disabled }) {
             ? 'I dati vengono salvati solo in locale sul browser.'
             : 'La segnalazione sarà salvata su database e l’allegato su storage Supabase.'}
         </p>
+      </div>
+
+      <div>
+        <label className="text-sm text-slate-600">Condominio</label>
+        <select
+          value={condominioId}
+          onChange={(e) => {
+            setCondominioId(e.target.value);
+            onChangeCondominio?.(e.target.value);
+          }}
+          className="w-full border px-3 py-2 rounded-xl mt-1"
+          disabled={saving}
+        >
+          <option value="">Seleziona condominio</option>
+          {condomini.map((c) => (
+            <option key={c.id} value={c.id}>{c.nome}</option>
+          ))}
+        </select>
       </div>
 
       <input
@@ -480,8 +500,8 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
         />
       )}
 
-      {!segnalazione.allegatoUrl && segnalazione.allegatoNome && (
-        <p className="mt-3 text-sm text-slate-500">Allegato: {segnalazione.allegatoNome}</p>
+      {!segnalazione.allegatoUrl && segnalazione.allegatonome && (
+        <p className="mt-3 text-sm text-slate-500">Allegato: {segnalazione.allegatonome}</p>
       )}
 
       <button
@@ -498,6 +518,8 @@ export default function App() {
   const [ruolo, setRuolo] = useState('gestore'); // default
   const [utente, setUtente] = useState(null);
   const [segnalazioni, setSegnalazioni] = useState([]);
+  const [condomini, setCondomini] = useState([]);
+  const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -534,16 +556,20 @@ export default function App() {
         return;
       }
 
+      const { data: condData } = await supabase.from('condomini').select('*');
+      setCondomini(condData || []);
+
       const { data, error } = await supabase
         .from('segnalazioni')
-        .select('*')
+        .select('*, condomini(nome)')
         .order('id', { ascending: false });
 
       if (error) throw error;
 
       const normalized = (data || []).map((item) => ({
         ...item,
-        allegatoUrl: item.allegatoNome ? buildPublicImageUrl(item.allegatoNome) : '',
+        condominio: item.condomini?.nome || '',
+        allegatoUrl: item.allegatonome ? buildPublicImageUrl(item.allegatonome) : '',
         note: Array.isArray(item.note) ? item.note : [],
       }));
 
@@ -646,17 +672,17 @@ export default function App() {
     carica();
   }, [authReady, utente]);
 
-  const salvaSegnalazione = async ({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, condominio, stato, file }) => {
+  const salvaSegnalazione = async ({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, condominioId, stato, file }) => {
     setSaving(true);
     setStatusMessage('');
 
     try {
       if (!isSupabaseConfigured) {
         let allegatoUrl = '';
-        let allegatoNome = '';
+        let allegatonome = '';
 
         if (file) {
-          allegatoNome = file.name;
+          allegatonome = file.name;
           allegatoUrl = URL.createObjectURL(file);
         }
 
@@ -669,9 +695,10 @@ export default function App() {
           luogo,
           referente,
           telefono,
-          condominio,
+          condominio: 'Demo Condominio',
+          condominio_id: condominioId || null,
           stato,
-          allegatoNome,
+          allegatonome,
           allegatoUrl,
           note: [],
           created_at: new Date().toISOString(),
@@ -703,9 +730,9 @@ export default function App() {
         luogo,
         referente,
         telefono,
-        condominio,
+        condominio_id: condominioId || null,
         stato,
-        allegatoNome: fileName,
+        allegatonome: fileName,
         note: [],
       };
 
@@ -830,7 +857,14 @@ export default function App() {
           </div>
         )}
 
-        <FormSegnalazione onSave={salvaSegnalazione} saving={saving} disabled={!isSupabaseConfigured} />
+        <FormSegnalazione
+          onSave={salvaSegnalazione}
+          saving={saving}
+          disabled={!isSupabaseConfigured}
+          condomini={condomini}
+          selectedCondominioId={selectedCondominioId}
+          onChangeCondominio={setSelectedCondominioId}
+        />
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4">
