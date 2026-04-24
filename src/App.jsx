@@ -14,6 +14,7 @@ const isSupabaseConfigured =
   !SUPABASE_URL.includes('TUO-PROGETTO') &&
   !SUPABASE_ANON_KEY.includes('TUA-ANON-KEY');
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
+const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const supabase = isSupabaseConfigured
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
@@ -106,7 +107,7 @@ function Login({ onLogin, disabled, loading }) {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: AUTH_REDIRECT_URL,
         },
       });
       if (error) {
