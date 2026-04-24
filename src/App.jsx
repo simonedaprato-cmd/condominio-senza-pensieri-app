@@ -557,75 +557,85 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!supabase) {
-      setAuthReady(true);
-      return;
-    }
-
     let isMounted = true;
 
-    const safetyTimer = window.setTimeout(() => {
-      if (!isMounted) return;
-      console.warn('Timeout controllo sessione: sblocco schermata login.');
-      setAuthReady(true);
-    }, 5000);
+    const setReady = () => {
+      if (isMounted) setAuthReady(true);
+    };
 
-    const applySession = async (session) => {
+    const handleSession = async (session) => {
       const sessionUser = session?.user;
 
-      if (sessionUser?.email) {
-        setUtente({ email: sessionUser.email, mode: 'supabase-session' });
-
-        try {
-          const profile = await loadUserProfile(sessionUser.email);
-          setUserProfile(profile);
-          setRuolo(profile.ruolo || 'non_configurato');
-        } catch (error) {
-          setStatusMessage(`Errore caricamento profilo: ${error.message}`);
-          setUserProfile({ email: sessionUser.email, ruolo: 'non_configurato', condominio: '' });
-          setRuolo('non_configurato');
-        }
-      } else {
+      if (!sessionUser?.email) {
+        if (!isMounted) return;
         setUtente(null);
         setUserProfile(null);
         setRuolo('gestore');
+        return;
+      }
+
+      if (!isMounted) return;
+      setUtente({ email: sessionUser.email, mode: 'supabase-session' });
+
+      try {
+        const profile = await loadUserProfile(sessionUser.email);
+        if (!isMounted) return;
+        setUserProfile(profile);
+        setRuolo(profile.ruolo || 'non_configurato');
+      } catch (error) {
+        if (!isMounted) return;
+        setStatusMessage(`Errore caricamento profilo: ${error.message}`);
+        setUserProfile({ email: sessionUser.email, ruolo: 'non_configurato', condominio: '' });
+        setRuolo('non_configurato');
       }
     };
 
-    const inizializzaAuth = async () => {
+    const startAuth = async () => {
+      if (!supabase) {
+        setReady();
+        return;
+      }
+
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((resolve) => {
+          window.setTimeout(() => resolve({ timeout: true }), 3500);
+        });
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
 
         if (!isMounted) return;
 
-        if (error) {
-          setStatusMessage(`Errore sessione: ${error.message}`);
-        } else {
-          await applySession(data.session);
+        if (result?.timeout) {
+          setStatusMessage('Controllo accesso troppo lento: puoi riprovare il login.');
+          setReady();
+          return;
         }
+
+        if (result.error) {
+          setStatusMessage(`Errore sessione: ${result.error.message}`);
+          setReady();
+          return;
+        }
+
+        await handleSession(result.data?.session);
       } catch (error) {
         if (isMounted) {
           setStatusMessage(`Errore controllo accesso: ${error.message || 'sessione non disponibile'}`);
         }
       } finally {
-        if (isMounted) {
-          window.clearTimeout(safetyTimer);
-          setAuthReady(true);
-        }
+        setReady();
       }
     };
 
-    inizializzaAuth();
+    startAuth();
 
-    const authListener = supabase.auth.onAuthStateChange((_event, session) => {
-      applySession(session).finally(() => {
-        if (isMounted) setAuthReady(true);
-      });
+    const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
+      handleSession(session).finally(setReady);
     });
 
     return () => {
       isMounted = false;
-      window.clearTimeout(safetyTimer);
       authListener?.data?.subscription?.unsubscribe?.();
     };
   }, []);
