@@ -129,7 +129,7 @@ async function loadUserProfile(email) {
 
   const { data, error } = await supabase
     .from('utenti')
-    .select('email, ruolo, condominio')
+    .select('email, ruolo, condominio, telefono, nome')
     .ilike('email', normalizedEmail)
     .maybeSingle();
 
@@ -306,6 +306,8 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
         luogo: luogo.trim(),
         referente: referente.trim(),
         telefono: telefono.trim(),
+        amministratoreEmail: utente?.email || '',
+        amministratoreTelefono: userProfile?.telefono || '',
         condominioId,
         stato: 'Presa in carico',
         file,
@@ -437,6 +439,48 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
   );
 }
 
+function buildPreventivoMessage(segnalazione) {
+  const link = segnalazione.preventivourl || '';
+  const righe = [
+    'Buongiorno,',
+    '',
+    'è stato caricato il preventivo relativo alla pratica:',
+    '"' + (segnalazione.titolo || '') + '"',
+    '',
+    'Condominio: ' + (segnalazione.condominio || 'n.d.'),
+    'Stato pratica: ' + (segnalazione.stato || 'n.d.'),
+    '',
+    link ? 'Puoi visualizzare il preventivo qui:' : '',
+    link,
+    '',
+    'Resto a disposizione.',
+  ];
+
+  return righe.filter(Boolean).join(String.fromCharCode(10));
+}
+
+function buildMailtoPreventivo(segnalazione) {
+  const subject = 'Preventivo pronto - ' + (segnalazione.condominio || segnalazione.titolo || 'Pratica');
+  const body = buildPreventivoMessage(segnalazione);
+  return 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+
+function buildWhatsappPreventivo(segnalazione) {
+  const body = buildPreventivoMessage(segnalazione);
+  const numeroAmministratore = segnalazione.amministratore_telefono || segnalazione.telefono || '';
+  const phone = String(numeroAmministratore).replace(/[^0-9]/g, '');
+  const base = phone ? 'https://wa.me/' + phone : 'https://wa.me/';
+  return base + '?text=' + encodeURIComponent(body);
+}
+
+function inviaNotificaPreventivo(segnalazione) {
+  const whatsappUrl = buildWhatsappPreventivo(segnalazione);
+  const mailUrl = buildMailtoPreventivo(segnalazione);
+
+  window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  window.location.href = mailUrl;
+}
+
 function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadSopralluogoFoto, onUploadPreventivo, ruolo }) {
   const [nota, setNota] = useState('');
   const [fotoSopralluogo, setFotoSopralluogo] = useState(null);
@@ -467,7 +511,8 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
-            <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
+            <p><span className="text-slate-500">Telefono referente:</span> {segnalazione.telefono || 'n.d.'}</p>
+            <p><span className="text-slate-500">Telefono amministratore:</span> {segnalazione.amministratore_telefono || 'n.d.'}</p>
             {segnalazione.allegatoUrl && (
               <img
                 src={segnalazione.allegatoUrl}
@@ -552,9 +597,21 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   {uploading ? 'Caricamento...' : 'Carica preventivo'}
                 </button>
                 {segnalazione.preventivourl && (
-                  <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-emerald-700 underline">
-                    Apri preventivo caricato
-                  </a>
+                  <div className="space-y-3">
+                    <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-emerald-700 underline">
+                      Apri preventivo caricato
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => inviaNotificaPreventivo(segnalazione)}
+                      className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
+                    >
+                      Invia notifica email + WhatsApp
+                    </button>
+                    <p className="text-xs text-emerald-700">
+                      Apre la mail già compilata e il messaggio WhatsApp usando il numero dell’amministratore salvato in anagrafica.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -1062,6 +1119,8 @@ export default function App() {
           luogo,
           referente,
           telefono,
+          amministratore_email: utente?.email || '',
+          amministratore_telefono: userProfile?.telefono || '',
           condominio: 'Demo Condominio',
           condominio_id: condominioId || null,
           stato,
@@ -1097,6 +1156,8 @@ export default function App() {
         luogo,
         referente,
         telefono,
+        amministratore_email: utente?.email || '',
+        amministratore_telefono: userProfile?.telefono || '',
         condominio_id: condominioId || null,
         stato,
         allegatonome: fileName,
