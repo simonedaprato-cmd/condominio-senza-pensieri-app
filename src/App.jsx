@@ -91,6 +91,8 @@ async function loadUserProfile(email) {
       email,
       ruolo: 'gestore',
       condominio: '',
+      condominiIds: [],
+      condomini: [],
     };
   }
 
@@ -113,10 +115,30 @@ async function loadUserProfile(email) {
       email,
       ruolo: 'non_configurato',
       condominio: '',
+      condominiIds: [],
+      condomini: [],
     };
   }
 
-  return data;
+  const { data: collegamenti, error: collegamentiError } = await supabase
+    .from('utenti_condomini')
+    .select('condominio_id, condomini(id, nome, indirizzo)')
+    .ilike('email', normalizedEmail);
+
+  if (collegamentiError) {
+    throw collegamentiError;
+  }
+
+  const condominiCollegati = (collegamenti || [])
+    .map((item) => item.condomini)
+    .filter(Boolean);
+
+  return {
+    ...data,
+    condominiIds: (collegamenti || []).map((item) => item.condominio_id),
+    condomini: condominiCollegati,
+    condominio: condominiCollegati[0]?.nome || data.condominio || '',
+  };
 }
 
 function Login({ onLogin, disabled, loading }) {
@@ -241,6 +263,11 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
       return;
     }
 
+    if (!condominioId) {
+      setErrore('Seleziona il condominio a cui associare la segnalazione.');
+      return;
+    }
+
     try {
       await onSave({
         titolo: titolo.trim(),
@@ -287,6 +314,11 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
             <option key={c.id} value={c.id}>{c.nome}</option>
           ))}
         </select>
+        {condomini.length === 0 && (
+          <p className="text-sm text-red-600 mt-2">
+            Nessun condominio associato al tuo profilo. Chiedi al gestore di collegare la tua email ai condomini.
+          </p>
+        )}
       </div>
 
       <input
@@ -514,6 +546,138 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
+function DashboardStat({ label, value, tone = 'slate' }) {
+  const toneClass = {
+    slate: 'bg-slate-900 text-white',
+    red: 'bg-red-600 text-white',
+    amber: 'bg-amber-500 text-white',
+    emerald: 'bg-emerald-600 text-white',
+  }[tone] || 'bg-slate-900 text-white';
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className={`mt-3 inline-flex min-w-14 justify-center rounded-2xl px-4 py-2 text-2xl font-bold ${toneClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
+  const totale = segnalazioni.length;
+  const urgenti = segnalazioni.filter((s) => s.stato === 'Urgente').length;
+  const verifica = segnalazioni.filter((s) => s.stato === 'In verifica').length;
+  const programmati = segnalazioni.filter((s) => s.stato === 'Programmato').length;
+  const chiusi = segnalazioni.filter((s) => s.stato === 'Chiuso').length;
+
+  const perCondominio = condomini.map((c) => {
+    const items = segnalazioni.filter((s) => s.condominio_id === c.id);
+    return {
+      ...c,
+      totale: items.length,
+      urgenti: items.filter((s) => s.stato === 'Urgente').length,
+      verifica: items.filter((s) => s.stato === 'In verifica').length,
+      programmati: items.filter((s) => s.stato === 'Programmato').length,
+      chiusi: items.filter((s) => s.stato === 'Chiuso').length,
+    };
+  });
+
+  const segnalazioniCritiche = segnalazioni
+    .filter((s) => s.stato === 'Urgente' || s.priorita === 'Alta')
+    .slice(0, 5);
+
+  const titolo = ruolo === 'gestore' ? 'Cruscotto gestore' : 'Cruscotto amministratore';
+  const descrizione = ruolo === 'gestore'
+    ? 'Vista generale su tutti i condomini, le urgenze e le pratiche da presidiare.'
+    : 'Vista sintetica dei condomini associati al tuo profilo e delle pratiche aperte.';
+
+  return (
+    <section className="space-y-5">
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 text-white rounded-3xl p-6 shadow-sm">
+        <p className="text-sm uppercase tracking-[0.2em] text-white/60">Dashboard</p>
+        <h2 className="mt-2 text-3xl font-bold">{titolo}</h2>
+        <p className="mt-2 text-white/75 max-w-2xl">{descrizione}</p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <DashboardStat label="Totali" value={totale} />
+        <DashboardStat label="Urgenti" value={urgenti} tone="red" />
+        <DashboardStat label="In verifica" value={verifica} tone="amber" />
+        <DashboardStat label="Programmato" value={programmati} tone="emerald" />
+        <DashboardStat label="Chiuse" value={chiusi} tone="slate" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="font-bold text-lg">Situazione per condominio</h3>
+              <p className="text-sm text-slate-500">Riepilogo rapido per stabile.</p>
+            </div>
+          </div>
+
+          {perCondominio.length === 0 ? (
+            <p className="text-sm text-slate-500">Nessun condominio associato.</p>
+          ) : (
+            <div className="space-y-3">
+              {perCondominio.map((c) => (
+                <div key={c.id} className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-slate-900">{c.nome}</p>
+                      {c.indirizzo && <p className="text-sm text-slate-500">{c.indirizzo}</p>}
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700">{c.totale} pratiche</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-sm">
+                    <span className="rounded-xl bg-red-50 text-red-700 px-3 py-2">Urgenti: {c.urgenti}</span>
+                    <span className="rounded-xl bg-amber-50 text-amber-700 px-3 py-2">Verifica: {c.verifica}</span>
+                    <span className="rounded-xl bg-emerald-50 text-emerald-700 px-3 py-2">Programm.: {c.programmati}</span>
+                    <span className="rounded-xl bg-slate-100 text-slate-700 px-3 py-2">Chiuse: {c.chiusi}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-lg">Da presidiare</h3>
+          <p className="text-sm text-slate-500 mb-4">Urgenze e priorità alte in evidenza.</p>
+
+          {segnalazioniCritiche.length === 0 ? (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-emerald-700 text-sm">
+              Nessuna urgenza attiva. Situazione sotto controllo.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {segnalazioniCritiche.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onOpen(s)}
+                  className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{s.titolo}</p>
+                      <p className="text-sm text-slate-500 mt-1">{s.condominio}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full border text-xs ${badgeClass(s.stato)}`}>{s.stato}</span>
+                  </div>
+                  <p className={`mt-2 text-sm font-semibold ${priorityClass(s.priorita || 'Media')}`}>
+                    Priorità: {s.priorita || 'Media'}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [ruolo, setRuolo] = useState('gestore'); // default
   const [utente, setUtente] = useState(null);
@@ -533,19 +697,25 @@ export default function App() {
   const segnalazioniFiltrate = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return segnalazioni;
 
+    const condominiIds = userProfile?.condominiIds || [];
+
     if (ruoloNormalizzato === 'amministratore') {
-      return segnalazioni.filter((s) => {
-        if (userProfile?.condominio) return s.condominio === userProfile.condominio;
-        return false;
-      });
+      return segnalazioni.filter((s) => condominiIds.includes(s.condominio_id));
     }
 
     if (ruoloNormalizzato === 'condominio') {
-      return segnalazioni.filter((s) => s.condominio === userProfile?.condominio);
+      return segnalazioni.filter((s) => condominiIds.includes(s.condominio_id));
     }
 
     return [];
   }, [ruoloNormalizzato, segnalazioni, userProfile]);
+
+  const condominiVisibili = useMemo(() => {
+    if (ruoloNormalizzato === 'gestore') return condomini;
+
+    const condominiIds = userProfile?.condominiIds || [];
+    return condomini.filter((c) => condominiIds.includes(c.id));
+  }, [ruoloNormalizzato, condomini, userProfile]);
 
   const carica = async () => {
     setLoading(true);
@@ -614,7 +784,7 @@ export default function App() {
       } catch (error) {
         if (!isMounted) return;
         setStatusMessage(`Errore caricamento profilo: ${error.message}`);
-        setUserProfile({ email: sessionUser.email, ruolo: 'non_configurato', condominio: '' });
+        setUserProfile({ email: sessionUser.email, ruolo: 'non_configurato', condominio: '', condominiIds: [], condomini: [] });
         setRuolo('non_configurato');
       }
     };
@@ -817,7 +987,7 @@ export default function App() {
           if (u.mode === 'demo') {
             setUtente(u);
             setRuolo('gestore');
-            setUserProfile({ email: u.email, ruolo: 'gestore', condominio: '' });
+            setUserProfile({ email: u.email, ruolo: 'gestore', condominio: '', condominiIds: [], condomini: [] });
           }
         }}
         disabled={!isSupabaseConfigured}
@@ -860,12 +1030,19 @@ export default function App() {
           </div>
         )}
 
+        <DashboardOperativa
+          ruolo={ruoloNormalizzato}
+          segnalazioni={segnalazioniFiltrate}
+          condomini={condominiVisibili}
+          onOpen={setDettaglioAperto}
+        />
+
         {puoCreareSegnalazioni && (
         <FormSegnalazione
           onSave={salvaSegnalazione}
           saving={saving}
           disabled={!isSupabaseConfigured}
-          condomini={condomini}
+          condomini={condominiVisibili}
           selectedCondominioId={selectedCondominioId}
           onChangeCondominio={setSelectedCondominioId}
         />
