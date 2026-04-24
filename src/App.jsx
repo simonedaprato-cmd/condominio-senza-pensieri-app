@@ -601,20 +601,23 @@ function ActionBar({
   ruolo,
 }) {
   return (
-    <section className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/70 p-4 shadow-[0_18px_60px_-35px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-slate-200/50 blur-3xl" />
+
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-emerald-700 font-bold">Azioni rapide</p>
-          <p className="text-sm text-slate-500 mt-1">
-            Filtra le pratiche, cerca una segnalazione o aggiorna i dati in tempo reale.
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Azioni rapide</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Filtra, cerca e aggiorna le pratiche senza perdere il controllo del cruscotto.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] lg:w-auto">
           <select
             value={filtroCondominioId}
             onChange={(e) => onChangeFiltroCondominio(e.target.value)}
-            className="w-full sm:w-56 border border-slate-200 px-3 py-2.5 rounded-2xl text-sm bg-slate-50"
+            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
           >
             <option value="">Tutti i condomini</option>
             {condomini.map((c) => (
@@ -626,40 +629,24 @@ function ActionBar({
             value={searchTerm}
             onChange={(e) => onChangeSearchTerm(e.target.value)}
             placeholder="Cerca pratica..."
-            className="w-full sm:w-64 border border-slate-200 px-3 py-2.5 rounded-2xl text-sm bg-slate-50"
+            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
           />
 
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold disabled:opacity-60"
+            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:opacity-60"
           >
             {loading ? 'Aggiorno...' : 'Aggiorna'}
           </button>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 font-semibold">
+      <div className="relative mt-4 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">
           Vista: {ruolo}
         </span>
-        <span className="rounded-full bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1.5">
-          Condomini visibili: {condomini.length}
-        </span>
-        {filtroCondominioId && (
-          <button
-            onClick={() => onChangeFiltroCondominio('')}
-            className="rounded-full bg-white text-slate-600 border border-slate-300 px-3 py-1.5 hover:bg-slate-50"
-          >
-            Rimuovi filtro
-          </button>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
+  function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.stato === 'Urgente').length;
   const verifica = segnalazioni.filter((s) => s.stato === 'In verifica').length;
@@ -689,13 +676,20 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
 
   return (
     <section className="space-y-5">
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 text-white rounded-3xl p-6 shadow-sm">
-        <p className="text-sm uppercase tracking-[0.2em] text-white/60">Dashboard</p>
-        <h2 className="mt-2 text-3xl font-bold">{titolo}</h2>
-        <p className="mt-2 text-white/75 max-w-2xl">{descrizione}</p>
+      <div className="relative overflow-hidden rounded-[2rem] p-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)]">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-emerald-600 to-emerald-800" />
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
+        <div className="absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl" />
+        <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+
+        <div className="relative text-white">
+          <p className="text-sm uppercase tracking-[0.25em] text-white/70">Dashboard</p>
+          <h2 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">{titolo}</h2>
+          <p className="mt-2 max-w-2xl text-white/80">{descrizione}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <DashboardStat label="Totali" value={totale} />
         <DashboardStat label="Urgenti" value={urgenti} tone="red" />
         <DashboardStat label="In verifica" value={verifica} tone="amber" />
@@ -703,11 +697,11 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
         <DashboardStat label="Chiuse" value={chiusi} tone="slate" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-5">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-bold text-lg">Situazione per condominio</h3>
+              <h3 className="text-lg font-bold">Situazione per condominio</h3>
               <p className="text-sm text-slate-500">Riepilogo rapido per stabile.</p>
             </div>
           </div>
@@ -717,19 +711,19 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
           ) : (
             <div className="space-y-3">
               {perCondominio.map((c) => (
-                <div key={c.id} className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div key={c.id} className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 transition hover:border-emerald-200 hover:shadow-md">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="font-bold text-slate-900">{c.nome}</p>
                       {c.indirizzo && <p className="text-sm text-slate-500">{c.indirizzo}</p>}
                     </div>
-                    <p className="text-sm font-semibold text-slate-700">{c.totale} pratiche</p>
+                    <p className="text-sm font-bold text-slate-700">{c.totale} pratiche</p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-sm">
-                    <span className="rounded-xl bg-red-50 text-red-700 px-3 py-2">Urgenti: {c.urgenti}</span>
-                    <span className="rounded-xl bg-amber-50 text-amber-700 px-3 py-2">Verifica: {c.verifica}</span>
-                    <span className="rounded-xl bg-emerald-50 text-emerald-700 px-3 py-2">Programm.: {c.programmati}</span>
-                    <span className="rounded-xl bg-slate-100 text-slate-700 px-3 py-2">Chiuse: {c.chiusi}</span>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                    <span className="rounded-xl bg-red-50 px-3 py-2 text-red-700">Urgenti: {c.urgenti}</span>
+                    <span className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">Verifica: {c.verifica}</span>
+                    <span className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-700">Programm.: {c.programmati}</span>
+                    <span className="rounded-xl bg-slate-100 px-3 py-2 text-slate-700">Chiuse: {c.chiusi}</span>
                   </div>
                 </div>
               ))}
@@ -737,12 +731,12 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
           )}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="font-bold text-lg">Da presidiare</h3>
-          <p className="text-sm text-slate-500 mb-4">Urgenze e priorità alte in evidenza.</p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
+          <h3 className="text-lg font-bold">Da presidiare</h3>
+          <p className="mb-4 text-sm text-slate-500">Urgenze e priorità alte in evidenza.</p>
 
           {segnalazioniCritiche.length === 0 ? (
-            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-emerald-700 text-sm">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
               Nessuna urgenza attiva. Situazione sotto controllo.
             </div>
           ) : (
@@ -751,12 +745,27 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
                 <button
                   key={s.id}
                   onClick={() => onOpen(s)}
-                  className="w-full text-left rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+                  className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900">{s.titolo}</p>
-                      <p className="text-sm text-slate-500 mt-1">{s.condominio}</p>
+                      <p className="mt-1 text-sm text-slate-500">{s.condominio}</p>
+                    </div>
+                    <span className={`rounded-full border px-2 py-1 text-xs ${badgeClass(s.stato)}`}>{s.stato}</span>
+                  </div>
+                  <p className={`mt-2 text-sm font-semibold ${priorityClass(s.priorita || 'Media')}`}>
+                    Priorità: {s.priorita || 'Media'}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}e-500 mt-1">{s.condominio}</p>
                     </div>
                     <span className={`px-2 py-1 rounded-full border text-xs ${badgeClass(s.stato)}`}>{s.stato}</span>
                   </div>
