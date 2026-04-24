@@ -28,7 +28,7 @@ const DEMO_DATA = [
     descrizione: 'Presenza di aloni umidi vicino alla copertura, soprattutto dopo la pioggia.',
     condominio: 'Demo Condominio',
     condominio_id: null,
-    stato: 'In verifica',
+    stato: 'Presa in carico',
     priorita: 'Media',
     categoria: 'Infiltrazioni',
     luogo: 'Scala A - ultimo piano',
@@ -73,9 +73,12 @@ function buildPublicImageUrl(fileName) {
 }
 
 function badgeClass(stato) {
+  if (stato === 'Presa in carico') return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (stato === 'Sopralluogo effettuato') return 'bg-purple-100 text-purple-700 border-purple-200';
+  if (stato === 'Preventivata') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  if (stato === 'Chiusa') return 'bg-slate-200 text-slate-700 border-slate-300';
   if (stato === 'Urgente') return 'bg-red-100 text-red-700 border-red-200';
   if (stato === 'Programmato') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-  if (stato === 'Chiuso') return 'bg-slate-200 text-slate-700 border-slate-300';
   return 'bg-amber-100 text-amber-700 border-amber-200';
 }
 
@@ -304,7 +307,7 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
         referente: referente.trim(),
         telefono: telefono.trim(),
         condominioId,
-        stato: 'In verifica',
+        stato: 'Presa in carico',
         file,
       });
       reset();
@@ -434,8 +437,14 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadSopralluogoFoto, onUploadPreventivo, ruolo }) {
   const [nota, setNota] = useState('');
+  const [fotoSopralluogo, setFotoSopralluogo] = useState(null);
+  const [preventivoFile, setPreventivoFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
+  const isGestore = ruoloNormalizzato === 'gestore';
 
   if (!segnalazione) return null;
 
@@ -479,7 +488,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              {['In verifica', 'Programmato', 'Urgente', 'Chiuso'].map((stato) => (
+              {(isGestore ? ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Chiusa'] : []).map((stato) => (
                 <button
                   key={stato}
                   onClick={() => onChangeStatus(segnalazione.id, stato)}
@@ -489,6 +498,66 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 </button>
               ))}
             </div>
+
+            {isGestore && segnalazione.stato === 'Sopralluogo effettuato' && (
+              <div className="space-y-2 rounded-2xl border border-purple-100 bg-purple-50 p-4">
+                <p className="font-semibold text-purple-800">Foto sopralluogo</p>
+                <p className="text-sm text-purple-700">Carica una foto rappresentativa del sopralluogo.</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setFotoSopralluogo(e.target.files?.[0] || null)}
+                  disabled={uploading}
+                />
+                <button
+                  onClick={async () => {
+                    if (!fotoSopralluogo) return;
+                    setUploading(true);
+                    await onUploadSopralluogoFoto(segnalazione.id, fotoSopralluogo);
+                    setFotoSopralluogo(null);
+                    setUploading(false);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-purple-700 text-white text-sm disabled:opacity-60"
+                  disabled={uploading || !fotoSopralluogo}
+                >
+                  {uploading ? 'Caricamento...' : 'Carica foto sopralluogo'}
+                </button>
+                {segnalazione.fotosopralluogourl && (
+                  <img src={segnalazione.fotosopralluogourl} alt="Foto sopralluogo" className="mt-3 w-full max-w-sm rounded-xl border border-purple-200" />
+                )}
+              </div>
+            )}
+
+            {isGestore && segnalazione.stato === 'Preventivata' && (
+              <div className="space-y-2 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="font-semibold text-emerald-800">Preventivo</p>
+                <p className="text-sm text-emerald-700">Carica il preventivo da associare alla pratica.</p>
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={(e) => setPreventivoFile(e.target.files?.[0] || null)}
+                  disabled={uploading}
+                />
+                <button
+                  onClick={async () => {
+                    if (!preventivoFile) return;
+                    setUploading(true);
+                    await onUploadPreventivo(segnalazione.id, preventivoFile);
+                    setPreventivoFile(null);
+                    setUploading(false);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-emerald-700 text-white text-sm disabled:opacity-60"
+                  disabled={uploading || !preventivoFile}
+                >
+                  {uploading ? 'Caricamento...' : 'Carica preventivo'}
+                </button>
+                {segnalazione.preventivourl && (
+                  <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-emerald-700 underline">
+                    Apri preventivo caricato
+                  </a>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <p className="font-semibold">Aggiungi nota</p>
@@ -666,8 +735,8 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   // Dashboard operativa: tutte le costanti devono stare dentro questa funzione.
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.stato === 'Urgente').length;
-  const verifica = segnalazioni.filter((s) => s.stato === 'In verifica').length;
-  const programmati = segnalazioni.filter((s) => s.stato === 'Programmato').length;
+  const verifica = segnalazioni.filter((s) => s.stato === 'Presa in carico' || s.stato === 'In verifica').length;
+  const programmati = segnalazioni.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Programmato').length;
   const chiusi = segnalazioni.filter((s) => s.stato === 'Chiuso').length;
 
   const perCondominio = condomini.map((c) => {
@@ -676,8 +745,8 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
       ...c,
       totale: items.length,
       urgenti: items.filter((s) => s.stato === 'Urgente').length,
-      verifica: items.filter((s) => s.stato === 'In verifica').length,
-      programmati: items.filter((s) => s.stato === 'Programmato').length,
+      verifica: items.filter((s) => s.stato === 'Presa in carico' || s.stato === 'In verifica').length,
+      programmati: items.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Programmato').length,
       chiusi: items.filter((s) => s.stato === 'Chiuso').length,
     };
   });
@@ -709,8 +778,8 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <DashboardStat label="Totali" value={totale} />
         <DashboardStat label="Urgenti" value={urgenti} tone="red" />
-        <DashboardStat label="In verifica" value={verifica} tone="amber" />
-        <DashboardStat label="Programmato" value={programmati} tone="emerald" />
+        <DashboardStat label="Prese in carico" value={verifica} tone="amber" />
+        <DashboardStat label="In lavorazione" value={programmati} tone="emerald" />
         <DashboardStat label="Chiuse" value={chiusi} tone="slate" />
       </div>
 
@@ -738,8 +807,8 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
                     <span className="rounded-xl bg-red-50 px-3 py-2 text-red-700">Urgenti: {c.urgenti}</span>
-                    <span className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">Verifica: {c.verifica}</span>
-                    <span className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-700">Programm.: {c.programmati}</span>
+                    <span className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">Prese in carico: {c.verifica}</span>
+                    <span className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-700">In lavorazione: {c.programmati}</span>
                     <span className="rounded-xl bg-slate-100 px-3 py-2 text-slate-700">Chiuse: {c.chiusi}</span>
                   </div>
                 </div>
