@@ -857,6 +857,7 @@ export default function App() {
           </div>
         )}
 
+        {ruolo !== 'gestore' && (
         <FormSegnalazione
           onSave={salvaSegnalazione}
           saving={saving}
@@ -865,6 +866,7 @@ export default function App() {
           selectedCondominioId={selectedCondominioId}
           onChangeCondominio={setSelectedCondominioId}
         />
+        )}
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4">
