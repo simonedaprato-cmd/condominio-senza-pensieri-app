@@ -90,12 +90,12 @@ function LogoMark() {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="h-24 w-24 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0 relative">
+      <div className="h-40 w-40 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0 relative">
         {!logoError && (
           <img
             src={LOGO_SRC}
             alt="Condominio Senza Pensieri"
-            className="h-20 w-20 object-contain relative z-10"
+            className="h-36 w-36 object-contain relative z-10"
             onError={() => {
               console.error('Logo non trovato:', LOGO_SRC);
               setLogoError(true);
@@ -1028,34 +1028,48 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <header className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <LogoMark />
+        <header className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 p-8 shadow-lg">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_white,_transparent_60%)]" />
 
-            <div>
-              <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
-              <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
-              <p className="text-sm text-slate-500 mt-1">Ruolo: {ruoloNormalizzato}</p>
-              {userProfile?.condominio && (
-                <p className="text-sm text-slate-500 mt-1">Condominio: {userProfile.condominio}</p>
-              )}
+          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="scale-110 md:scale-125">
+                <LogoMark />
+              </div>
+
+              <div className="text-white">
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+                  Condominio Senza Pensieri
+                </h1>
+                <p className="text-white/70 mt-1 text-sm md:text-base">
+                  Gestione intelligente delle segnalazioni condominiali
+                </p>
+
+                <div className="mt-3 text-xs md:text-sm text-white/60 space-y-1">
+                  <p>Utente: {utente.email}</p>
+                  <p>Ruolo: {ruoloNormalizzato}</p>
+                  {userProfile?.condominio && (
+                    <p>Condominio: {userProfile.condominio}</p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <button
-            onClick={async () => {
-              if (supabase && utente?.mode !== 'demo') {
-                await supabase.auth.signOut();
-              }
-              setUtente(null);
-              setRuolo('gestore');
-              setUserProfile(null);
-              setDettaglioAperto(null);
-            }}
-            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
-          >
-            Logout
-          </button>
+            <button
+              onClick={async () => {
+                if (supabase && utente?.mode !== 'demo') {
+                  await supabase.auth.signOut();
+                }
+                setUtente(null);
+                setRuolo('gestore');
+                setUserProfile(null);
+                setDettaglioAperto(null);
+              }}
+              className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow hover:bg-slate-100"
+            >
+              Logout
+            </button>
+          </div>
         </header>
 
         {ruolo === 'non_configurato' && (
