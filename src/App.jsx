@@ -89,23 +89,27 @@ function LogoMark() {
   const [logoError, setLogoError] = useState(false);
 
   return (
-    <div className="h-20 w-20 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-      {!logoError ? (
-        <img
-          src={LOGO_SRC}
-          alt="Condominio Senza Pensieri"
-          className="h-16 w-16 object-contain"
-          onError={() => {
-            console.error('Logo non trovato:', LOGO_SRC);
-            setLogoError(true);
-          }}
-        />
-      ) : (
-        <div className="text-center px-2">
-          <p className="text-[10px] font-bold text-slate-700 leading-tight">LOGO</p>
-          <p className="text-[9px] text-red-600 leading-tight">non trovato</p>
-        </div>
-      )}
+    <div className="flex items-center gap-3">
+      <div className="h-24 w-24 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0 relative">
+        {!logoError && (
+          <img
+            src={LOGO_SRC}
+            alt="Condominio Senza Pensieri"
+            className="h-20 w-20 object-contain relative z-10"
+            onError={() => {
+              console.error('Logo non trovato:', LOGO_SRC);
+              setLogoError(true);
+            }}
+          />
+        )}
+
+        {logoError && (
+          <div className="text-center px-2">
+            <p className="text-xl font-black text-emerald-800 leading-tight">CSP</p>
+            <p className="text-[10px] text-red-600 leading-tight">logo non trovato</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
