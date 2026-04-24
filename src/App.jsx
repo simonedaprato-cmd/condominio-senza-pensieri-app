@@ -135,13 +135,14 @@ function Login({ onLogin, disabled, loading }) {
 
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         options: {
           emailRedirectTo: AUTH_REDIRECT_URL,
         },
       });
       if (error) {
         setMessage(`Accesso non riuscito: ${error.message}`);
+        console.error('Errore magic link Supabase:', error);
         return;
       }
       setMessage('Link di accesso inviato. Controlla la tua email e poi torna qui.');
@@ -579,7 +580,7 @@ export default function App() {
       }
     };
 
-    supabase.auth.getSession().then(({ data, error }) => {
+    supabase.auth.getSession().then(async ({ data, error }) => {
       if (!isMounted) return;
       if (error) {
         setStatusMessage(`Errore sessione: ${error.message}`);
