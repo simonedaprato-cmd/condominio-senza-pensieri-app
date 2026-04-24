@@ -85,6 +85,31 @@ function priorityClass(priorita) {
   return 'text-emerald-700';
 }
 
+function LogoMark() {
+  const [logoError, setLogoError] = useState(false);
+
+  return (
+    <div className="h-20 w-20 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+      {!logoError ? (
+        <img
+          src={LOGO_SRC}
+          alt="Condominio Senza Pensieri"
+          className="h-16 w-16 object-contain"
+          onError={() => {
+            console.error('Logo non trovato:', LOGO_SRC);
+            setLogoError(true);
+          }}
+        />
+      ) : (
+        <div className="text-center px-2">
+          <p className="text-[10px] font-bold text-slate-700 leading-tight">LOGO</p>
+          <p className="text-[9px] text-red-600 leading-tight">non trovato</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 async function loadUserProfile(email) {
   if (!supabase || !email) {
     return {
@@ -1002,16 +1027,7 @@ export default function App() {
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-              <img
-                src={LOGO_SRC}
-                alt="Condominio Senza Pensieri"
-                className="h-14 w-14 object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
+            <LogoMark />
 
             <div>
               <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
