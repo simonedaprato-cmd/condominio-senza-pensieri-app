@@ -421,6 +421,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <h3 className="text-xl font-bold">{segnalazione.titolo}</h3>
             <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
           </div>
+          </div>
           <button onClick={onClose} className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700">
             Chiudi
           </button>
@@ -1000,6 +1001,9 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <img src={LOGO_SRC} alt="Logo" className="h-12 w-auto" />
+            <div>
           <div>
             <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
             <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
