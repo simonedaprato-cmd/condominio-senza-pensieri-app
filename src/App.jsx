@@ -114,8 +114,7 @@ function Login({ onLogin, disabled, loading }) {
         setMessage(`Accesso non riuscito: ${error.message}`);
         return;
       }
-      onLogin({ email: email.trim(), mode: 'supabase' });
-      setMessage('Link di accesso inviato. Controlla la tua email.');
+      setMessage('Link di accesso inviato. Controlla la tua email e poi torna qui.');
     } catch (error) {
       setMessage(`Errore di connessione: ${error.message || 'impossibile contattare il server'}`);
     }
@@ -468,6 +467,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
 
   const segnalazioniFiltrate = useMemo(() => {
     if (ruolo === 'gestore') return segnalazioni;
@@ -511,8 +511,52 @@ export default function App() {
   };
 
   useEffect(() => {
-    carica();
+    if (!supabase) {
+      setAuthReady(true);
+      return;
+    }
+
+    let isMounted = true;
+
+    const applySession = (session) => {
+      const sessionUser = session?.user;
+      if (sessionUser?.email) {
+        setUtente({ email: sessionUser.email, mode: 'supabase-session' });
+        setRuolo('gestore');
+      } else {
+        setUtente(null);
+        setRuolo('gestore');
+      }
+    };
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!isMounted) return;
+      if (error) {
+        setStatusMessage(`Errore sessione: ${error.message}`);
+      } else {
+        applySession(data.session);
+      }
+      setAuthReady(true);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
+      setAuthReady(true);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (isSupabaseConfigured && !utente) return;
+    carica();
+  }, [authReady, utente]);
 
   const salvaSegnalazione = async ({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, condominio, stato, file }) => {
     setSaving(true);
@@ -638,8 +682,29 @@ export default function App() {
     }
   };
 
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
+        <div className="bg-white p-8 rounded-3xl shadow-md border border-slate-200">
+          <p className="text-slate-600">Controllo accesso in corso...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!utente) {
-    return <Login onLogin={(u) => { setUtente(u); setRuolo('gestore'); }} disabled={!isSupabaseConfigured} loading={false} />;
+    return (
+      <Login
+        onLogin={(u) => {
+          if (u.mode === 'demo') {
+            setUtente(u);
+            setRuolo('gestore');
+          }
+        }}
+        disabled={!isSupabaseConfigured}
+        loading={false}
+      />
+    );
   }
 
   return (
@@ -651,7 +716,14 @@ export default function App() {
             <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
           </div>
           <button
-            onClick={() => { setUtente(null); setRuolo('gestore'); setDettaglioAperto(null); }}
+            onClick={async () => {
+              if (supabase && utente?.mode !== 'demo') {
+                await supabase.auth.signOut();
+              }
+              setUtente(null);
+              setRuolo('gestore');
+              setDettaglioAperto(null);
+            }}
             className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700"
           >
             Logout
