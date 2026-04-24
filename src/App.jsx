@@ -1125,7 +1125,44 @@ export default function App() {
       setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, stato: nuovoStato } : prev));
       return;
     }
+const uploadFilePratica = async (id, file, columnName, prefix) => {
+  if (!file) return;
 
+  if (!isSupabaseConfigured) {
+    const localUrl = URL.createObjectURL(file);
+    aggiornaSegnalazioneLocale(id, (item) => ({
+      ...item,
+      [columnName]: file.name,
+      ...(columnName === 'fotosopralluogonome' ? { fotosopralluogourl: localUrl } : {}),
+      ...(columnName === 'preventivonome' ? { preventivourl: localUrl } : {}),
+    }));
+    return;
+  }
+
+  const safeName = file.name.replace(/\s+/g, '-');
+  const fileName = `${prefix}-${id}-${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('allegati')
+    .upload(fileName, file);
+
+  if (uploadError) throw uploadError;
+
+  const { error: updateError } = await supabase
+    .from('segnalazioni')
+    .update({ [columnName]: fileName })
+    .eq('id', id);
+
+  if (updateError) throw updateError;
+
+  await carica();
+};
+
+const caricaFotoSopralluogo = (id, file) =>
+  uploadFilePratica(id, file, 'fotosopralluogonome', 'sopralluogo');
+
+const caricaPreventivo = (id, file) =>
+  uploadFilePratica(id, file, 'preventivonome', 'preventivo');
     const { error } = await supabase.from('segnalazioni').update({ stato: nuovoStato }).eq('id', id);
     if (!error) {
       await carica();
