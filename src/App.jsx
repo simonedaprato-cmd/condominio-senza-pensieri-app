@@ -527,22 +527,25 @@ export default function App() {
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [userProfile, setUserProfile] = useState(null);
 
-  const segnalazioniFiltrate = useMemo(() => {
-    if (ruolo === 'gestore') return segnalazioni;
+  const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
+  const puoCreareSegnalazioni = ['amministratore', 'condominio'].includes(ruoloNormalizzato);
 
-    if (ruolo === 'amministratore') {
+  const segnalazioniFiltrate = useMemo(() => {
+    if (ruoloNormalizzato === 'gestore') return segnalazioni;
+
+    if (ruoloNormalizzato === 'amministratore') {
       return segnalazioni.filter((s) => {
         if (userProfile?.condominio) return s.condominio === userProfile.condominio;
         return false;
       });
     }
 
-    if (ruolo === 'condominio') {
+    if (ruoloNormalizzato === 'condominio') {
       return segnalazioni.filter((s) => s.condominio === userProfile?.condominio);
     }
 
     return [];
-  }, [ruolo, segnalazioni, userProfile]);
+  }, [ruoloNormalizzato, segnalazioni, userProfile]);
 
   const carica = async () => {
     setLoading(true);
@@ -830,7 +833,7 @@ export default function App() {
           <div>
             <h1 className="text-2xl font-bold">Condominio Senza Pensieri</h1>
             <p className="text-sm text-slate-500 mt-1">Utente: {utente.email}</p>
-            <p className="text-sm text-slate-500 mt-1">Ruolo: {ruolo}</p>
+            <p className="text-sm text-slate-500 mt-1">Ruolo: {ruoloNormalizzato}</p>
             {userProfile?.condominio && (
               <p className="text-sm text-slate-500 mt-1">Condominio: {userProfile.condominio}</p>
             )}
@@ -857,7 +860,7 @@ export default function App() {
           </div>
         )}
 
-        {ruolo !== 'gestore' && (
+        {puoCreareSegnalazioni && (
         <FormSegnalazione
           onSave={salvaSegnalazione}
           saving={saving}
