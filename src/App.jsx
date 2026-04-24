@@ -90,12 +90,12 @@ function LogoMark() {
 
   return (
     <div className="flex items-center">
-      <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-transparent border-0 shadow-none flex items-center justify-center overflow-hidden shrink-0">
+      <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-transparent border-0 shadow-none flex items-center justify-center overflow-visible shrink-0">
         {!logoError ? (
           <img
             src={LOGO_SRC}
             alt="Condominio Senza Pensieri"
-            className="h-16 w-16 md:h-20 md:w-20 object-contain"
+            className="h-28 w-28 md:h-32 md:w-32 object-contain scale-110"
             onError={() => setLogoError(true)}
           />
         ) : (
