@@ -646,7 +646,24 @@ function ActionBar({
         <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">
           Vista: {ruolo}
         </span>
-  function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
+        <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-slate-600">
+          Condomini visibili: {condomini.length}
+        </span>
+        {filtroCondominioId && (
+          <button
+            onClick={() => onChangeFiltroCondominio('')}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50"
+          >
+            Rimuovi filtro
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
+  // Dashboard operativa: tutte le costanti devono stare dentro questa funzione.
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.stato === 'Urgente').length;
   const verifica = segnalazioni.filter((s) => s.stato === 'In verifica').length;
@@ -753,21 +770,6 @@ function ActionBar({
                       <p className="mt-1 text-sm text-slate-500">{s.condominio}</p>
                     </div>
                     <span className={`rounded-full border px-2 py-1 text-xs ${badgeClass(s.stato)}`}>{s.stato}</span>
-                  </div>
-                  <p className={`mt-2 text-sm font-semibold ${priorityClass(s.priorita || 'Media')}`}>
-                    Priorità: {s.priorita || 'Media'}
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}e-500 mt-1">{s.condominio}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full border text-xs ${badgeClass(s.stato)}`}>{s.stato}</span>
                   </div>
                   <p className={`mt-2 text-sm font-semibold ${priorityClass(s.priorita || 'Media')}`}>
                     Priorità: {s.priorita || 'Media'}
