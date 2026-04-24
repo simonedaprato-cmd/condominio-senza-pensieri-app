@@ -439,8 +439,17 @@ function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCo
   );
 }
 
+function formatEuro(value) {
+  const number = Number(value || 0);
+  return new Intl.NumberFormat('it-IT', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(number);
+}
+
 function buildPreventivoMessage(segnalazione) {
   const link = segnalazione.preventivourl || '';
+  const importo = segnalazione.importo_preventivo ? formatEuro(segnalazione.importo_preventivo) : '';
   const righe = [
     'Buongiorno,',
     '',
@@ -448,6 +457,7 @@ function buildPreventivoMessage(segnalazione) {
     '"' + (segnalazione.titolo || '') + '"',
     '',
     'Condominio: ' + (segnalazione.condominio || 'n.d.'),
+    importo ? 'Importo preventivo: ' + importo : '',
     'Stato pratica: ' + (segnalazione.stato || 'n.d.'),
     '',
     link ? 'Puoi visualizzare il preventivo qui:' : '',
@@ -459,12 +469,6 @@ function buildPreventivoMessage(segnalazione) {
   return righe.filter(Boolean).join(String.fromCharCode(10));
 }
 
-function buildMailtoPreventivo(segnalazione) {
-  const subject = 'Preventivo pronto - ' + (segnalazione.condominio || segnalazione.titolo || 'Pratica');
-  const body = buildPreventivoMessage(segnalazione);
-  return 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-}
-
 function buildWhatsappPreventivo(segnalazione) {
   const body = buildPreventivoMessage(segnalazione);
   const numeroAmministratore = segnalazione.amministratore_telefono || segnalazione.telefono || '';
@@ -473,24 +477,81 @@ function buildWhatsappPreventivo(segnalazione) {
   return base + '?text=' + encodeURIComponent(body);
 }
 
-function inviaNotificaPreventivo(segnalazione) {
-  const whatsappUrl = buildWhatsappPreventivo(segnalazione);
-  const mailUrl = buildMailtoPreventivo(segnalazione);
+async function inviaNotificaPreventivo(segnalazione) {
+  try {
+    await fetch('/api/invia-preventivo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: segnalazione.amministratore_email,
+        titolo: segnalazione.titolo,
+        condominio: segnalazione.condominio,
+        link: segnalazione.preventivourl,
+        importo: segnalazione.importo_preventivo || null,
+      }),
+    });
 
-  window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-  window.location.href = mailUrl;
+    const whatsappUrl = buildWhatsappPreventivo(segnalazione);
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    if (segnalazione.id && supabase) {
+      await supabase
+        .from('segnalazioni')
+        .update({
+          stato_invio: 'inviato',
+          data_invio: new Date().toISOString(),
+        })
+        .eq('id', segnalazione.id);
+    }
+
+    alert('Preventivo inviato ✅');
+  } catch (error) {
+    console.error(error);
+    alert('Errore invio preventivo');
+  }
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadSopralluogoFoto, onUploadPreventivo, ruolo }) {
+async function aggiornaConversione(segnalazione, stato) {
+  try {
+    if (segnalazione.id && supabase) {
+      await supabase
+        .from('segnalazioni')
+        .update({
+          stato_conversione: stato,
+          data_conversione: new Date().toISOString(),
+        })
+        .eq('id', segnalazione.id);
+    }
+    alert('Stato aggiornato: ' + stato);
+    window.location.reload();
+  } catch (e) {
+    console.error(e);
+    alert('Errore aggiornamento conversione');
+  }
+}
+
+function DettaglioPraticaModal({
+  segnalazione,
+  onClose,
+  onChangeStatus,
+  onAddNote,
+  onUploadSopralluogoFoto,
+  onUploadPreventivo,
+  onUpdateImportoPreventivo,
+  ruolo,
+}) {
   const [nota, setNota] = useState('');
   const [fotoSopralluogo, setFotoSopralluogo] = useState(null);
   const [preventivoFile, setPreventivoFile] = useState(null);
+  const [importoPreventivo, setImportoPreventivo] = useState('');
   const [uploading, setUploading] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNormalizzato === 'gestore';
 
   if (!segnalazione) return null;
+
+  const importoAttuale = segnalazione.importo_preventivo ? formatEuro(segnalazione.importo_preventivo) : 'Non inserito';
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -513,12 +574,9 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono referente:</span> {segnalazione.telefono || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono amministratore:</span> {segnalazione.amministratore_telefono || 'n.d.'}</p>
+            <p><span className="text-slate-500">Importo preventivo:</span> {importoAttuale}</p>
             {segnalazione.allegatoUrl && (
-              <img
-                src={segnalazione.allegatoUrl}
-                alt={segnalazione.titolo}
-                className="w-full max-w-sm rounded-xl border border-slate-200"
-              />
+              <img src={segnalazione.allegatoUrl} alt={segnalazione.titolo} className="w-full max-w-sm rounded-xl border border-slate-200" />
             )}
           </div>
 
@@ -534,11 +592,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
             <div className="flex gap-2 flex-wrap">
               {(isGestore ? ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Chiusa'] : []).map((stato) => (
-                <button
-                  key={stato}
-                  onClick={() => onChangeStatus(segnalazione.id, stato)}
-                  className="px-3 py-2 rounded-xl border border-slate-300 text-sm"
-                >
+                <button key={stato} onClick={() => onChangeStatus(segnalazione.id, stato)} className="px-3 py-2 rounded-xl border border-slate-300 text-sm">
                   {stato}
                 </button>
               ))}
@@ -548,12 +602,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               <div className="space-y-2 rounded-2xl border border-purple-100 bg-purple-50 p-4">
                 <p className="font-semibold text-purple-800">Foto sopralluogo</p>
                 <p className="text-sm text-purple-700">Carica una foto rappresentativa del sopralluogo.</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setFotoSopralluogo(e.target.files?.[0] || null)}
-                  disabled={uploading}
-                />
+                <input type="file" accept="image/*" onChange={(e) => setFotoSopralluogo(e.target.files?.[0] || null)} disabled={uploading} />
                 <button
                   onClick={async () => {
                     if (!fotoSopralluogo) return;
@@ -574,15 +623,34 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             )}
 
             {isGestore && segnalazione.stato === 'Preventivata' && (
-              <div className="space-y-2 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <p className="font-semibold text-emerald-800">Preventivo</p>
-                <p className="text-sm text-emerald-700">Carica il preventivo da associare alla pratica.</p>
-                <input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  onChange={(e) => setPreventivoFile(e.target.files?.[0] || null)}
-                  disabled={uploading}
-                />
+                <p className="text-sm text-emerald-700">Carica il preventivo e inserisci l’importo economico della proposta.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Importo preventivo €"
+                    value={importoPreventivo}
+                    onChange={(e) => setImportoPreventivo(e.target.value)}
+                    className="rounded-xl border border-emerald-200 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!importoPreventivo) return;
+                      await onUpdateImportoPreventivo(segnalazione.id, importoPreventivo);
+                      setImportoPreventivo('');
+                    }}
+                    className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white"
+                  >
+                    Salva importo
+                  </button>
+                </div>
+
+                <input type="file" accept="application/pdf,image/*" onChange={(e) => setPreventivoFile(e.target.files?.[0] || null)} disabled={uploading} />
                 <button
                   onClick={async () => {
                     if (!preventivoFile) return;
@@ -596,21 +664,46 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 >
                   {uploading ? 'Caricamento...' : 'Carica preventivo'}
                 </button>
+
                 {segnalazione.preventivourl && (
                   <div className="space-y-3">
                     <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-emerald-700 underline">
                       Apri preventivo caricato
                     </a>
+
+                    {segnalazione.stato_invio === 'inviato' && (
+                      <div className="text-xs bg-emerald-100 text-emerald-700 px-3 py-2 rounded-xl">
+                        Preventivo inviato il {new Date(segnalazione.data_invio).toLocaleString('it-IT')}
+                      </div>
+                    )}
+
+                    {segnalazione.stato_conversione && (
+                      <div className="text-xs bg-blue-100 text-blue-700 px-3 py-2 rounded-xl">
+                        Stato: {segnalazione.stato_conversione} ({new Date(segnalazione.data_conversione).toLocaleString('it-IT')})
+                      </div>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => inviaNotificaPreventivo(segnalazione)}
-                      className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
+                      disabled={segnalazione.stato_invio === 'inviato'}
+                      className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
                     >
-                      Invia notifica email + WhatsApp
+                      {segnalazione.stato_invio === 'inviato' ? 'Preventivo già inviato' : 'Invia preventivo'}
                     </button>
-                    <p className="text-xs text-emerald-700">
-                      Apre la mail già compilata e il messaggio WhatsApp usando il numero dell’amministratore salvato in anagrafica.
-                    </p>
+
+                    {segnalazione.stato_invio === 'inviato' && !segnalazione.stato_conversione && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => aggiornaConversione(segnalazione, 'accettato')} className="rounded-xl bg-emerald-600 px-3 py-2 text-white text-sm font-bold">
+                          Accettato
+                        </button>
+                        <button onClick={() => aggiornaConversione(segnalazione, 'rifiutato')} className="rounded-xl bg-red-600 px-3 py-2 text-white text-sm font-bold">
+                          Rifiutato
+                        </button>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-emerald-700">Invio automatico + tracking conversione</p>
                   </div>
                 )}
               </div>
@@ -618,12 +711,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
             <div className="space-y-2">
               <p className="font-semibold">Aggiungi nota</p>
-              <textarea
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                placeholder="Scrivi una nota operativa..."
-                className="w-full border px-3 py-2 rounded-xl min-h-24"
-              />
+              <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Scrivi una nota operativa..." className="w-full border px-3 py-2 rounded-xl min-h-24" />
               <button
                 onClick={() => {
                   if (!nota.trim()) return;
@@ -783,6 +871,45 @@ function ActionBar({
             Rimuovi filtro
           </button>
         )}
+      </div>
+    </section>
+  );
+}
+
+function DashboardVendite({ segnalazioni }) {
+  const inviati = segnalazioni.filter((s) => s.stato_invio === 'inviato');
+  const accettati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
+  const rifiutati = segnalazioni.filter((s) => s.stato_conversione === 'rifiutato');
+
+  const valoreInviato = inviati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const valoreAccettato = accettati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const valoreRifiutato = rifiutati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+
+  const conversionRate = inviati.length ? Math.round((accettati.length / inviati.length) * 100) : 0;
+  const conversioneEconomica = valoreInviato ? Math.round((valoreAccettato / valoreInviato) * 100) : 0;
+
+  return (
+    <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-emerald-700 font-black">Vendite</p>
+        <h2 className="text-xl font-bold mt-1">Dashboard fatturato</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Valore economico dei preventivi inviati, accettati e rifiutati.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardStat label="Valore inviato" value={formatEuro(valoreInviato)} />
+        <DashboardStat label="Fatturato accettato" value={formatEuro(valoreAccettato)} tone="emerald" />
+        <DashboardStat label="Valore rifiutato" value={formatEuro(valoreRifiutato)} tone="red" />
+        <DashboardStat label="Conversione €" value={conversioneEconomica + '%'} tone="amber" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardStat label="Preventivi inviati" value={inviati.length} />
+        <DashboardStat label="Accettati" value={accettati.length} tone="emerald" />
+        <DashboardStat label="Rifiutati" value={rifiutati.length} tone="red" />
+        <DashboardStat label="Conversione n°" value={conversionRate + '%'} tone="amber" />
       </div>
     </section>
   );
@@ -1255,6 +1382,27 @@ export default function App() {
   const caricaPreventivo = (id, file) =>
     uploadFilePratica(id, file, 'preventivonome', 'preventivo');
 
+  const aggiornaImportoPreventivo = async (id, importo) => {
+    const valore = Number(importo || 0);
+    if (!Number.isFinite(valore) || valore < 0) return;
+
+    if (!isSupabaseConfigured) {
+      aggiornaSegnalazioneLocale(id, (item) => ({ ...item, importo_preventivo: valore }));
+      setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, importo_preventivo: valore } : prev));
+      return;
+    }
+
+    const { error } = await supabase
+      .from('segnalazioni')
+      .update({ importo_preventivo: valore })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await carica();
+    setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, importo_preventivo: valore } : prev));
+  };
+
   const aggiungiNota = async (id, testo) => {
     const nuovaNota = {
       id: `${Date.now()}`,
@@ -1372,6 +1520,8 @@ export default function App() {
           </div>
         )}
 
+        <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
+
         <DashboardOperativa
           ruolo={ruoloNormalizzato}
           segnalazioni={segnalazioniVisualizzate}
@@ -1429,6 +1579,7 @@ export default function App() {
         onAddNote={aggiungiNota}
         onUploadSopralluogoFoto={caricaFotoSopralluogo}
         onUploadPreventivo={caricaPreventivo}
+        onUpdateImportoPreventivo={aggiornaImportoPreventivo}
         ruolo={ruoloNormalizzato}
       />
     </div>
