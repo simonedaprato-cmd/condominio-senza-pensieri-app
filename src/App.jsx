@@ -1004,6 +1004,15 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
 
   return (
     <section className="space-y-5">
+      {/* Notifica intelligente */}
+      {segnalazioniVisualizzate && segnalazioniVisualizzate.filter(s => s.stato_invio==='inviato' && !s.stato_conversione).length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 animate-[fadeIn_.4s_ease-out]">
+          <div className="rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl flex items-center gap-3">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-sm font-semibold">Nuovi preventivi in attesa</span>
+          </div>
+        </div>
+      )}
       <div className="relative overflow-hidden rounded-[2rem] p-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)]">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-emerald-600 to-emerald-800" />
         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
@@ -1011,6 +1020,12 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
         <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
 
         <div className="relative text-white">
+          <div className="absolute right-0 -top-6 md:-top-8">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur border border-white/25 px-3 py-1 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse"></span>
+              Live
+            </span>
+          </div>
           <p className="text-sm uppercase tracking-[0.25em] text-white/70">Dashboard</p>
           <h2 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">{titolo}</h2>
           <p className="mt-2 max-w-2xl text-white/80">{descrizione}</p>
@@ -1591,24 +1606,24 @@ export default function App() {
           <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
           <div className="absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl" />
           <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-[fadeIn_.6s_ease-out]">
             <div className="flex items-center gap-4 flex-wrap">
               <div className="relative -mt-12 md:-mt-16 z-20">
                 <LogoMark />
               </div>
 
-              <div className="text-slate-900 max-w-full">
-                <h1 className="text-xl md:text-2xl font-bold leading-tight">
+              <div className="text-white max-w-full">
+                <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white/95">
                   Condominio Senza Pensieri
                 </h1>
-                <p className="text-slate-500 mt-1 text-xs md:text-sm">
+                <p className="text-white/70 mt-1 text-xs md:text-sm">
                   Gestione intelligente delle segnalazioni
                 </p>
 
-                <div className="mt-2 text-[11px] md:text-xs text-slate-500 space-y-0.5">
+                <div className="mt-3 text-[11px] md:text-xs text-white/70 space-y-1">
                   {userProfile?.nome && (
                     <div>
-                      <p className="text-xl md:text-2xl font-extrabold">
+                      <p className="text-xl md:text-2xl font-semibold tracking-tight text-white">
                         {(() => {
                           const h = new Date().getHours();
                           let saluto = 'Ciao';
@@ -1649,20 +1664,20 @@ export default function App() {
 
                         return (
                           <div className="mt-2">
-                            <p className={`text-sm font-semibold ${tone}`}>{msg}</p>
+                            <p className={`text-sm font-medium ${tone.replace('text-','text-').includes('red') ? 'text-red-200' : tone.replace('text-','text-').includes('amber') ? 'text-amber-200' : 'text-emerald-200'}`}>{msg}</p>
 
                             {/* KPI pills */}
                             <div className="mt-2 flex flex-wrap gap-2">
-                              <button onClick={() => setQuickFilter('')} className="px-3 py-1 rounded-full bg-white/80 border text-xs font-bold hover:bg-white">
+                              <button onClick={() => setQuickFilter('')} className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95">
                                 Pratiche: {tot}
                               </button>
-                              <button onClick={() => setQuickFilter('attesa')} className="px-3 py-1 rounded-full bg-white/80 border text-xs font-bold hover:bg-white">
+                              <button onClick={() => setQuickFilter('attesa')} className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95">
                                 In attesa: {inAttesa}
                               </button>
-                              <button onClick={() => setQuickFilter('fermi')} className={`px-3 py-1 rounded-full border text-xs font-bold hover:bg-white ${fermi > 0 ? 'bg-red-50 text-red-700 border-red-200 animate-pulse' : 'bg-white/80'}`}>
+                              <button onClick={() => setQuickFilter('fermi')} className={`px-3 py-1 rounded-full border text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 ${fermi > 0 ? 'bg-red-500/20 border-red-300/40 animate-pulse shadow-[0_0_0_2px_rgba(239,68,68,0.15)]' : 'bg-white/10 border-white/20'}`}>
                                 Fermi: {fermi}
                               </button>
-                              <button onClick={() => setQuickFilter('alto_valore')} className={`px-3 py-1 rounded-full border text-xs font-bold hover:bg-white ${altoValore > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white/80'}`}>
+                              <button onClick={() => setQuickFilter('alto_valore')} className={`px-3 py-1 rounded-full border text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 ${altoValore > 0 ? 'bg-amber-500/20 border-amber-300/40 shadow-[0_0_0_2px_rgba(245,158,11,0.15)]' : 'bg-white/10 border-white/20'}`}>
                                 Alto valore: {altoValore}
                               </button>
                             </div>
@@ -1671,10 +1686,10 @@ export default function App() {
                       })()}
                     </div>
                   )}
-                  <p className="break-all">Utente: {utente.email}</p>
-                  <p>Ruolo: {ruoloNormalizzato}</p>
+                  <p className="break-all text-white/80">Utente: {utente.email}</p>
+                  <p className="text-white/80">Ruolo: {ruoloNormalizzato}</p>
                   {userProfile?.condominio && (
-                    <p>Condominio: {userProfile.condominio}</p>
+                    <p className="text-white/80">Condominio: {userProfile.condominio}</p>
                   )}
                 </div>
               </div>
@@ -1690,7 +1705,7 @@ export default function App() {
                 setUserProfile(null);
                 setDettaglioAperto(null);
               }}
-              className="self-start md:self-auto px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800"
+              className="self-start md:self-auto px-4 py-2 rounded-xl bg-white/15 backdrop-blur border border-white/20 text-white text-sm font-semibold hover:bg-white/25"
             >
               Logout
             </button>
