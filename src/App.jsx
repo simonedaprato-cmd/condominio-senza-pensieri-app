@@ -1139,6 +1139,9 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [quickFilter, setQuickFilter] = useState('');
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
+  const hasPreventiviBanner = segnalazioni.some(
+    (s) => s.stato_invio === 'inviato' && !s.stato_conversione
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -1752,7 +1755,7 @@ export default function App() {
 
         
 
-        <section className="space-y-3">
+        <section className={`space-y-3 transition-all duration-300 ${hasPreventiviBanner ? 'pb-32 md:pb-6' : 'pb-20 md:pb-6'}`}> 
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold">Segnalazioni</h2>
             <button
@@ -1819,7 +1822,7 @@ export default function App() {
       {puoCreareSegnalazioni && (
         <button
           onClick={() => setShowNuovaSegnalazione(true)}
-          style={{ bottom: segnalazioni.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione) ? 'calc(1rem + 74px)' : '1.25rem' }}
+          style={{ bottom: hasPreventiviBanner ? 'calc(1rem + 86px)' : '1.25rem' }}
           className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition-all duration-300 hover:scale-105 hover:bg-emerald-700 active:scale-95 md:bottom-5 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold"
           aria-label="Nuova segnalazione"
         >
