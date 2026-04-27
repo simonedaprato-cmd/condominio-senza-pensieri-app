@@ -1006,7 +1006,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
     <section className="space-y-5">
       {/* Notifica intelligente */}
       {segnalazioni && segnalazioni.filter(s => s.stato_invio==='inviato' && !s.stato_conversione).length > 0 && (
-        <div className="fixed bottom-4 left-3 right-3 md:left-auto md:right-6 md:bottom-6 z-50 animate-[fadeIn_.4s_ease-out]">
+        <div id="preventivi-banner" className="fixed bottom-4 left-3 right-3 md:left-auto md:right-6 md:bottom-6 z-50 animate-[fadeIn_.4s_ease-out]">
           <div className="rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl flex items-center justify-center md:justify-start gap-3">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-sm font-semibold">Nuovi preventivi in attesa</span>
@@ -1819,7 +1819,8 @@ export default function App() {
       {puoCreareSegnalazioni && (
         <button
           onClick={() => setShowNuovaSegnalazione(true)}
-          className={`fixed ${segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione) ? 'bottom-24 md:bottom-5' : 'bottom-5'} right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition hover:scale-105 hover:bg-emerald-700 active:scale-95 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold`
+          style={{ bottom: segnalazioni.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione) ? 'calc(1rem + 74px)' : '1.25rem' }}
+          className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition-all duration-300 hover:scale-105 hover:bg-emerald-700 active:scale-95 md:bottom-5 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold"
           aria-label="Nuova segnalazione"
         >
           <span className="md:hidden">+</span>
