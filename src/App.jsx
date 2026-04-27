@@ -249,7 +249,7 @@ function Login({ onLogin, disabled, loading }) {
   );
 }
 
-function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCondominioId, onChangeCondominio, utente, userProfile }) {
+function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCondominioId, onChangeCondominio }) {
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
   const [categoria, setCategoria] = useState('Infiltrazioni');
@@ -477,44 +477,6 @@ function buildWhatsappPreventivo(segnalazione) {
   return base + '?text=' + encodeURIComponent(body);
 }
 
-function buildFollowupMessage(segnalazione) {
-  return [
-    'Buongiorno,',
-    '',
-    'ti scrivo per avere un riscontro sul preventivo:',
-    '"' + (segnalazione.titolo || '') + '"',
-    '',
-    segnalazione.importo_preventivo ? 'Importo: ' + formatEuro(segnalazione.importo_preventivo) : '',
-    'Condominio: ' + (segnalazione.condominio || 'n.d.'),
-    '',
-    'Resto a disposizione per chiarimenti.',
-  ].filter(Boolean).join(String.fromCharCode(10));
-}
-
-async function inviaFollowup(segnalazione) {
-  try {
-    await fetch('/api/invia-preventivo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: segnalazione.amministratore_email,
-        titolo: 'Follow-up preventivo: ' + segnalazione.titolo,
-        condominio: segnalazione.condominio,
-        link: segnalazione.preventivourl,
-      }),
-    });
-
-    const numero = segnalazione.amministratore_telefono || '';
-    const url = 'https://wa.me/' + String(numero).replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(buildFollowupMessage(segnalazione));
-    window.open(url, '_blank');
-
-    alert('Follow-up inviato 🚀');
-  } catch (e) {
-    console.error(e);
-    alert('Errore follow-up');
-  }
-}
-
 async function inviaNotificaPreventivo(segnalazione) {
   try {
     await fetch('/api/invia-preventivo', {
@@ -592,19 +554,19 @@ function DettaglioPraticaModal({
   const importoAttuale = segnalazione.importo_preventivo ? formatEuro(segnalazione.importo_preventivo) : 'Non inserito';
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-2 md:p-4 z-50 overflow-hidden">
-      <div className="bg-white w-full max-w-4xl h-[92vh] md:h-[90vh] rounded-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/60">
-        <div className="sticky top-0 z-20 p-4 md:p-5 border-b border-slate-200 flex items-start sm:items-center justify-between gap-3 bg-white/90 backdrop-blur-xl shadow-sm">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-lg overflow-hidden">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg md:text-xl font-bold leading-tight break-words">{segnalazione.titolo}</h3>
+            <h3 className="text-xl font-bold">{segnalazione.titolo}</h3>
             <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
           </div>
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold shadow hover:bg-slate-800">
+          <button onClick={onClose} className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700">
             Chiudi
           </button>
         </div>
 
-        <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-3">
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
@@ -614,7 +576,7 @@ function DettaglioPraticaModal({
             <p><span className="text-slate-500">Telefono amministratore:</span> {segnalazione.amministratore_telefono || 'n.d.'}</p>
             <p><span className="text-slate-500">Importo preventivo:</span> {importoAttuale}</p>
             {segnalazione.allegatoUrl && (
-              <img src={segnalazione.allegatoUrl} alt={segnalazione.titolo} className="w-full max-w-full md:max-w-sm rounded-xl border border-slate-200" />
+              <img src={segnalazione.allegatoUrl} alt={segnalazione.titolo} className="w-full max-w-sm rounded-xl border border-slate-200" />
             )}
           </div>
 
@@ -655,7 +617,7 @@ function DettaglioPraticaModal({
                   {uploading ? 'Caricamento...' : 'Carica foto sopralluogo'}
                 </button>
                 {segnalazione.fotosopralluogourl && (
-                  <img src={segnalazione.fotosopralluogourl} alt="Foto sopralluogo" className="mt-3 w-full max-w-full md:max-w-sm rounded-xl border border-purple-200" />
+                  <img src={segnalazione.fotosopralluogourl} alt="Foto sopralluogo" className="mt-3 w-full max-w-sm rounded-xl border border-purple-200" />
                 )}
               </div>
             )}
@@ -705,45 +667,841 @@ function DettaglioPraticaModal({
 
                 {segnalazione.preventivourl && (
                   <div className="space-y-3">
-                    <a
-                href={`https://wa.me/393477921965?text=${encodeURIComponent(`Ciao Simone, sono ${userProfile?.nome || 'un utente'}, del condominio ${userProfile?.condominio || 'non specificato'}. Ho bisogno di supporto.${ruoloNormalizzato ? `
-Ruolo: ${ruoloNormalizzato}` : ''}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center h-10 w-10 rounded-full bg-white/15 backdrop-blur border border-white/20 hover:bg-green-500/80 transition"
-                title="WhatsApp"
-              >
-                <svg viewBox="0 0 32 32" className="h-5 w-5 fill-white" aria-hidden="true">
-                  <path d="M16 .4C7.4.4.4 7.4.4 16c0 2.8.7 5.4 2 7.7L.4 31.6l8.1-2c2.2 1.2 4.8 1.9 7.5 1.9 8.6 0 15.6-7 15.6-15.6S24.6.4 16 .4zm0 28.6c-2.4 0-4.7-.7-6.6-1.9l-.5-.3-4.8 1.2 1.3-4.7-.3-.5C4 20.7 3.4 18.4 3.4 16 3.4 8.9 8.9 3.4 16 3.4S28.6 8.9 28.6 16 23.1 29 16 29zm7.4-9.8c-.4-.2-2.3-1.1-2.7-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.4 1.6-.3.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.2-1.3-1.2-2.2-2.7-2.4-3.1-.3-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.3-.4.4-.7.1-.2 0-.5 0-.7 0-.2-1-2.4-1.4-3.3-.3-.8-.7-.7-1-.7h-.8c-.3 0-.7.1-1 .5-.3.4-1.3 1.3-1.3 3.1s1.4 3.5 1.6 3.7c.2.2 2.8 4.3 6.9 6 .9.4 1.6.6 2.1.8.9.3 1.7.2 2.3.1.7-.1 2.3-.9 2.6-1.8.3-.9.3-1.6.2-1.8-.1-.2-.4-.3-.8-.5z"/>
-                </svg>
-              </a>
+                    <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-emerald-700 underline">
+                      Apri preventivo caricato
+                    </a>
 
+                    {segnalazione.stato_invio === 'inviato' && (
+                      <div className="text-xs bg-emerald-100 text-emerald-700 px-3 py-2 rounded-xl">
+                        Preventivo inviato il {new Date(segnalazione.data_invio).toLocaleString('it-IT')}
+                      </div>
+                    )}
+
+                    {segnalazione.stato_conversione && (
+                      <div className="text-xs bg-blue-100 text-blue-700 px-3 py-2 rounded-xl">
+                        Stato: {segnalazione.stato_conversione} ({new Date(segnalazione.data_conversione).toLocaleString('it-IT')})
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => inviaNotificaPreventivo(segnalazione)}
+                      disabled={segnalazione.stato_invio === 'inviato'}
+                      className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+                    >
+                      {segnalazione.stato_invio === 'inviato' ? 'Preventivo già inviato' : 'Invia preventivo'}
+                    </button>
+
+                    {segnalazione.stato_invio === 'inviato' && !segnalazione.stato_conversione && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => aggiornaConversione(segnalazione, 'accettato')} className="rounded-xl bg-emerald-600 px-3 py-2 text-white text-sm font-bold">
+                          Accettato
+                        </button>
+                        <button onClick={() => aggiornaConversione(segnalazione, 'rifiutato')} className="rounded-xl bg-red-600 px-3 py-2 text-white text-sm font-bold">
+                          Rifiutato
+                        </button>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-emerald-700">Invio automatico + tracking conversione</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="font-semibold">Aggiungi nota</p>
+              <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Scrivi una nota operativa..." className="w-full border px-3 py-2 rounded-xl min-h-24" />
               <button
-                onClick={async () => {
-                  if (supabase && utente?.mode !== 'demo') {
-                    await supabase.auth.signOut();
-                  }
-                  setUtente(null);
-                  setRuolo('gestore');
-                  setUserProfile(null);
-                  setDettaglioAperto(null);
+                onClick={() => {
+                  if (!nota.trim()) return;
+                  onAddNote(segnalazione.id, nota.trim());
+                  setNota('');
                 }}
-                className="px-4 py-2 rounded-xl bg-white/15 backdrop-blur border border-white/20 text-white text-sm font-semibold hover:bg-white/25"
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white"
               >
-                Logout
+                Aggiungi nota
               </button>
             </div>
           </div>
-        </header>
+        </div>
 
-        {quickFilter && (
-          <div className="max-w-4xl mx-auto rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <span>Filtro rapido attivo: <strong>{quickFilter === 'alto_valore' ? 'alto valore' : quickFilter}</strong></span>
-            <button onClick={() => setQuickFilter('')} className="rounded-xl bg-white px-3 py-1 text-xs font-bold border border-emerald-200">
-              Rimuovi
+        <div className="p-5 border-t border-slate-200">
+          <h4 className="font-semibold mb-3">Cronologia note</h4>
+          <div className="space-y-2 max-h-56 overflow-auto">
+            {(segnalazione.note || []).length === 0 ? (
+              <p className="text-sm text-slate-500">Nessuna nota presente.</p>
+            ) : (
+              segnalazione.note.map((n) => (
+                <div key={n.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                  <p className="text-sm text-slate-700">{n.testo}</p>
+                  <p className="text-xs text-slate-500 mt-1">{n.data}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SegnalazioneCard({ segnalazione, onOpen }) {
+  return (
+    <div className="border p-4 rounded-xl bg-white border-slate-200">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+          <p className="font-bold">{segnalazione.titolo}</p>
+          <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
+        </div>
+        <span className={`px-3 py-1 rounded-full border text-sm font-medium w-fit ${badgeClass(segnalazione.stato)}`}>
+          {segnalazione.stato}
+        </span>
+      </div>
+
+      <p className="mt-2">{segnalazione.descrizione}</p>
+      <p className={`mt-2 text-sm font-semibold ${priorityClass(segnalazione.priorita || 'Media')}`}>
+        Priorità: {segnalazione.priorita || 'Media'}
+      </p>
+
+      {segnalazione.allegatoUrl && (
+        <img
+          src={segnalazione.allegatoUrl}
+          alt={segnalazione.titolo}
+          className="mt-3 w-40 rounded border border-slate-200"
+        />
+      )}
+
+      {!segnalazione.allegatoUrl && segnalazione.allegatonome && (
+        <p className="mt-3 text-sm text-slate-500">Allegato: {segnalazione.allegatonome}</p>
+      )}
+
+      <button
+        onClick={() => onOpen(segnalazione)}
+        className="mt-4 px-4 py-2 rounded-xl border border-slate-300 text-slate-700"
+      >
+        Apri dettaglio pratica
+      </button>
+    </div>
+  );
+}
+
+function DashboardStat({ label, value, tone = 'slate' }) {
+  const toneClass = {
+    slate: 'bg-slate-900 text-white',
+    red: 'bg-red-600 text-white',
+    amber: 'bg-amber-500 text-white',
+    emerald: 'bg-emerald-600 text-white',
+  }[tone] || 'bg-slate-900 text-white';
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className={`mt-3 inline-flex min-w-14 justify-center rounded-2xl px-4 py-2 text-2xl font-bold ${toneClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ActionBar({
+  condomini,
+  filtroCondominioId,
+  onChangeFiltroCondominio,
+  searchTerm,
+  onChangeSearchTerm,
+  onRefresh,
+  loading,
+  ruolo,
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/70 p-4 shadow-[0_18px_60px_-35px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-slate-200/50 blur-3xl" />
+
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Azioni rapide</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Filtra, cerca e aggiorna le pratiche senza perdere il controllo del cruscotto.
+          </p>
+        </div>
+
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] lg:w-auto">
+          <select
+            value={filtroCondominioId}
+            onChange={(e) => onChangeFiltroCondominio(e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          >
+            <option value="">Tutti i condomini</option>
+            {condomini.map((c) => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
+
+          <input
+            value={searchTerm}
+            onChange={(e) => onChangeSearchTerm(e.target.value)}
+            placeholder="Cerca pratica..."
+            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          />
+
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:opacity-60"
+          >
+            {loading ? 'Aggiorno...' : 'Aggiorna'}
+          </button>
+        </div>
+      </div>
+
+      <div className="relative mt-4 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">
+          Vista: {ruolo}
+        </span>
+        <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-slate-600">
+          Condomini visibili: {condomini.length}
+        </span>
+        {filtroCondominioId && (
+          <button
+            onClick={() => onChangeFiltroCondominio('')}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50"
+          >
+            Rimuovi filtro
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DashboardVendite({ segnalazioni }) {
+  const inviati = segnalazioni.filter((s) => s.stato_invio === 'inviato');
+  const accettati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
+  const rifiutati = segnalazioni.filter((s) => s.stato_conversione === 'rifiutato');
+
+  const valoreInviato = inviati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const valoreAccettato = accettati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const valoreRifiutato = rifiutati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+
+  const conversionRate = inviati.length ? Math.round((accettati.length / inviati.length) * 100) : 0;
+  const conversioneEconomica = valoreInviato ? Math.round((valoreAccettato / valoreInviato) * 100) : 0;
+
+  return (
+    <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-emerald-700 font-black">Vendite</p>
+        <h2 className="text-xl font-bold mt-1">Dashboard fatturato</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Valore economico dei preventivi inviati, accettati e rifiutati.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardStat label="Valore inviato" value={formatEuro(valoreInviato)} />
+        <DashboardStat label="Fatturato accettato" value={formatEuro(valoreAccettato)} tone="emerald" />
+        <DashboardStat label="Valore rifiutato" value={formatEuro(valoreRifiutato)} tone="red" />
+        <DashboardStat label="Conversione €" value={conversioneEconomica + '%'} tone="amber" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardStat label="Preventivi inviati" value={inviati.length} />
+        <DashboardStat label="Accettati" value={accettati.length} tone="emerald" />
+        <DashboardStat label="Rifiutati" value={rifiutati.length} tone="red" />
+        <DashboardStat label="Conversione n°" value={conversionRate + '%'} tone="amber" />
+      </div>
+    </section>
+  );
+}
+
+function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
+  // Dashboard operativa: tutte le costanti devono stare dentro questa funzione.
+  const totale = segnalazioni.length;
+  const urgenti = segnalazioni.filter((s) => s.stato === 'Urgente').length;
+  const verifica = segnalazioni.filter((s) => s.stato === 'Presa in carico' || s.stato === 'In verifica').length;
+  const programmati = segnalazioni.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Programmato').length;
+  const chiusi = segnalazioni.filter((s) => s.stato === 'Chiuso').length;
+
+  const perCondominio = condomini.map((c) => {
+    const items = segnalazioni.filter((s) => s.condominio_id === c.id);
+    return {
+      ...c,
+      totale: items.length,
+      urgenti: items.filter((s) => s.stato === 'Urgente').length,
+      verifica: items.filter((s) => s.stato === 'Presa in carico' || s.stato === 'In verifica').length,
+      programmati: items.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Programmato').length,
+      chiusi: items.filter((s) => s.stato === 'Chiuso').length,
+    };
+  });
+
+  const segnalazioniCritiche = segnalazioni
+    .filter((s) => s.stato === 'Urgente' || s.priorita === 'Alta')
+    .slice(0, 5);
+
+  const titolo = ruolo === 'gestore' ? 'Cruscotto gestore' : 'Cruscotto amministratore';
+  const descrizione = ruolo === 'gestore'
+    ? 'Vista generale su tutti i condomini, le urgenze e le pratiche da presidiare.'
+    : 'Vista sintetica dei condomini associati al tuo profilo e delle pratiche aperte.';
+
+  return (
+    <section className="space-y-5">
+      <div className="relative overflow-hidden rounded-[2rem] p-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)]">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-emerald-600 to-emerald-800" />
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
+        <div className="absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl" />
+        <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+
+        <div className="relative text-white">
+          <p className="text-sm uppercase tracking-[0.25em] text-white/70">Dashboard</p>
+          <h2 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">{titolo}</h2>
+          <p className="mt-2 max-w-2xl text-white/80">{descrizione}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <DashboardStat label="Totali" value={totale} />
+        <DashboardStat label="Urgenti" value={urgenti} tone="red" />
+        <DashboardStat label="Prese in carico" value={verifica} tone="amber" />
+        <DashboardStat label="In lavorazione" value={programmati} tone="emerald" />
+        <DashboardStat label="Chiuse" value={chiusi} tone="slate" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold">Situazione per condominio</h3>
+              <p className="text-sm text-slate-500">Riepilogo rapido per stabile.</p>
+            </div>
+          </div>
+
+          {perCondominio.length === 0 ? (
+            <p className="text-sm text-slate-500">Nessun condominio associato.</p>
+          ) : (
+            <div className="space-y-3">
+              {perCondominio.map((c) => (
+                <div key={c.id} className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 transition hover:border-emerald-200 hover:shadow-md">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="font-bold text-slate-900">{c.nome}</p>
+                      {c.indirizzo && <p className="text-sm text-slate-500">{c.indirizzo}</p>}
+                    </div>
+                    <p className="text-sm font-bold text-slate-700">{c.totale} pratiche</p>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                    <span className="rounded-xl bg-red-50 px-3 py-2 text-red-700">Urgenti: {c.urgenti}</span>
+                    <span className="rounded-xl bg-amber-50 px-3 py-2 text-amber-700">Prese in carico: {c.verifica}</span>
+                    <span className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-700">In lavorazione: {c.programmati}</span>
+                    <span className="rounded-xl bg-slate-100 px-3 py-2 text-slate-700">Chiuse: {c.chiusi}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
+          <h3 className="text-lg font-bold">Da presidiare</h3>
+          <p className="mb-4 text-sm text-slate-500">Urgenze e priorità alte in evidenza.</p>
+
+          {segnalazioniCritiche.length === 0 ? (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
+              Nessuna urgenza attiva. Situazione sotto controllo.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {segnalazioniCritiche.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onOpen(s)}
+                  className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{s.titolo}</p>
+                      <p className="mt-1 text-sm text-slate-500">{s.condominio}</p>
+                    </div>
+                    <span className={`rounded-full border px-2 py-1 text-xs ${badgeClass(s.stato)}`}>{s.stato}</span>
+                  </div>
+                  <p className={`mt-2 text-sm font-semibold ${priorityClass(s.priorita || 'Media')}`}>
+                    Priorità: {s.priorita || 'Media'}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function App() {
+  const [ruolo, setRuolo] = useState('gestore'); // default
+  const [utente, setUtente] = useState(null);
+  const [segnalazioni, setSegnalazioni] = useState([]);
+  const [condomini, setCondomini] = useState([]);
+  const [selectedCondominioId, setSelectedCondominioId] = useState('');
+  const [filtroCondominioId, setFiltroCondominioId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [dettaglioAperto, setDettaglioAperto] = useState(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [userProfile, setUserProfile] = useState(null);
+
+  const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
+  const puoCreareSegnalazioni = ['amministratore', 'condominio'].includes(ruoloNormalizzato);
+
+  const segnalazioniFiltrate = useMemo(() => {
+    if (ruoloNormalizzato === 'gestore') return segnalazioni;
+
+    const condominiIds = userProfile?.condominiIds || [];
+
+    if (ruoloNormalizzato === 'amministratore') {
+      return segnalazioni.filter((s) => condominiIds.includes(s.condominio_id));
+    }
+
+    if (ruoloNormalizzato === 'condominio') {
+      return segnalazioni.filter((s) => condominiIds.includes(s.condominio_id));
+    }
+
+    return [];
+  }, [ruoloNormalizzato, segnalazioni, userProfile]);
+
+  const condominiVisibili = useMemo(() => {
+    if (ruoloNormalizzato === 'gestore') return condomini;
+
+    const condominiIds = userProfile?.condominiIds || [];
+    return condomini.filter((c) => condominiIds.includes(c.id));
+  }, [ruoloNormalizzato, condomini, userProfile]);
+
+  const segnalazioniVisualizzate = useMemo(() => {
+    const testo = searchTerm.toLowerCase().trim();
+
+    return segnalazioniFiltrate.filter((s) => {
+      const passaCondominio = filtroCondominioId ? String(s.condominio_id) === String(filtroCondominioId) : true;
+      const passaRicerca = !testo
+        ? true
+        : [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(testo));
+
+      return passaCondominio && passaRicerca;
+    });
+  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
+
+  const carica = async () => {
+    setLoading(true);
+    setStatusMessage('');
+
+    try {
+      if (!isSupabaseConfigured) {
+        const demoItems = loadDemoSegnalazioni().sort((a, b) => b.id - a.id);
+        setSegnalazioni(demoItems);
+        setStatusMessage('Modalità demo locale attiva.');
+        return;
+      }
+
+      const { data: condData } = await supabase.from('condomini').select('*');
+      setCondomini(condData || []);
+
+      const { data, error } = await supabase
+        .from('segnalazioni')
+        .select('*, condomini(nome)')
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      const normalized = (data || []).map((item) => ({
+        ...item,
+        condominio: item.condomini?.nome || '',
+        allegatoUrl: item.allegatonome ? buildPublicImageUrl(item.allegatonome) : '',
+        fotosopralluogourl: item.fotosopralluogonome ? buildPublicImageUrl(item.fotosopralluogonome) : '',
+        preventivourl: item.preventivonome ? buildPublicImageUrl(item.preventivonome) : '',
+        note: Array.isArray(item.note) ? item.note : [],
+      }));
+
+      setSegnalazioni(normalized);
+    } catch (error) {
+      setStatusMessage(`Errore caricamento: ${error.message || 'impossibile recuperare i dati'}`);
+      setSegnalazioni([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const setReady = () => {
+      if (isMounted) setAuthReady(true);
+    };
+
+    const handleSession = async (session) => {
+      const sessionUser = session?.user;
+
+      if (!sessionUser?.email) {
+        if (!isMounted) return;
+        setUtente(null);
+        setUserProfile(null);
+        setRuolo('gestore');
+        return;
+      }
+
+      if (!isMounted) return;
+      setUtente({ email: sessionUser.email, mode: 'supabase-session' });
+
+      try {
+        const profile = await loadUserProfile(sessionUser.email);
+        if (!isMounted) return;
+        setUserProfile(profile);
+        setRuolo(profile.ruolo || 'non_configurato');
+      } catch (error) {
+        if (!isMounted) return;
+        setStatusMessage(`Errore caricamento profilo: ${error.message}`);
+        setUserProfile({ email: sessionUser.email, ruolo: 'non_configurato', condominio: '', condominiIds: [], condomini: [] });
+        setRuolo('non_configurato');
+      }
+    };
+
+    const startAuth = async () => {
+      if (!supabase) {
+        setReady();
+        return;
+      }
+
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((resolve) => {
+          window.setTimeout(() => resolve({ timeout: true }), 3500);
+        });
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+
+        if (!isMounted) return;
+
+        if (result?.timeout) {
+          setStatusMessage('Controllo accesso troppo lento: puoi riprovare il login.');
+          setReady();
+          return;
+        }
+
+        if (result.error) {
+          setStatusMessage(`Errore sessione: ${result.error.message}`);
+          setReady();
+          return;
+        }
+
+        await handleSession(result.data?.session);
+      } catch (error) {
+        if (isMounted) {
+          setStatusMessage(`Errore controllo accesso: ${error.message || 'sessione non disponibile'}`);
+        }
+      } finally {
+        setReady();
+      }
+    };
+
+    startAuth();
+
+    const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
+      handleSession(session).finally(setReady);
+    });
+
+    return () => {
+      isMounted = false;
+      authListener?.data?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (isSupabaseConfigured && !utente) return;
+    carica();
+  }, [authReady, utente]);
+
+  const salvaSegnalazione = async ({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, condominioId, stato, file }) => {
+    setSaving(true);
+    setStatusMessage('');
+
+    try {
+      if (!isSupabaseConfigured) {
+        let allegatoUrl = '';
+        let allegatonome = '';
+
+        if (file) {
+          allegatonome = file.name;
+          allegatoUrl = URL.createObjectURL(file);
+        }
+
+        const nextItem = {
+          id: Date.now(),
+          titolo,
+          descrizione,
+          categoria,
+          priorita,
+          luogo,
+          referente,
+          telefono,
+          amministratore_email: utente?.email || '',
+          amministratore_telefono: userProfile?.telefono || '',
+          condominio: 'Demo Condominio',
+          condominio_id: condominioId || null,
+          stato,
+          allegatonome,
+          allegatoUrl,
+          note: [],
+          created_at: new Date().toISOString(),
+        };
+
+        const updated = [nextItem, ...loadDemoSegnalazioni()];
+        saveDemoSegnalazioni(updated);
+        setSegnalazioni(updated);
+        setStatusMessage('Segnalazione salvata in modalità demo.');
+        return;
+      }
+
+      let fileName = '';
+
+      if (file) {
+        fileName = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+        const { error: uploadError } = await supabase.storage
+          .from('allegati')
+          .upload(fileName, file, { upsert: false });
+
+        if (uploadError) throw uploadError;
+      }
+
+      const payload = {
+        titolo,
+        descrizione,
+        categoria,
+        priorita,
+        luogo,
+        referente,
+        telefono,
+        amministratore_email: utente?.email || '',
+        amministratore_telefono: userProfile?.telefono || '',
+        condominio_id: condominioId || null,
+        stato,
+        allegatonome: fileName,
+        note: [],
+      };
+
+      const { error: insertError } = await supabase.from('segnalazioni').insert([payload]);
+      if (insertError) throw insertError;
+
+      await carica();
+      setStatusMessage('Segnalazione salvata correttamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const aggiornaSegnalazioneLocale = (id, updater) => {
+    setSegnalazioni((prev) => {
+      const updated = prev.map((item) => (item.id === id ? updater(item) : item));
+      if (!isSupabaseConfigured) saveDemoSegnalazioni(updated);
+      return updated;
+    });
+  };
+
+  const cambiaStato = async (id, nuovoStato) => {
+    if (!isSupabaseConfigured) {
+      aggiornaSegnalazioneLocale(id, (item) => ({ ...item, stato: nuovoStato }));
+      setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, stato: nuovoStato } : prev));
+      return;
+    }
+
+    const { error } = await supabase.from('segnalazioni').update({ stato: nuovoStato }).eq('id', id);
+    if (!error) {
+      await carica();
+      setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, stato: nuovoStato } : prev));
+    }
+  };
+
+  const uploadFilePratica = async (id, file, columnName, prefix) => {
+    if (!file) return;
+
+    if (!isSupabaseConfigured) {
+      const localUrl = URL.createObjectURL(file);
+      aggiornaSegnalazioneLocale(id, (item) => ({
+        ...item,
+        [columnName]: file.name,
+        ...(columnName === 'fotosopralluogonome' ? { fotosopralluogourl: localUrl } : {}),
+        ...(columnName === 'preventivonome' ? { preventivourl: localUrl } : {}),
+      }));
+      setDettaglioAperto((prev) =>
+        prev && prev.id === id
+          ? {
+              ...prev,
+              [columnName]: file.name,
+              ...(columnName === 'fotosopralluogonome' ? { fotosopralluogourl: localUrl } : {}),
+              ...(columnName === 'preventivonome' ? { preventivourl: localUrl } : {}),
+            }
+          : prev
+      );
+      return;
+    }
+
+    const safeName = file.name.split(' ').join('-');
+    const fileName = prefix + '-' + id + '-' + Date.now() + '-' + safeName;
+
+    const { error: uploadError } = await supabase.storage
+      .from('allegati')
+      .upload(fileName, file, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { error: updateError } = await supabase
+      .from('segnalazioni')
+      .update({ [columnName]: fileName })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    await carica();
+    setDettaglioAperto((prev) =>
+      prev && prev.id === id
+        ? {
+            ...prev,
+            [columnName]: fileName,
+            ...(columnName === 'fotosopralluogonome' ? { fotosopralluogourl: buildPublicImageUrl(fileName) } : {}),
+            ...(columnName === 'preventivonome' ? { preventivourl: buildPublicImageUrl(fileName) } : {}),
+          }
+        : prev
+    );
+  };
+
+  const caricaFotoSopralluogo = (id, file) =>
+    uploadFilePratica(id, file, 'fotosopralluogonome', 'sopralluogo');
+
+  const caricaPreventivo = (id, file) =>
+    uploadFilePratica(id, file, 'preventivonome', 'preventivo');
+
+  const aggiornaImportoPreventivo = async (id, importo) => {
+    const valore = Number(importo || 0);
+    if (!Number.isFinite(valore) || valore < 0) return;
+
+    if (!isSupabaseConfigured) {
+      aggiornaSegnalazioneLocale(id, (item) => ({ ...item, importo_preventivo: valore }));
+      setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, importo_preventivo: valore } : prev));
+      return;
+    }
+
+    const { error } = await supabase
+      .from('segnalazioni')
+      .update({ importo_preventivo: valore })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await carica();
+    setDettaglioAperto((prev) => (prev && prev.id === id ? { ...prev, importo_preventivo: valore } : prev));
+  };
+
+  const aggiungiNota = async (id, testo) => {
+    const nuovaNota = {
+      id: `${Date.now()}`,
+      testo,
+      data: new Date().toLocaleString('it-IT'),
+    };
+
+    if (!isSupabaseConfigured) {
+      aggiornaSegnalazioneLocale(id, (item) => ({
+        ...item,
+        note: [nuovaNota, ...(item.note || [])],
+      }));
+      setDettaglioAperto((prev) =>
+        prev && prev.id === id ? { ...prev, note: [nuovaNota, ...(prev.note || [])] } : prev
+      );
+      return;
+    }
+
+    const target = segnalazioni.find((item) => item.id === id);
+    const updatedNotes = [nuovaNota, ...(target?.note || [])];
+    const { error } = await supabase.from('segnalazioni').update({ note: updatedNotes }).eq('id', id);
+    if (!error) {
+      await carica();
+      setDettaglioAperto((prev) =>
+        prev && prev.id === id ? { ...prev, note: updatedNotes } : prev
+      );
+    }
+  };
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
+        <div className="bg-white p-8 rounded-3xl shadow-md border border-slate-200">
+          <p className="text-slate-600">Controllo accesso in corso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!utente) {
+    return (
+      <Login
+        onLogin={(u) => {
+          if (u.mode === 'demo') {
+            setUtente(u);
+            setRuolo('gestore');
+            setUserProfile({ email: u.email, ruolo: 'gestore', condominio: '', condominiIds: [], condomini: [] });
+          }
+        }}
+        disabled={!isSupabaseConfigured}
+        loading={false}
+      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6 space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <header className="relative rounded-3xl bg-gradient-to-r from-slate-100 via-white to-emerald-50 pt-10 md:pt-12 pb-5 md:pb-6 px-5 md:px-6 shadow-sm border border-slate-200 overflow-visible">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="relative -mt-12 md:-mt-16 z-20">
+                <LogoMark />
+              </div>
+
+              <div className="text-slate-900 max-w-full">
+                <h1 className="text-xl md:text-2xl font-bold leading-tight">
+                  Condominio Senza Pensieri
+                </h1>
+                <p className="text-slate-500 mt-1 text-xs md:text-sm">
+                  Gestione intelligente delle segnalazioni
+                </p>
+
+                <div className="mt-2 text-[11px] md:text-xs text-slate-500 space-y-0.5">
+                  <p className="break-all">Utente: {utente.email}</p>
+                  <p>Ruolo: {ruoloNormalizzato}</p>
+                  {userProfile?.condominio && (
+                    <p>Condominio: {userProfile.condominio}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                if (supabase && utente?.mode !== 'demo') {
+                  await supabase.auth.signOut();
+                }
+                setUtente(null);
+                setRuolo('gestore');
+                setUserProfile(null);
+                setDettaglioAperto(null);
+              }}
+              className="self-start md:self-auto px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800"
+            >
+              Logout
             </button>
           </div>
-        )}
+        </header>
 
         <ActionBar
           condomini={condominiVisibili}
@@ -771,20 +1529,26 @@ Ruolo: ${ruoloNormalizzato}` : ''}`)}`}
           onOpen={setDettaglioAperto}
         />
 
-        
+        {puoCreareSegnalazioni && (
+        <FormSegnalazione
+          onSave={salvaSegnalazione}
+          saving={saving}
+          disabled={!isSupabaseConfigured}
+          condomini={condominiVisibili}
+          selectedCondominioId={selectedCondominioId}
+          onChangeCondominio={setSelectedCondominioId}
+        />
+        )}
 
-        <section className="space-y-3 pb-36 md:pb-6"> 
+        <section className="space-y-3">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold">Segnalazioni</h2>
             <button
               onClick={carica}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 text-white font-semibold shadow-lg shadow-emerald-900/20 hover:shadow-xl active:scale-95 transition disabled:opacity-60"
+              className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 disabled:opacity-60"
               disabled={loading}
             >
-              <span className="inline-flex items-center gap-2">
-                <span className={loading ? 'inline-block animate-spin' : 'inline-block'}>↻</span>
-                {loading ? 'Live...' : 'Aggiorna live'}
-              </span>
+              {loading ? 'Aggiornamento...' : 'Aggiorna'}
             </button>
           </div>
 
@@ -806,53 +1570,7 @@ Ruolo: ${ruoloNormalizzato}` : ''}`)}`}
             </div>
           )}
         </section>
-
-        {puoCreareSegnalazioni && showNuovaSegnalazione && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4">
-            <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-white/60">
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 backdrop-blur-xl p-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Nuova segnalazione</h3>
-                  <p className="text-xs text-slate-500">Compila i dati e salva la pratica.</p>
-                </div>
-                <button
-                  onClick={() => setShowNuovaSegnalazione(false)}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white"
-                >
-                  Chiudi
-                </button>
-              </div>
-              <div className="p-4">
-                <FormSegnalazione
-                  onSave={salvaSegnalazione}
-                  saving={saving}
-                  disabled={!isSupabaseConfigured}
-                  condomini={condominiVisibili}
-                  selectedCondominioId={selectedCondominioId}
-                  onChangeCondominio={setSelectedCondominioId}
-                  utente={utente}
-                  userProfile={userProfile}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-      </div>
-
-      {puoCreareSegnalazioni && (
-        <button
-          onClick={() => setShowNuovaSegnalazione(true)}
-          style={{ bottom: hasPreventiviBanner ? 'calc(1rem + 120px)' : '1.25rem' }}
-          className={`fixed right-5 z-40 flex items-center gap-2 rounded-full bg-emerald-600 text-white shadow-2xl shadow-emerald-900/30 transition-all duration-300 hover:scale-105 hover:bg-emerald-700 active:scale-95 md:bottom-5 md:rounded-2xl md:px-5 md:py-3 ${mostraLabelFab ? 'px-4 py-3' : 'h-14 w-14 justify-center px-0 py-0'}`}
-          aria-label="Nuova segnalazione"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-2xl font-light leading-none">+</span>
-          <span className={`overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight transition-all duration-300 ${mostraLabelFab ? 'max-w-44 opacity-100' : 'max-w-0 opacity-0'}`}>
-            Nuova segnalazione
-          </span>
-        </button>
-      )}
 
       <DettaglioPraticaModal
         segnalazione={dettaglioAperto}
