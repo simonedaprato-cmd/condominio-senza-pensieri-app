@@ -822,8 +822,11 @@ function ActionBar({
 
           <input value={searchTerm} onChange={(e) => onChangeSearchTerm(e.target.value)} placeholder="Cerca pratica..." className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
 
-          <button onClick={onRefresh} disabled={loading} className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:opacity-60">
-            {loading ? 'Aggiorno...' : 'Aggiorna'}
+          <button onClick={onRefresh} disabled={loading} className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:shadow-xl active:scale-95 disabled:translate-y-0 disabled:opacity-60">
+            <span className="inline-flex items-center justify-center gap-2">
+              <span className={loading ? 'inline-block animate-spin' : 'inline-block'}>↻</span>
+              {loading ? 'Sincronizzazione live...' : 'Aggiorna dati live'}
+            </span>
           </button>
         </div>
       </div>
@@ -1705,7 +1708,7 @@ export default function App() {
                       {(() => {
                         const criticita = segnalazioniVisualizzate.filter((s) => s.priorita === 'Alta' || s.stato === 'Urgente').length;
                         const inAttesa = segnalazioniVisualizzate.filter((s) => s.stato_invio === 'inviato' && !s.stato_conversione).length;
-                        if (criticita > 0) return `${criticita} criticità da presidiare su ${condominiVisibili?.length || 0} condomini`;
+                        if (criticita > 0) return `${criticita} criticità da monitorare su ${condominiVisibili?.length || 0} condomini`;
                         if (inAttesa > 0) return `${inAttesa} preventivi in attesa di risposta`;
                         return `Gestisci ${condominiVisibili?.length || 0} condomini senza criticità attive`;
                       })()}
@@ -1790,10 +1793,13 @@ export default function App() {
             <h2 className="text-xl font-bold">Segnalazioni</h2>
             <button
               onClick={carica}
-              className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 disabled:opacity-60"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 text-white font-semibold shadow-lg shadow-emerald-900/20 hover:shadow-xl active:scale-95 transition disabled:opacity-60"
               disabled={loading}
             >
-              {loading ? 'Aggiornamento...' : 'Aggiorna'}
+              <span className="inline-flex items-center gap-2">
+                <span className={loading ? 'inline-block animate-spin' : 'inline-block'}>↻</span>
+                {loading ? 'Live...' : 'Aggiorna live'}
+              </span>
             </button>
           </div>
 
