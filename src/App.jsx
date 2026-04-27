@@ -592,11 +592,11 @@ function DettaglioPraticaModal({
   const importoAttuale = segnalazione.importo_preventivo ? formatEuro(segnalazione.importo_preventivo) : 'Non inserito';
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/60">
-        <div className="sticky top-0 z-20 p-5 border-b border-slate-200 flex items-center justify-between gap-4 bg-white/90 backdrop-blur-xl shadow-sm">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-2 md:p-4 z-50 overflow-hidden">
+      <div className="bg-white w-full max-w-4xl h-[92vh] md:h-[90vh] rounded-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/60">
+        <div className="sticky top-0 z-20 p-4 md:p-5 border-b border-slate-200 flex items-start sm:items-center justify-between gap-3 bg-white/90 backdrop-blur-xl shadow-sm">
           <div>
-            <h3 className="text-xl font-bold">{segnalazione.titolo}</h3>
+            <h3 className="text-lg md:text-xl font-bold leading-tight break-words">{segnalazione.titolo}</h3>
             <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
           </div>
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold shadow hover:bg-slate-800">
@@ -604,7 +604,7 @@ function DettaglioPraticaModal({
           </button>
         </div>
 
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
+        <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
           <div className="space-y-3">
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
@@ -614,7 +614,7 @@ function DettaglioPraticaModal({
             <p><span className="text-slate-500">Telefono amministratore:</span> {segnalazione.amministratore_telefono || 'n.d.'}</p>
             <p><span className="text-slate-500">Importo preventivo:</span> {importoAttuale}</p>
             {segnalazione.allegatoUrl && (
-              <img src={segnalazione.allegatoUrl} alt={segnalazione.titolo} className="w-full max-w-sm rounded-xl border border-slate-200" />
+              <img src={segnalazione.allegatoUrl} alt={segnalazione.titolo} className="w-full max-w-full md:max-w-sm rounded-xl border border-slate-200" />
             )}
           </div>
 
@@ -655,7 +655,7 @@ function DettaglioPraticaModal({
                   {uploading ? 'Caricamento...' : 'Carica foto sopralluogo'}
                 </button>
                 {segnalazione.fotosopralluogourl && (
-                  <img src={segnalazione.fotosopralluogourl} alt="Foto sopralluogo" className="mt-3 w-full max-w-sm rounded-xl border border-purple-200" />
+                  <img src={segnalazione.fotosopralluogourl} alt="Foto sopralluogo" className="mt-3 w-full max-w-full md:max-w-sm rounded-xl border border-purple-200" />
                 )}
               </div>
             )}
@@ -771,7 +771,7 @@ function DettaglioPraticaModal({
           </div>
         </div>
 
-        <div className="p-5 border-t border-slate-200 bg-slate-50/80">
+        <div className="p-4 md:p-5 border-t border-slate-200 bg-slate-50/80">
           <h4 className="font-semibold mb-3">Cronologia note</h4>
           <div className="space-y-2 max-h-56 overflow-auto">
             {(segnalazione.note || []).length === 0 ? (
@@ -1006,8 +1006,8 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
     <section className="space-y-5">
       {/* Notifica intelligente */}
       {segnalazioni && segnalazioni.filter(s => s.stato_invio==='inviato' && !s.stato_conversione).length > 0 && (
-        <div className="fixed bottom-6 right-6 z-50 animate-[fadeIn_.4s_ease-out]">
-          <div className="rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl flex items-center gap-3">
+        <div className="fixed bottom-4 left-3 right-3 md:left-auto md:right-6 md:bottom-6 z-50 animate-[fadeIn_.4s_ease-out]">
+          <div className="rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl flex items-center justify-center md:justify-start gap-3">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-sm font-semibold">Nuovi preventivi in attesa</span>
           </div>
@@ -1114,14 +1114,14 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   return (
     <button
       onClick={() => onOpen(segnalazione)}
-      className="w-full text-left rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition"
+      className="w-full text-left rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition overflow-hidden"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="font-semibold text-slate-900">{segnalazione.titolo}</p>
-          <p className="text-sm text-slate-500">{segnalazione.condominio}</p>
+      <div className="flex items-start justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <p className="font-semibold text-slate-900 break-words">{segnalazione.titolo}</p>
+          <p className="text-sm text-slate-500 break-words">{segnalazione.condominio}</p>
         </div>
-        <span className={`px-2 py-1 text-xs rounded-full border ${badgeClass(segnalazione.stato)}`}>
+        <span className={`px-2 py-1 text-xs rounded-full border shrink-0 ${badgeClass(segnalazione.stato)}`}>
           {segnalazione.stato}
         </span>
       </div>
@@ -1599,31 +1599,32 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 space-y-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header className="relative rounded-3xl pt-10 md:pt-12 pb-5 md:pb-6 px-5 md:px-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)] overflow-visible">
+    <div className="min-h-screen bg-slate-50 px-3 py-4 md:p-6 space-y-5 overflow-x-hidden max-w-full">
+      <div className="w-full max-w-full overflow-x-hidden">
+      <div className="max-w-4xl mx-auto space-y-5 w-full overflow-x-hidden">
+        <header className="relative rounded-3xl pt-6 md:pt-12 pb-5 md:pb-6 px-4 md:px-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)] overflow-hidden md:overflow-visible">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-emerald-600 to-emerald-800" />
-          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
-          <div className="absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl" />
+          <div className="absolute -right-24 -top-24 h-48 w-48 md:h-56 md:w-56 rounded-full bg-white/25 blur-3xl" />
+          <div className="absolute -bottom-24 left-0 md:left-10 h-40 w-40 md:h-48 md:w-48 rounded-full bg-emerald-200/30 blur-3xl" />
           <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-[fadeIn_.6s_ease-out]">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="relative -mt-12 md:-mt-16 z-20">
+            <div className="flex items-start md:items-center gap-3 md:gap-4 flex-nowrap min-w-0 w-full md:w-auto">
+              <div className="relative mt-0 md:-mt-16 z-20 shrink-0">
                 <LogoMark />
               </div>
 
-              <div className="text-white max-w-full">
-                <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white/95">
+              <div className="text-white min-w-0 flex-1 max-w-full">
+                <h1 className="text-lg md:text-2xl font-semibold tracking-tight text-white/95 leading-tight break-words">
                   Condominio Senza Pensieri
                 </h1>
-                <p className="text-white/70 mt-1 text-xs md:text-sm">
+                <p className="text-white/70 mt-1 text-xs md:text-sm leading-snug break-words">
                   Gestione intelligente delle segnalazioni
                 </p>
 
                 <div className="mt-3 text-[11px] md:text-xs text-white/70 space-y-1">
                   {userProfile?.nome && (
                     <div>
-                      <p className="text-xl md:text-2xl font-semibold tracking-tight text-white">
+                      <p className="text-lg md:text-2xl font-semibold tracking-tight text-white leading-tight break-words">
                         {(() => {
                           const h = new Date().getHours();
                           let saluto = 'Ciao';
@@ -1667,17 +1668,17 @@ export default function App() {
                             <p className={`text-sm font-medium ${tone.replace('text-','text-').includes('red') ? 'text-red-200' : tone.replace('text-','text-').includes('amber') ? 'text-amber-200' : 'text-emerald-200'}`}>{msg}</p>
 
                             {/* KPI pills */}
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button onClick={() => setQuickFilter('')} className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95">
+                            <div className="mt-2 flex flex-wrap gap-1.5 md:gap-2 max-w-full">
+                              <button onClick={() => setQuickFilter('')} className="px-2.5 md:px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[10px] md:text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 whitespace-nowrap">
                                 Pratiche: {tot}
                               </button>
-                              <button onClick={() => setQuickFilter('attesa')} className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95">
+                              <button onClick={() => setQuickFilter('attesa')} className="px-2.5 md:px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[10px] md:text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 whitespace-nowrap">
                                 In attesa: {inAttesa}
                               </button>
-                              <button onClick={() => setQuickFilter('fermi')} className={`px-3 py-1 rounded-full border text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 ${fermi > 0 ? 'bg-red-500/20 border-red-300/40 animate-pulse shadow-[0_0_0_2px_rgba(239,68,68,0.15)]' : 'bg-white/10 border-white/20'}`}>
+                              <button onClick={() => setQuickFilter('fermi')} className={`px-2.5 md:px-3 py-1 rounded-full border text-[10px] md:text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 whitespace-nowrap ${fermi > 0 ? 'bg-red-500/20 border-red-300/40 animate-pulse shadow-[0_0_0_2px_rgba(239,68,68,0.15)]' : 'bg-white/10 border-white/20'}`}>
                                 Fermi: {fermi}
                               </button>
-                              <button onClick={() => setQuickFilter('alto_valore')} className={`px-3 py-1 rounded-full border text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 ${altoValore > 0 ? 'bg-amber-500/20 border-amber-300/40 shadow-[0_0_0_2px_rgba(245,158,11,0.15)]' : 'bg-white/10 border-white/20'}`}>
+                              <button onClick={() => setQuickFilter('alto_valore')} className={`px-2.5 md:px-3 py-1 rounded-full border text-[10px] md:text-xs font-semibold text-white hover:bg-white/20 transition active:scale-95 whitespace-nowrap ${altoValore > 0 ? 'bg-amber-500/20 border-amber-300/40 shadow-[0_0_0_2px_rgba(245,158,11,0.15)]' : 'bg-white/10 border-white/20'}`}>
                                 Alto valore: {altoValore}
                               </button>
                             </div>
@@ -1705,7 +1706,7 @@ export default function App() {
                 setUserProfile(null);
                 setDettaglioAperto(null);
               }}
-              className="self-start md:self-auto px-4 py-2 rounded-xl bg-white/15 backdrop-blur border border-white/20 text-white text-sm font-semibold hover:bg-white/25"
+              className="self-start md:self-auto px-4 py-2 rounded-xl bg-white/15 backdrop-blur border border-white/20 text-white text-sm font-semibold hover:bg-white/25 shrink-0"
             >
               Logout
             </button>
@@ -1713,7 +1714,7 @@ export default function App() {
         </header>
 
         {quickFilter && (
-          <div className="max-w-4xl mx-auto rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center justify-between gap-3">
+          <div className="max-w-4xl mx-auto rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <span>Filtro rapido attivo: <strong>{quickFilter === 'alto_valore' ? 'alto valore' : quickFilter}</strong></span>
             <button onClick={() => setQuickFilter('')} className="rounded-xl bg-white px-3 py-1 text-xs font-bold border border-emerald-200">
               Rimuovi
@@ -1790,6 +1791,7 @@ export default function App() {
             </div>
           )}
         </section>
+      </div>
       </div>
 
       <DettaglioPraticaModal
