@@ -1138,6 +1138,7 @@ export default function App() {
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [quickFilter, setQuickFilter] = useState('');
+  const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -1435,6 +1436,7 @@ export default function App() {
       if (insertError) throw insertError;
 
       await carica();
+      setShowNuovaSegnalazione(false);
       setStatusMessage('Segnalazione salvata correttamente.');
     } finally {
       setSaving(false);
@@ -1748,18 +1750,7 @@ export default function App() {
           onOpen={setDettaglioAperto}
         />
 
-        {puoCreareSegnalazioni && (
-        <FormSegnalazione
-          onSave={salvaSegnalazione}
-          saving={saving}
-          disabled={!isSupabaseConfigured}
-          condomini={condominiVisibili}
-          selectedCondominioId={selectedCondominioId}
-          onChangeCondominio={setSelectedCondominioId}
-          utente={utente}
-          userProfile={userProfile}
-        />
-        )}
+        
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4">
@@ -1791,8 +1782,50 @@ export default function App() {
             </div>
           )}
         </section>
+
+        {puoCreareSegnalazioni && showNuovaSegnalazione && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4">
+            <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-white/60">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 backdrop-blur-xl p-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Nuova segnalazione</h3>
+                  <p className="text-xs text-slate-500">Compila i dati e salva la pratica.</p>
+                </div>
+                <button
+                  onClick={() => setShowNuovaSegnalazione(false)}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white"
+                >
+                  Chiudi
+                </button>
+              </div>
+              <div className="p-4">
+                <FormSegnalazione
+                  onSave={salvaSegnalazione}
+                  saving={saving}
+                  disabled={!isSupabaseConfigured}
+                  condomini={condominiVisibili}
+                  selectedCondominioId={selectedCondominioId}
+                  onChangeCondominio={setSelectedCondominioId}
+                  utente={utente}
+                  userProfile={userProfile}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       </div>
+
+      {puoCreareSegnalazioni && (
+        <button
+          onClick={() => setShowNuovaSegnalazione(true)}
+          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition hover:scale-105 hover:bg-emerald-700 active:scale-95 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold"
+          aria-label="Nuova segnalazione"
+        >
+          <span className="md:hidden">+</span>
+          <span className="hidden md:inline">+ Nuova segnalazione</span>
+        </button>
+      )}
 
       <DettaglioPraticaModal
         segnalazione={dettaglioAperto}
