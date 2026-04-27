@@ -1540,7 +1540,7 @@ export default function App() {
         />
         )}
 
-        <section className="space-y-3">
+        <section className="space-y-3 pb-36 md:pb-6">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold">Segnalazioni</h2>
             <button
