@@ -1122,6 +1122,7 @@ export default function App() {
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [quickFilter, setQuickFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -1203,9 +1204,19 @@ export default function App() {
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(testo));
 
-      return passaCondominio && passaRicerca;
+      const giorniDaInvio = s.data_invio
+        ? (new Date() - new Date(s.data_invio)) / (1000 * 60 * 60 * 24)
+        : 0;
+
+      const passaQuickFilter =
+        !quickFilter ||
+        (quickFilter === 'attesa' && s.stato_invio === 'inviato' && !s.stato_conversione) ||
+        (quickFilter === 'fermi' && s.stato_invio === 'inviato' && !s.stato_conversione && giorniDaInvio >= 3) ||
+        (quickFilter === 'alto_valore' && Number(s.importo_preventivo || 0) >= 1000 && s.stato_invio === 'inviato' && !s.stato_conversione);
+
+      return passaCondominio && passaRicerca && passaQuickFilter;
     });
-  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
+  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm, quickFilter]);
 
   const carica = async () => {
     setLoading(true);
@@ -1593,7 +1604,7 @@ export default function App() {
                 <div className="mt-2 text-[11px] md:text-xs text-slate-500 space-y-0.5">
                   {userProfile?.nome && (
                     <div>
-                      <p className="text-emerald-700 font-semibold">
+                      <p className="text-2xl md:text-3xl font-extrabold">
                         {(() => {
                           const h = new Date().getHours();
                           let saluto = 'Ciao';
@@ -1604,32 +1615,56 @@ export default function App() {
                           return `${saluto} ${userProfile.nome}`;
                         })()}
                       </p>
-                      <p className="text-[11px] text-slate-500">
-                        {(() => {
-                          const list = segnalazioniVisualizzate || [];
-                          const tot = list.length;
-                          const inAttesa = list.filter(s => s.stato_invio === 'inviato' && !s.stato_conversione).length;
 
-                          const now = new Date();
-                          const fermi = list.filter(s => {
-                            if (s.stato_invio !== 'inviato' || s.stato_conversione) return false;
-                            if (!s.data_invio) return false;
-                            const diff = (now - new Date(s.data_invio)) / (1000*60*60*24);
-                            return diff >= 3;
-                          }).length;
+                      {/* HERO INTELLIGENTE */}
+                      {(() => {
+                        const list = segnalazioniVisualizzate || [];
+                        const tot = list.length;
+                        const inAttesa = list.filter(s => s.stato_invio === 'inviato' && !s.stato_conversione).length;
 
-                          const altoValore = list.filter(s => {
-                            const val = Number(s.importo_preventivo || 0);
-                            return val >= 1000 && s.stato_invio === 'inviato' && !s.stato_conversione;
-                          }).length;
+                        const now = new Date();
+                        const fermi = list.filter(s => {
+                          if (s.stato_invio !== 'inviato' || s.stato_conversione) return false;
+                          if (!s.data_invio) return false;
+                          const diff = (now - new Date(s.data_invio)) / (1000*60*60*24);
+                          return diff >= 3;
+                        }).length;
 
-                          if (tot === 0) return 'Nessuna pratica da gestire al momento';
-                          if (fermi > 0) return `⚠️ ${fermi} preventivi fermi da oltre 3 giorni`;
-                          if (altoValore > 0) return `💰 ${altoValore} preventivi ad alto valore in attesa`;
-                          if (inAttesa > 0) return `Hai ${tot} pratiche, ${inAttesa} in attesa di risposta`;
-                          return `Hai ${tot} pratiche sotto controllo`;
-                        })()}
-                      </p>
+                        const altoValore = list.filter(s => {
+                          const val = Number(s.importo_preventivo || 0);
+                          return val >= 1000 && s.stato_invio === 'inviato' && !s.stato_conversione;
+                        }).length;
+
+                        let msg = '';
+                        let tone = 'text-emerald-600';
+                        if (tot === 0) { msg = 'Nessuna pratica da gestire al momento'; }
+                        else if (fermi > 0) { msg = `⚠️ ${fermi} preventivi fermi da oltre 3 giorni`; tone = 'text-red-600'; }
+                        else if (altoValore > 0) { msg = `💰 ${altoValore} preventivi ad alto valore in attesa`; tone = 'text-amber-600'; }
+                        else if (inAttesa > 0) { msg = `Hai ${tot} pratiche, ${inAttesa} in attesa di risposta`; tone = 'text-amber-600'; }
+                        else { msg = `Hai ${tot} pratiche sotto controllo`; }
+
+                        return (
+                          <div className="mt-2">
+                            <p className={`text-sm font-semibold ${tone}`}>{msg}</p>
+
+                            {/* KPI pills */}
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button onClick={() => setQuickFilter('')} className="px-3 py-1 rounded-full bg-white/80 border text-xs font-bold hover:bg-white">
+                                Pratiche: {tot}
+                              </button>
+                              <button onClick={() => setQuickFilter('attesa')} className="px-3 py-1 rounded-full bg-white/80 border text-xs font-bold hover:bg-white">
+                                In attesa: {inAttesa}
+                              </button>
+                              <button onClick={() => setQuickFilter('fermi')} className={`px-3 py-1 rounded-full border text-xs font-bold hover:bg-white ${fermi > 0 ? 'bg-red-50 text-red-700 border-red-200 animate-pulse' : 'bg-white/80'}`}>
+                                Fermi: {fermi}
+                              </button>
+                              <button onClick={() => setQuickFilter('alto_valore')} className={`px-3 py-1 rounded-full border text-xs font-bold hover:bg-white ${altoValore > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white/80'}`}>
+                                Alto valore: {altoValore}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                   <p className="break-all">Utente: {utente.email}</p>
@@ -1657,6 +1692,15 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {quickFilter && (
+          <div className="max-w-4xl mx-auto rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center justify-between gap-3">
+            <span>Filtro rapido attivo: <strong>{quickFilter === 'alto_valore' ? 'alto valore' : quickFilter}</strong></span>
+            <button onClick={() => setQuickFilter('')} className="rounded-xl bg-white px-3 py-1 text-xs font-bold border border-emerald-200">
+              Rimuovi
+            </button>
+          </div>
+        )}
 
         <ActionBar
           condomini={condominiVisibili}
