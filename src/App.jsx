@@ -938,6 +938,13 @@ function DashboardVendite({ segnalazioni }) {
         <DashboardStat label="Prob. media" value={probabilitaMedia + '%'} tone="slate" />
       </div>
 
+      <FatturatoBarChart
+        valoreInviato={valoreInviato}
+        valoreAccettato={valoreAccettato}
+        valoreRifiutato={valoreRifiutato}
+        fatturatoPrevisto={fatturatoPrevisto}
+      />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <DashboardStat label="Preventivi inviati" value={inviati.length} />
         <DashboardStat label="Accettati" value={accettati.length} tone="emerald" />
@@ -993,15 +1000,9 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <DashboardStat label="Totali" va      <FatturatoBarChart
-        valoreInviato={valoreInviato}
-        valoreAccettato={valoreAccettato}
-        valoreRifiutato={valoreRifiutato}
-        fatturatoPrevisto={fatturatoPrevisto}
-      />
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <DashboardStat label="Preventivi inviati" value={inviati.length} />={verifica} tone="amber" />
+        <DashboardStat label="Totali" value={totale} />
+        <DashboardStat label="Urgenti" value={urgenti} tone="red" />
+        <DashboardStat label="Prese in carico" value={verifica} tone="amber" />
         <DashboardStat label="In lavorazione" value={programmati} tone="emerald" />
         <DashboardStat label="Chiuse" value={chiusi} tone="slate" />
       </div>
