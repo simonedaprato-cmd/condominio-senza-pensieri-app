@@ -1604,7 +1604,7 @@ export default function App() {
                 <div className="mt-2 text-[11px] md:text-xs text-slate-500 space-y-0.5">
                   {userProfile?.nome && (
                     <div>
-                      <p className="text-2xl md:text-3xl font-extrabold">
+                      <p className="text-xl md:text-2xl font-extrabold">
                         {(() => {
                           const h = new Date().getHours();
                           let saluto = 'Ciao';
