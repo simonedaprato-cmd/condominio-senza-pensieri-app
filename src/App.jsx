@@ -477,6 +477,44 @@ function buildWhatsappPreventivo(segnalazione) {
   return base + '?text=' + encodeURIComponent(body);
 }
 
+function buildFollowupMessage(segnalazione) {
+  return [
+    'Buongiorno,',
+    '',
+    'ti scrivo per avere un riscontro sul preventivo:',
+    '"' + (segnalazione.titolo || '') + '"',
+    '',
+    segnalazione.importo_preventivo ? 'Importo: ' + formatEuro(segnalazione.importo_preventivo) : '',
+    'Condominio: ' + (segnalazione.condominio || 'n.d.'),
+    '',
+    'Resto a disposizione per chiarimenti.',
+  ].filter(Boolean).join(String.fromCharCode(10));
+}
+
+async function inviaFollowup(segnalazione) {
+  try {
+    await fetch('/api/invia-preventivo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: segnalazione.amministratore_email,
+        titolo: 'Follow-up preventivo: ' + segnalazione.titolo,
+        condominio: segnalazione.condominio,
+        link: segnalazione.preventivourl,
+      }),
+    });
+
+    const numero = segnalazione.amministratore_telefono || '';
+    const url = 'https://wa.me/' + String(numero).replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(buildFollowupMessage(segnalazione));
+    window.open(url, '_blank');
+
+    alert('Follow-up inviato 🚀');
+  } catch (e) {
+    console.error(e);
+    alert('Errore follow-up');
+  }
+}
+
 async function inviaNotificaPreventivo(segnalazione) {
   try {
     await fetch('/api/invia-preventivo', {
@@ -693,12 +731,21 @@ function DettaglioPraticaModal({
                     </button>
 
                     {segnalazione.stato_invio === 'inviato' && !segnalazione.stato_conversione && (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => aggiornaConversione(segnalazione, 'accettato')} className="rounded-xl bg-emerald-600 px-3 py-2 text-white text-sm font-bold">
                           Accettato
                         </button>
                         <button onClick={() => aggiornaConversione(segnalazione, 'rifiutato')} className="rounded-xl bg-red-600 px-3 py-2 text-white text-sm font-bold">
                           Rifiutato
+                        </button>
+                      </div>
+                                            </div>
+                        <button
+                          onClick={() => inviaFollowup(segnalazione)}
+                          className="w-full rounded-xl bg-amber-500 px-3 py-2 text-white text-sm font-bold"
+                        >
+                          Invia follow-up
                         </button>
                       </div>
                     )}
@@ -888,6 +935,34 @@ function DashboardVendite({ segnalazioni }) {
   const conversionRate = inviati.length ? Math.round((accettati.length / inviati.length) * 100) : 0;
   const conversioneEconomica = valoreInviato ? Math.round((valoreAccettato / valoreInviato) * 100) : 0;
 
+  const aperti = segnalazioni.filter((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
+  const valoreAperto = aperti.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+
+  const stimaProbabilita = (s) => {
+    const valore = Number(s.importo_preventivo || 0);
+    const giorni = s.data_invio
+      ? (new Date() - new Date(s.data_invio)) / (1000 * 60 * 60 * 24)
+      : 0;
+
+    let probabilita = 45;
+    if (giorni <= 3) probabilita += 15;
+    if (giorni > 7) probabilita -= 15;
+    if (giorni > 14) probabilita -= 10;
+    if (valore >= 1000) probabilita += 5;
+    if (s.followup_inviato) probabilita += 10;
+
+    return Math.max(10, Math.min(80, probabilita));
+  };
+
+  const valorePrevistoAperto = aperti.reduce((sum, s) => {
+    return sum + Number(s.importo_preventivo || 0) * (stimaProbabilita(s) / 100);
+  }, 0);
+
+  const fatturatoPrevisto = valoreAccettato + valorePrevistoAperto;
+  const probabilitaMedia = aperti.length
+    ? Math.round(aperti.reduce((sum, s) => sum + stimaProbabilita(s), 0) / aperti.length)
+    : 0;
+
   return (
     <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
@@ -903,6 +978,13 @@ function DashboardVendite({ segnalazioni }) {
         <DashboardStat label="Fatturato accettato" value={formatEuro(valoreAccettato)} tone="emerald" />
         <DashboardStat label="Valore rifiutato" value={formatEuro(valoreRifiutato)} tone="red" />
         <DashboardStat label="Conversione €" value={conversioneEconomica + '%'} tone="amber" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardStat label="Fatturato previsto" value={formatEuro(fatturatoPrevisto)} tone="emerald" />
+        <DashboardStat label="Pipeline aperta" value={formatEuro(valoreAperto)} tone="amber" />
+        <DashboardStat label="Pratiche aperte" value={aperti.length} />
+        <DashboardStat label="Prob. media" value={probabilitaMedia + '%'} tone="slate" />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1051,6 +1133,43 @@ export default function App() {
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [userProfile, setUserProfile] = useState(null);
+
+  useEffect(() => {
+    if (!segnalazioni || segnalazioni.length === 0) return;
+
+    const now = new Date();
+
+    segnalazioni.forEach(async (s) => {
+      if (s.stato_invio !== 'inviato' || s.stato_conversione) return;
+      if (!s.data_invio) return;
+
+      const diff = (now - new Date(s.data_invio)) / (1000 * 60 * 60 * 24);
+
+      if (diff >= 3 && !s.followup_inviato) {
+        try {
+          await fetch('/api/invia-preventivo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: s.amministratore_email,
+              titolo: 'Follow-up automatico: ' + s.titolo,
+              condominio: s.condominio,
+              link: s.preventivourl,
+            }),
+          });
+
+          if (supabase) {
+            await supabase
+              .from('segnalazioni')
+              .update({ followup_inviato: true })
+              .eq('id', s.id);
+          }
+        } catch (e) {
+          console.error('Errore follow-up automatico', e);
+        }
+      }
+    });
+  }, [segnalazioni]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ['amministratore', 'condominio'].includes(ruoloNormalizzato);
@@ -1477,6 +1596,49 @@ export default function App() {
                 </p>
 
                 <div className="mt-2 text-[11px] md:text-xs text-slate-500 space-y-0.5">
+                  {userProfile?.nome && (
+                    <div>
+                      <p className="text-emerald-700 font-semibold">
+                        {(() => {
+                          const h = new Date().getHours();
+                          let saluto = 'Ciao';
+                          if (h >= 5 && h < 12) saluto = 'Buongiorno';
+                          else if (h >= 12 && h < 18) saluto = 'Buon pomeriggio';
+                          else if (h >= 18 && h < 23) saluto = 'Buonasera';
+                          else saluto = 'Buonanotte';
+                          return `${saluto} ${userProfile.nome}`;
+                        })()}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {(() => {
+                          const list = segnalazioniVisualizzate || [];
+                          const tot = list.length;
+                          const inAttesa = list.filter(s => s.stato_invio === 'inviato' && !s.stato_conversione).length;
+
+                          const now = new Date();
+                          const fermi = list.filter(s => {
+                            if (s.stato_invio !== 'inviato' || s.stato_conversione) return false;
+                            if (!s.data_invio) return false;
+                            const diff = (now - new Date(s.data_invio)) / (1000*60*60*24);
+                            return diff >= 3;
+                          }).length;
+
+                          const altoValore = list.filter(s => {
+                            const val = Number(s.importo_preventivo || 0);
+                            return val >= 1000 && s.stato_invio === 'inviato' && !s.stato_conversione;
+                          }).length;
+
+                          if (tot === 0) return 'Nessuna pratica da gestire al momento';
+                          if (fermi > 0) return `⚠️ ${fermi} preventivi fermi da oltre 3 giorni`;
+                          if (altoValore > 0) return `💰 ${altoValore} preventivi ad alto valore in attesa`;
+                          if (inAttesa > 0) return `Hai ${tot} pratiche, ${inAttesa} in attesa di risposta`;
+                          return `Hai ${tot} pratiche sotto controllo`;
+                        })()}
+                      </p>
+                    </div>
+                  )}
+                    </p>
+                  )}
                   <p className="break-all">Utente: {utente.email}</p>
                   <p>Ruolo: {ruoloNormalizzato}</p>
                   {userProfile?.condominio && (
