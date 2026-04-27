@@ -249,7 +249,7 @@ function Login({ onLogin, disabled, loading }) {
   );
 }
 
-function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCondominioId, onChangeCondominio }) {
+function FormSegnalazione({ onSave, saving, disabled, condomini = [], selectedCondominioId, onChangeCondominio, utente, userProfile }) {
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
   const [categoria, setCategoria] = useState('Infiltrazioni');
@@ -1637,8 +1637,6 @@ export default function App() {
                       </p>
                     </div>
                   )}
-                    </p>
-                  )}
                   <p className="break-all">Utente: {utente.email}</p>
                   <p>Ruolo: {ruoloNormalizzato}</p>
                   {userProfile?.condominio && (
@@ -1699,6 +1697,8 @@ export default function App() {
           condomini={condominiVisibili}
           selectedCondominioId={selectedCondominioId}
           onChangeCondominio={setSelectedCondominioId}
+          utente={utente}
+          userProfile={userProfile}
         />
         )}
 
