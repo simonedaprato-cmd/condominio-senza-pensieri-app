@@ -1077,6 +1077,25 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   );
 }
 
+function SegnalazioneCard({ segnalazione, onOpen }) {
+  return (
+    <button
+      onClick={() => onOpen(segnalazione)}
+      className="w-full text-left rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">{segnalazione.titolo}</p>
+          <p className="text-sm text-slate-500">{segnalazione.condominio}</p>
+        </div>
+        <span className={`px-2 py-1 text-xs rounded-full border ${badgeClass(segnalazione.stato)}`}>
+          {segnalazione.stato}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export default function App() {
   const [ruolo, setRuolo] = useState('gestore'); // default
   const [utente, setUtente] = useState(null);
