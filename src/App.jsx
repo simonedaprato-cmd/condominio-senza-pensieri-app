@@ -1586,7 +1586,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <header className="relative rounded-3xl bg-gradient-to-r from-slate-100 via-white to-emerald-50 pt-10 md:pt-12 pb-5 md:pb-6 px-5 md:px-6 shadow-sm border border-slate-200 overflow-visible">
+        <header className="relative rounded-3xl pt-10 md:pt-12 pb-5 md:pb-6 px-5 md:px-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)] overflow-visible">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-emerald-600 to-emerald-800" />
+          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
+          <div className="absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl" />
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4 flex-wrap">
               <div className="relative -mt-12 md:-mt-16 z-20">
