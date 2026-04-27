@@ -733,14 +733,13 @@ function DettaglioPraticaModal({
                     {segnalazione.stato_invio === 'inviato' && !segnalazione.stato_conversione && (
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => aggiornaConversione(segnalazione, 'accettato')} className="rounded-xl bg-emerald-600 px-3 py-2 text-white text-sm font-bold">
-                          Accettato
-                        </button>
-                        <button onClick={() => aggiornaConversione(segnalazione, 'rifiutato')} className="rounded-xl bg-red-600 px-3 py-2 text-white text-sm font-bold">
-                          Rifiutato
-                        </button>
-                      </div>
-                                            </div>
+                          <button onClick={() => aggiornaConversione(segnalazione, 'accettato')} className="rounded-xl bg-emerald-600 px-3 py-2 text-white text-sm font-bold">
+                            Accettato
+                          </button>
+                          <button onClick={() => aggiornaConversione(segnalazione, 'rifiutato')} className="rounded-xl bg-red-600 px-3 py-2 text-white text-sm font-bold">
+                            Rifiutato
+                          </button>
+                        </div>
                         <button
                           onClick={() => inviaFollowup(segnalazione)}
                           className="w-full rounded-xl bg-amber-500 px-3 py-2 text-white text-sm font-bold"
@@ -748,119 +747,7 @@ function DettaglioPraticaModal({
                           Invia follow-up
                         </button>
                       </div>
-                    )}
-
-                    <p className="text-xs text-emerald-700">Invio automatico + tracking conversione</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <p className="font-semibold">Aggiungi nota</p>
-              <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Scrivi una nota operativa..." className="w-full border px-3 py-2 rounded-xl min-h-24" />
-              <button
-                onClick={() => {
-                  if (!nota.trim()) return;
-                  onAddNote(segnalazione.id, nota.trim());
-                  setNota('');
-                }}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white"
-              >
-                Aggiungi nota
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-5 border-t border-slate-200">
-          <h4 className="font-semibold mb-3">Cronologia note</h4>
-          <div className="space-y-2 max-h-56 overflow-auto">
-            {(segnalazione.note || []).length === 0 ? (
-              <p className="text-sm text-slate-500">Nessuna nota presente.</p>
-            ) : (
-              segnalazione.note.map((n) => (
-                <div key={n.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
-                  <p className="text-sm text-slate-700">{n.testo}</p>
-                  <p className="text-xs text-slate-500 mt-1">{n.data}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SegnalazioneCard({ segnalazione, onOpen }) {
-  return (
-    <div className="border p-4 rounded-xl bg-white border-slate-200">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-        <div>
-          <p className="font-bold">{segnalazione.titolo}</p>
-          <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
-        </div>
-        <span className={`px-3 py-1 rounded-full border text-sm font-medium w-fit ${badgeClass(segnalazione.stato)}`}>
-          {segnalazione.stato}
-        </span>
-      </div>
-
-      <p className="mt-2">{segnalazione.descrizione}</p>
-      <p className={`mt-2 text-sm font-semibold ${priorityClass(segnalazione.priorita || 'Media')}`}>
-        Priorità: {segnalazione.priorita || 'Media'}
-      </p>
-
-      {segnalazione.allegatoUrl && (
-        <img
-          src={segnalazione.allegatoUrl}
-          alt={segnalazione.titolo}
-          className="mt-3 w-40 rounded border border-slate-200"
-        />
-      )}
-
-      {!segnalazione.allegatoUrl && segnalazione.allegatonome && (
-        <p className="mt-3 text-sm text-slate-500">Allegato: {segnalazione.allegatonome}</p>
-      )}
-
-      <button
-        onClick={() => onOpen(segnalazione)}
-        className="mt-4 px-4 py-2 rounded-xl border border-slate-300 text-slate-700"
-      >
-        Apri dettaglio pratica
-      </button>
-    </div>
-  );
-}
-
-function DashboardStat({ label, value, tone = 'slate' }) {
-  const toneClass = {
-    slate: 'bg-slate-900 text-white',
-    red: 'bg-red-600 text-white',
-    amber: 'bg-amber-500 text-white',
-    emerald: 'bg-emerald-600 text-white',
-  }[tone] || 'bg-slate-900 text-white';
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-3 inline-flex min-w-14 justify-center rounded-2xl px-4 py-2 text-2xl font-bold ${toneClass}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ActionBar({
-  condomini,
-  filtroCondominioId,
-  onChangeFiltroCondominio,
-  searchTerm,
-  onChangeSearchTerm,
-  onRefresh,
-  loading,
-  ruolo,
-}) {
+                    )} {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/70 p-4 shadow-[0_18px_60px_-35px_rgba(15,23,42,0.35)] backdrop-blur-xl">
       <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/40 blur-3xl" />
