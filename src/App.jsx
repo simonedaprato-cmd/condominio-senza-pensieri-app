@@ -1005,7 +1005,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   return (
     <section className="space-y-5">
       {/* Notifica intelligente */}
-      {segnalazioniVisualizzate && segnalazioniVisualizzate.filter(s => s.stato_invio==='inviato' && !s.stato_conversione).length > 0 && (
+      {segnalazioni && segnalazioni.filter(s => s.stato_invio==='inviato' && !s.stato_conversione).length > 0 && (
         <div className="fixed bottom-6 right-6 z-50 animate-[fadeIn_.4s_ease-out]">
           <div className="rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl flex items-center gap-3">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
