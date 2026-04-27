@@ -746,8 +746,61 @@ function DettaglioPraticaModal({
                         >
                           Invia follow-up
                         </button>
-                      </div>
-                    )} {
+                      </div>                    )}
+
+                    <p className="text-xs text-emerald-700">Invio automatico + tracking conversione</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="font-semibold">Aggiungi nota</p>
+              <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Scrivi una nota operativa..." className="w-full border px-3 py-2 rounded-xl min-h-24" />
+              <button
+                onClick={() => {
+                  if (!nota.trim()) return;
+                  onAddNote(segnalazione.id, nota.trim());
+                  setNota('');
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white"
+              >
+                Aggiungi nota
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 border-t border-slate-200">
+          <h4 className="font-semibold mb-3">Cronologia note</h4>
+          <div className="space-y-2 max-h-56 overflow-auto">
+            {(segnalazione.note || []).length === 0 ? (
+              <p className="text-sm text-slate-500">Nessuna nota presente.</p>
+            ) : (
+              segnalazione.note.map((n) => (
+                <div key={n.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                  <p className="text-sm text-slate-700">{n.testo}</p>
+                  <p className="text-xs text-slate-500 mt-1">{n.data}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionBar({
+  condomini,
+  filtroCondominioId,
+  onChangeFiltroCondominio,
+  searchTerm,
+  onChangeSearchTerm,
+  onRefresh,
+  loading,
+  ruolo,
+}) {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/70 p-4 shadow-[0_18px_60px_-35px_rgba(15,23,42,0.35)] backdrop-blur-xl">
       <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/40 blur-3xl" />
@@ -756,57 +809,68 @@ function DettaglioPraticaModal({
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Azioni rapide</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Filtra, cerca e aggiorna le pratiche senza perdere il controllo del cruscotto.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Filtra, cerca e aggiorna le pratiche senza perdere il controllo del cruscotto.</p>
         </div>
 
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] lg:w-auto">
-          <select
-            value={filtroCondominioId}
-            onChange={(e) => onChangeFiltroCondominio(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-          >
+          <select value={filtroCondominioId} onChange={(e) => onChangeFiltroCondominio(e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100">
             <option value="">Tutti i condomini</option>
             {condomini.map((c) => (
               <option key={c.id} value={c.id}>{c.nome}</option>
             ))}
           </select>
 
-          <input
-            value={searchTerm}
-            onChange={(e) => onChangeSearchTerm(e.target.value)}
-            placeholder="Cerca pratica..."
-            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
-          />
+          <input value={searchTerm} onChange={(e) => onChangeSearchTerm(e.target.value)} placeholder="Cerca pratica..." className="w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-sm shadow-sm outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
 
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:opacity-60"
-          >
+          <button onClick={onRefresh} disabled={loading} className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:opacity-60">
             {loading ? 'Aggiorno...' : 'Aggiorna'}
           </button>
         </div>
       </div>
 
       <div className="relative mt-4 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">
-          Vista: {ruolo}
-        </span>
-        <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-slate-600">
-          Condomini visibili: {condomini.length}
-        </span>
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Vista: {ruolo}</span>
+        <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-slate-600">Condomini visibili: {condomini.length}</span>
         {filtroCondominioId && (
-          <button
-            onClick={() => onChangeFiltroCondominio('')}
-            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50"
-          >
-            Rimuovi filtro
-          </button>
+          <button onClick={() => onChangeFiltroCondominio('')} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50">Rimuovi filtro</button>
         )}
       </div>
     </section>
+  );
+}
+
+function FatturatoBarChart({ valoreInviato, valoreAccettato, valoreRifiutato, fatturatoPrevisto }) {
+  const dati = [
+    { label: 'Inviato', value: valoreInviato },
+    { label: 'Accettato', value: valoreAccettato },
+    { label: 'Rifiutato', value: valoreRifiutato },
+    { label: 'Previsto', value: fatturatoPrevisto },
+  ];
+  const max = Math.max(...dati.map((d) => Number(d.value || 0)), 1);
+
+  return (
+    <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5">
+      <div className="mb-4">
+        <p className="text-xs uppercase tracking-[0.18em] text-emerald-700 font-black">Grafico fatturato</p>
+        <h3 className="text-lg font-bold text-slate-900 mt-1">Andamento economico preventivi</h3>
+      </div>
+      <div className="space-y-4">
+        {dati.map((item) => {
+          const width = Math.max(6, Math.round((Number(item.value || 0) / max) * 100));
+          return (
+            <div key={item.label}>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="font-semibold text-slate-700">{item.label}</span>
+                <span className="text-slate-500">{formatEuro(item.value)}</span>
+              </div>
+              <div className="h-4 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-600 shadow-sm transition-all" style={{ width: width + '%' }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -929,9 +993,15 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <DashboardStat label="Totali" value={totale} />
-        <DashboardStat label="Urgenti" value={urgenti} tone="red" />
-        <DashboardStat label="Prese in carico" value={verifica} tone="amber" />
+        <DashboardStat label="Totali" va      <FatturatoBarChart
+        valoreInviato={valoreInviato}
+        valoreAccettato={valoreAccettato}
+        valoreRifiutato={valoreRifiutato}
+        fatturatoPrevisto={fatturatoPrevisto}
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <DashboardStat label="Preventivi inviati" value={inviati.length} />={verifica} tone="amber" />
         <DashboardStat label="In lavorazione" value={programmati} tone="emerald" />
         <DashboardStat label="Chiuse" value={chiusi} tone="slate" />
       </div>
