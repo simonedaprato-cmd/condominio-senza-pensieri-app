@@ -593,18 +593,18 @@ function DettaglioPraticaModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-lg overflow-hidden">
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between gap-4">
+      <div className="bg-white w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/60">
+        <div className="sticky top-0 z-20 p-5 border-b border-slate-200 flex items-center justify-between gap-4 bg-white/90 backdrop-blur-xl shadow-sm">
           <div>
             <h3 className="text-xl font-bold">{segnalazione.titolo}</h3>
             <p className="text-sm text-slate-500 mt-1">{segnalazione.condominio}</p>
           </div>
-          <button onClick={onClose} className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold shadow hover:bg-slate-800">
             Chiudi
           </button>
         </div>
 
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
           <div className="space-y-3">
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
@@ -771,7 +771,7 @@ function DettaglioPraticaModal({
           </div>
         </div>
 
-        <div className="p-5 border-t border-slate-200">
+        <div className="p-5 border-t border-slate-200 bg-slate-50/80">
           <h4 className="font-semibold mb-3">Cronologia note</h4>
           <div className="space-y-2 max-h-56 overflow-auto">
             {(segnalazione.note || []).length === 0 ? (
