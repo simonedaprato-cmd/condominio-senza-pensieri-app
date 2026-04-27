@@ -1859,11 +1859,11 @@ export default function App() {
         <button
           onClick={() => setShowNuovaSegnalazione(true)}
           style={{ bottom: hasPreventiviBanner ? 'calc(1rem + 86px)' : '1.25rem' }}
-          className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition-all duration-300 hover:scale-105 hover:bg-emerald-700 active:scale-95 md:bottom-5 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold"
+          className="fixed right-5 z-40 flex items-center gap-2 rounded-full bg-emerald-600 text-white shadow-2xl shadow-emerald-900/30 transition-all duration-300 hover:scale-105 hover:bg-emerald-700 active:scale-95 px-4 py-3 md:bottom-5 md:rounded-2xl md:px-5 md:py-3"
           aria-label="Nuova segnalazione"
         >
-          <span className="md:hidden">+</span>
-          <span className="hidden md:inline">+ Nuova segnalazione</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-2xl font-light leading-none">+</span>
+          <span className="text-sm font-semibold tracking-tight">Nuova segnalazione</span>
         </button>
       )}
 
