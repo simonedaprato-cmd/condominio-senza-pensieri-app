@@ -1819,7 +1819,7 @@ export default function App() {
       {puoCreareSegnalazioni && (
         <button
           onClick={() => setShowNuovaSegnalazione(true)}
-          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition hover:scale-105 hover:bg-emerald-700 active:scale-95 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold"
+          className={`fixed ${segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione) ? 'bottom-24 md:bottom-5' : 'bottom-5'} right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl font-light leading-none text-white shadow-2xl shadow-emerald-900/30 transition hover:scale-105 hover:bg-emerald-700 active:scale-95 md:h-auto md:w-auto md:rounded-2xl md:px-5 md:py-3 md:text-base md:font-bold`
           aria-label="Nuova segnalazione"
         >
           <span className="md:hidden">+</span>
