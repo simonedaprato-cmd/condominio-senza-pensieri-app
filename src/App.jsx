@@ -839,6 +839,24 @@ function ActionBar({
   );
 }
 
+function DashboardStat({ label, value, tone = 'slate' }) {
+  const toneClass = {
+    slate: 'bg-slate-900 text-white',
+    red: 'bg-red-600 text-white',
+    amber: 'bg-amber-500 text-white',
+    emerald: 'bg-emerald-600 text-white',
+  }[tone] || 'bg-slate-900 text-white';
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className={`mt-2 inline-flex min-w-14 justify-center rounded-xl px-3 py-2 text-lg font-bold ${toneClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function FatturatoBarChart({ valoreInviato, valoreAccettato, valoreRifiutato, fatturatoPrevisto }) {
   const dati = [
     { label: 'Inviato', value: valoreInviato },
