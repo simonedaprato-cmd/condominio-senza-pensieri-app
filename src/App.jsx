@@ -739,10 +739,27 @@ export default function App() {
     const fileName = prefix + '-' + id + '-' + Date.now() + '-' + safeName;
     const { error: uploadError } = await supabase.storage.from('allegati').upload(fileName, file, { upsert: false });
     if (uploadError) throw uploadError;
-    const { error: updateError } = await supabase.from('segnalazioni').update({ [columnName]: fileName }).eq('id', id);
+
+    const updatePayload = {
+      [columnName]: fileName,
+      ...(columnName === 'preventivonome'
+        ? {
+            stato: 'Preventivata',
+            stato_invio: 'inviato',
+          }
+        : {}),
+    };
+
+    const { error: updateError } = await supabase.from('segnalazioni').update(updatePayload).eq('id', id);
     if (updateError) throw updateError;
     await carica();
-    setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, [columnName]: fileName, fotosopralluogourl: columnName === 'fotosopralluogonome' ? buildPublicUrl(fileName) : prev.fotosopralluogourl, preventivourl: columnName === 'preventivonome' ? buildPublicUrl(fileName) : prev.preventivourl } : prev);
+    setDettaglioAperto((prev) => prev && prev.id === id ? {
+      ...prev,
+      ...updatePayload,
+      [columnName]: fileName,
+      fotosopralluogourl: columnName === 'fotosopralluogonome' ? buildPublicUrl(fileName) : prev.fotosopralluogourl,
+      preventivourl: columnName === 'preventivonome' ? buildPublicUrl(fileName) : prev.preventivourl,
+    } : prev);
   };
 
   const aggiornaImporto = async (id, importo) => {
