@@ -150,7 +150,19 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   const [isStickyCompact, setIsStickyCompact] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setIsStickyCompact(window.scrollY > 120);
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const shouldCompact = window.scrollY > 140;
+          setIsStickyCompact((prev) => (prev !== shouldCompact ? shouldCompact : prev));
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -188,7 +200,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + (userProfile?.condominio || 'non specificato') + '. Ho bisogno di supporto.';
 
   return (
-    <header className={`sticky top-3 z-30 relative overflow-hidden border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl transition-all duration-500 ${isStickyCompact ? 'rounded-3xl px-4 py-3 md:px-5 md:py-4' : 'rounded-[2rem] px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-12'}`}>
+    <header className={`sticky top-2 z-30 overflow-hidden border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 shadow-[0_25px_70px_-25px_rgba(5,150,105,0.65)] backdrop-blur-2xl transition-[padding,border-radius,transform,box-shadow] duration-300 will-change-transform relative ${isStickyCompact ? 'rounded-3xl px-4 py-3 md:px-5 md:py-4' : 'rounded-[2rem] px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-12'}`}>
       <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
       <div className="absolute right-1/3 top-0 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl" />
       <div className="absolute -bottom-20 left-0 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
