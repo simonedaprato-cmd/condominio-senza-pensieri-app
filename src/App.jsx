@@ -455,7 +455,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -484,7 +484,34 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
             {segnalazione.allegatoUrl && <img src={segnalazione.allegatoUrl} alt="Allegato" className="w-full rounded-xl border border-slate-200" />}
             {segnalazione.fotosopralluogourl && <img src={segnalazione.fotosopralluogourl} alt="Sopralluogo" className="w-full rounded-xl border border-purple-200" />}
-            {segnalazione.preventivourl && <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">Apri preventivo</a>}
+            {segnalazione.preventivourl && (
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
+                  Apri preventivo
+                </a>
+                {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => onConversionePreventivo(segnalazione.id, 'accettato')}
+                      className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white"
+                    >
+                      Accetta preventivo
+                    </button>
+                    <button
+                      onClick={() => onConversionePreventivo(segnalazione.id, 'rifiutato')}
+                      className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
+                    >
+                      Rifiuta preventivo
+                    </button>
+                  </div>
+                )}
+                {segnalazione.stato_conversione && (
+                  <p className="text-sm font-semibold text-slate-700">
+                    Stato preventivo: {segnalazione.stato_conversione}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -725,6 +752,13 @@ export default function App() {
     setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, note } : prev);
   };
 
+  const aggiornaConversionePreventivo = async (id, stato_conversione) => {
+    const { error } = await supabase.from('segnalazioni').update({ stato_conversione }).eq('id', id);
+    if (error) throw error;
+    await carica();
+    setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, stato_conversione } : prev);
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUtente(null);
@@ -866,6 +900,8 @@ export default function App() {
         onAddNote={aggiungiNota}
         onUploadFile={uploadFilePratica}
         onUpdateImporto={aggiornaImporto}
+        ruolo={ruoloNormalizzato}
+        onConversionePreventivo={aggiornaConversionePreventivo}
       />
     </div>
   );
