@@ -25,6 +25,7 @@ function badgeClass(stato) {
   if (stato === 'Sopralluogo effettuato') return 'bg-purple-100 text-purple-700 border-purple-200';
   if (stato === 'Preventivata') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
   if (stato === 'Chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (stato === 'Rifiutata') return 'bg-red-100 text-red-700 border-red-200';
   return 'bg-amber-100 text-amber-700 border-amber-200';
 }
 
@@ -763,10 +764,19 @@ export default function App() {
   };
 
   const aggiornaConversionePreventivo = async (id, stato_conversione) => {
-    const { error } = await supabase.from('segnalazioni').update({ stato_conversione }).eq('id', id);
+    const updatePayload = {
+      stato_conversione,
+      ...(stato_conversione === 'rifiutato' ? { stato: 'Rifiutata' } : {}),
+    };
+
+    const { error } = await supabase.from('segnalazioni').update(updatePayload).eq('id', id);
     if (error) throw error;
     await carica();
-    setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, stato_conversione } : prev);
+    setDettaglioAperto((prev) => prev && prev.id === id ? {
+      ...prev,
+      stato_conversione,
+      ...(stato_conversione === 'rifiutato' ? { stato: 'Rifiutata' } : {}),
+    } : prev);
   };
 
   const logout = async () => {
