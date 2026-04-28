@@ -179,9 +179,11 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + (userProfile?.condominio || 'non specificato') + '. Ho bisogno di supporto.';
 
   return (
-    <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-emerald-800 px-4 pb-5 pt-6 shadow-[0_25px_80px_-35px_rgba(5,150,105,0.75)] md:px-6 md:pb-6 md:pt-12">
-      <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-white/20 blur-3xl" />
-      <div className="absolute -bottom-24 left-0 h-44 w-44 rounded-full bg-emerald-200/30 blur-3xl" />
+    <header className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 px-4 pb-6 pt-6 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl md:px-8 md:pb-8 md:pt-12">
+      <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
+      <div className="absolute right-1/3 top-0 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl" />
+      <div className="absolute -bottom-20 left-0 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
       <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-start gap-3 md:items-center md:gap-5">
           <LogoMark />
@@ -190,8 +192,8 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione intelligente delle segnalazioni</p>
             {userProfile?.nome && (
               <div className="mt-3">
-                <p className="text-lg font-semibold leading-tight text-white md:text-2xl">{saluto} {userProfile.nome}</p>
-                <p className="mt-1 text-sm font-medium text-emerald-100">{messaggioRuolo}</p>
+                <p className="text-2xl font-black leading-tight tracking-tight text-white drop-shadow md:text-4xl">{saluto} {userProfile.nome}</p>
+                <p className="mt-2 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">{messaggioRuolo}</p>
               </div>
             )}
             <div className="mt-3 space-y-1 text-[11px] text-white/75 md:text-xs">
@@ -201,19 +203,19 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex items-center gap-3 self-start md:self-auto">
           <a
             href={'https://wa.me/393477921965?text=' + encodeURIComponent(whatsappText)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/15 backdrop-blur transition hover:bg-green-500/80"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/15 shadow-lg backdrop-blur-xl transition duration-300 hover:scale-110 hover:bg-green-500/80"
             title="WhatsApp"
           >
             <svg viewBox="0 0 32 32" className="h-5 w-5 fill-white" aria-hidden="true">
               <path d="M16 .4C7.4.4.4 7.4.4 16c0 2.8.7 5.4 2 7.7L.4 31.6l8.1-2c2.2 1.2 4.8 1.9 7.5 1.9 8.6 0 15.6-7 15.6-15.6S24.6.4 16 .4zm0 28.6c-2.4 0-4.7-.7-6.6-1.9l-.5-.3-4.8 1.2 1.3-4.7-.3-.5C4 20.7 3.4 18.4 3.4 16 3.4 8.9 8.9 3.4 16 3.4S28.6 8.9 28.6 16 23.1 29 16 29zm7.4-9.8c-.4-.2-2.3-1.1-2.7-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.4 1.6-.3.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.2-1.3-1.2-2.2-2.7-2.4-3.1-.3-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.3-.4.4-.7.1-.2 0-.5 0-.7 0-.2-1-2.4-1.4-3.3-.3-.8-.7-.7-1-.7h-.8c-.3 0-.7.1-1 .5-.3.4-1.3 1.3-1.3 3.1s1.4 3.5 1.6 3.7c.2.2 2.8 4.3 6.9 6 .9.4 1.6.6 2.1.8.9.3 1.7.2 2.3.1.7-.1 2.3-.9 2.6-1.8.3-.9.3-1.6.2-1.8-.1-.2-.4-.3-.8-.5z" />
             </svg>
           </a>
-          <button onClick={onLogout} className="rounded-xl border border-white/20 bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/25">
+          <button onClick={onLogout} className="rounded-2xl border border-white/20 bg-white/15 px-5 py-3 text-sm font-bold text-white shadow-lg backdrop-blur-xl transition duration-300 hover:scale-105 hover:bg-white/25">
             Logout
           </button>
         </div>
