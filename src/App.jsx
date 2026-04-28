@@ -228,6 +228,7 @@ function DashboardStat({ label, value, tone = 'slate' }) {
     red: 'bg-red-600 text-white',
     amber: 'bg-amber-500 text-white',
     emerald: 'bg-emerald-600 text-white',
+    sky: 'bg-sky-500 text-white',
   }[tone];
 
   return (
@@ -284,7 +285,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
         <DashboardStat label="Totali" value={totale} />
         <DashboardStat label="Urgenze" value={urgenti} tone="red" />
         <DashboardStat label="Prese in carico" value={prese} tone="amber" />
-        <DashboardStat label="In lavorazione" value={lavorazione} tone="emerald" />
+        <DashboardStat label="In lavorazione" value={lavorazione} tone="sky" />
         <DashboardStat label="Chiuse" value={chiuse} tone="slate" />
       </div>
 
