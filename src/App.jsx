@@ -705,7 +705,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
-      <div className="mx-auto w-full max-w-4xl space-y-5 overflow-x-hidden">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         <Header
           utente={utente}
           ruolo={ruoloNormalizzato}
@@ -753,7 +753,9 @@ export default function App() {
           </div>
         )}
 
-        <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
+        <div className="-mt-2">
+          <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
+        </div>
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
 
         {ruoloNormalizzato !== 'amministratore' && (
