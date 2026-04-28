@@ -15,11 +15,9 @@ function buildPublicUrl(fileName) {
 }
 
 function formatEuro(value) {
-  const numero = Number(value || 0);
-  return '€ ' + numero.toLocaleString('it-IT', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  const numero = Math.round(Number(value || 0));
+  const formattato = numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return '€ ' + formattato;
 }
 
 function badgeClass(stato) {
