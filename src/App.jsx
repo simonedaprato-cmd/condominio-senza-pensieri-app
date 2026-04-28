@@ -286,7 +286,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
         <DashboardStat label="Urgenze" value={urgenti} tone="red" />
         <DashboardStat label="Prese in carico" value={prese} tone="amber" />
         <DashboardStat label="In lavorazione" value={lavorazione} tone="sky" />
-        <DashboardStat label="Chiuse" value={chiuse} tone="slate" />
+        <DashboardStat label="Chiuse" value={chiuse} tone="emerald" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
