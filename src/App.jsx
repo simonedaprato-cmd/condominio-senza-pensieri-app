@@ -94,16 +94,24 @@ async function loadUserProfile(email) {
   };
 }
 
-function Login({ loading }) {
+function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
+  const [invioInCorso, setInvioInCorso] = useState(false);
 
   const inviaLink = async () => {
+    const emailPulita = email.trim().toLowerCase();
+    if (!emailPulita || invioInCorso) return;
+
+    setInvioInCorso(true);
     setMessaggio('Invio link in corso...');
+
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email: emailPulita,
       options: { emailRedirectTo: AUTH_REDIRECT_URL },
     });
+
+    setInvioInCorso(false);
 
     if (error) {
       setMessaggio('Accesso non riuscito: ' + error.message);
@@ -127,10 +135,10 @@ function Login({ loading }) {
         />
         <button
           onClick={inviaLink}
-          disabled={loading || !email}
+          disabled={invioInCorso || !email.trim()}
           className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-3 font-bold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
         >
-          Ricevi link
+          {invioInCorso ? 'Invio...' : 'Ricevi link'}
         </button>
         {messaggio && <p className="mt-4 text-sm text-slate-600">{messaggio}</p>}
       </div>
@@ -692,8 +700,8 @@ export default function App() {
     setDettaglioAperto(null);
   };
 
-  if (loading && !utente) return <Login loading={loading} />;
-  if (!utente) return <Login loading={loading} />;
+  if (loading && !utente) return <Login />;
+  if (!utente) return <Login />;
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
