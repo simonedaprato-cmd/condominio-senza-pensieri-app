@@ -43,10 +43,10 @@ function LogoMark() {
           src={LOGO_SRC}
           alt="Condominio Senza Pensieri"
           onError={() => setErroreLogo(true)}
-          className="relative z-10 h-48 w-48 object-contain drop-shadow-2xl md:h
+          className="relative z-10 h-48 w-48 object-contain drop-shadow-2xl md:h-64 md:w-64"
         />
       ) : (
-        <div className="relative z-10 rounded-2xl bg-white/90 px-3 py-2 text-center text-xs font-bold text-emerald-700">
+        <div className="relative z-10 rounded-2xl bg-white px-4 py-3 text-center text-xs font-bold text-emerald-700 shadow-lg">
           CSP
         </div>
       )}
