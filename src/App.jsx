@@ -726,6 +726,27 @@ export default function App() {
           ruolo={ruoloNormalizzato}
         />
 
+        {ruoloNormalizzato === 'amministratore' && (
+          <section className="space-y-3 pb-36 md:pb-6">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold">Segnalazioni</h2>
+              <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
+                {loading ? 'Live...' : 'Aggiorna live'}
+              </button>
+            </div>
+            {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
+            ) : segnalazioniVisualizzate.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
+            ) : (
+              <div className="space-y-3">
+                {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+              </div>
+            )}
+          </section>
+        )}
+
         {ruolo === 'non_configurato' && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
             Il tuo profilo non è configurato nella tabella utenti.
@@ -735,24 +756,26 @@ export default function App() {
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
         <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
 
-        <section className="space-y-3 pb-36 md:pb-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-bold">Segnalazioni</h2>
-            <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
-              {loading ? 'Live...' : 'Aggiorna live'}
-            </button>
-          </div>
-          {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
-          {loading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
-          ) : segnalazioniVisualizzate.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
-          ) : (
-            <div className="space-y-3">
-              {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+        {ruoloNormalizzato !== 'amministratore' && (
+          <section className="space-y-3 pb-36 md:pb-6">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold">Segnalazioni</h2>
+              <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
+                {loading ? 'Live...' : 'Aggiorna live'}
+              </button>
             </div>
-          )}
-        </section>
+            {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
+            ) : segnalazioniVisualizzate.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
+            ) : (
+              <div className="space-y-3">
+                {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {puoCreareSegnalazioni && (
