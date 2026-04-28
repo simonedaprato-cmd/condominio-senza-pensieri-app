@@ -147,27 +147,6 @@ function Login() {
 }
 
 function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout }) {
-  const [isStickyCompact, setIsStickyCompact] = useState(false);
-
-  useEffect(() => {
-    let ticking = false;
-
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const shouldCompact = window.scrollY > 140;
-          setIsStickyCompact((prev) => (prev !== shouldCompact ? shouldCompact : prev));
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   const ora = new Date().getHours();
   let saluto = 'Ciao';
   if (ora >= 5 && ora < 12) saluto = 'Buongiorno';
@@ -200,22 +179,22 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + (userProfile?.condominio || 'non specificato') + '. Ho bisogno di supporto.';
 
   return (
-    <header className={`sticky top-2 z-30 overflow-hidden border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 shadow-[0_25px_70px_-25px_rgba(5,150,105,0.65)] backdrop-blur-2xl transition-[padding,border-radius,transform,box-shadow] duration-300 will-change-transform relative ${isStickyCompact ? 'rounded-3xl px-4 py-3 md:px-5 md:py-4' : 'rounded-[2rem] px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-12'}`}>
+    <header className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 px-4 pb-6 pt-6 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl md:px-8 md:pb-8 md:pt-12">
       <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
       <div className="absolute right-1/3 top-0 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl" />
       <div className="absolute -bottom-20 left-0 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-      <div className={`relative z-10 flex flex-col md:flex-row md:items-center md:justify-between transition-all duration-500 ${isStickyCompact ? 'gap-2' : 'gap-4'}`}>
-        <div className={`flex min-w-0 items-start md:items-center transition-all duration-500 ${isStickyCompact ? 'gap-2 md:gap-3' : 'gap-3 md:gap-5'}`}>
-          {!isStickyCompact && <LogoMark />}
+      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-start gap-3 md:items-center md:gap-5">
+          <LogoMark />
           <div className="min-w-0 text-white">
-            <h1 className={`font-semibold leading-tight tracking-tight text-white/95 transition-all duration-500 ${isStickyCompact ? 'text-base md:text-lg' : 'text-lg md:text-2xl'}`}>Condominio Senza Pensieri</h1>
-            {!isStickyCompact && <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione intelligente delle segnalazioni</p>}
+            <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
+            <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione intelligente delle segnalazioni</p>
             {userProfile?.nome && (
-              <div className={`transition-all duration-500 ${isStickyCompact ? 'mt-1 space-y-1' : 'mt-3 space-y-3'}`}>
-                <p className={`font-black leading-tight tracking-tight text-white drop-shadow transition-all duration-500 ${isStickyCompact ? 'text-base md:text-xl' : 'text-2xl md:text-4xl'}`}>{saluto} {userProfile.nome}</p>
-                {!isStickyCompact && <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">{messaggioRuolo}</p>}
-                {!isStickyCompact && <div className="mt-2 flex flex-wrap gap-2 md:max-w-xl">
+              <div className="mt-3 space-y-3">
+                <p className="text-2xl font-black leading-tight tracking-tight text-white drop-shadow md:text-4xl">{saluto} {userProfile.nome}</p>
+                <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">{messaggioRuolo}</p>
+                <div className="mt-2 flex flex-wrap gap-2 md:max-w-xl">
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
                     Criticità <strong className="text-white">{criticita}</strong>
                   </span>
@@ -225,13 +204,13 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
                     Condomini <strong className="text-white">{condominiVisibili.length}</strong>
                   </span>
-                </div>}
+                </div>
               </div>
             )}
-            {!isStickyCompact && <div className="mt-3 space-y-1 text-[11px] text-white/75 md:text-xs">
+            <div className="mt-3 space-y-1 text-[11px] text-white/75 md:text-xs">
               <p className="break-all">Utente: {utente?.email}</p>
               <p>Ruolo: {ruolo}</p>
-            </div>}
+            </div>
           </div>
         </div>
 
