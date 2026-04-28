@@ -192,13 +192,13 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione intelligente delle segnalazioni</p>
             {userProfile?.nome && (
               <div className="mt-3 space-y-3">
-                <p className="text-lg font-black leading-tight tracking-tight text-white drop-shadow md:text-2xl">{saluto} {userProfile.nome
                 <p className="text-lg font-black leading-tight tracking-tight text-white drop-shadow md:text-2xl">
-  {saluto} {userProfile.nome}
-</p>
-<p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">
-  {messaggioRuolo}
-</p>
+                  {saluto} {userProfile.nome}
+                </p>
+                <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">
+                  {messaggioRuolo}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2 md:max-w-xl">
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
                     Criticità <strong className="text-white">{criticita}</strong>
                   </span>
