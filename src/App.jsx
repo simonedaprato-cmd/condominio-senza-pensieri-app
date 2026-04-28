@@ -764,19 +764,30 @@ export default function App() {
   };
 
   const aggiornaConversionePreventivo = async (id, stato_conversione) => {
-    const updatePayload = {
-      stato_conversione,
-      ...(stato_conversione === 'rifiutato' ? { stato: 'Rifiutata' } : {}),
-    };
+    try {
+      const nuovoStato = stato_conversione === 'rifiutato' ? 'Rifiutata' : 'Preventivata';
+      const updatePayload = {
+        stato_conversione,
+        stato: nuovoStato,
+      };
 
-    const { error } = await supabase.from('segnalazioni').update(updatePayload).eq('id', id);
-    if (error) throw error;
-    await carica();
-    setDettaglioAperto((prev) => prev && prev.id === id ? {
-      ...prev,
-      stato_conversione,
-      ...(stato_conversione === 'rifiutato' ? { stato: 'Rifiutata' } : {}),
-    } : prev);
+      const { error } = await supabase.from('segnalazioni').update(updatePayload).eq('id', id);
+      if (error) throw error;
+
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === id ? { ...item, ...updatePayload } : item
+      )));
+
+      setDettaglioAperto((prev) => prev && prev.id === id ? {
+        ...prev,
+        ...updatePayload,
+      } : prev);
+
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento preventivo: ' + (error.message || 'sconosciuto'));
+    }
   };
 
   const logout = async () => {
