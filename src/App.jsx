@@ -257,25 +257,24 @@ function DashboardStat({ label, value, tone = 'slate' }) {
 }
 
 function DashboardVendite({ segnalazioni }) {
-  const inviati = segnalazioni.filter((s) => s.stato_invio === 'inviato');
-  const accettati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
-  const rifiutati = segnalazioni.filter((s) => s.stato_conversione === 'rifiutato');
+  const preventivi = segnalazioni.filter((s) => Number(s.importo_preventivo || 0) > 0);
+  const deliberati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
 
-  const valoreInviato = inviati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
-  const valoreAccettato = accettati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
-  const valoreRifiutato = rifiutati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
-  const conversione = inviati.length ? Math.round((accettati.length / inviati.length) * 100) : 0;
+  const totalePreventivi = preventivi.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const totaleDeliberato = deliberati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const daDeliberare = Math.max(totalePreventivi - totaleDeliberato, 0);
+  const provvigione = totaleDeliberato * 0.08;
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Vendite</p>
-      <h2 className="mt-1 text-xl font-bold">Dashboard fatturato</h2>
-      <p className="mt-1 text-sm text-slate-500">Valore economico dei preventivi inviati, accettati e rifiutati.</p>
+      <h2 className="mt-1 text-xl font-bold">Dashboard vendite amministratore</h2>
+      <p className="mt-1 text-sm text-slate-500">Totale preventivi, deliberato, da deliberare e provvigione stimata all’8%.</p>
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <DashboardStat label="Valore inviato" value={formatEuro(valoreInviato)} />
-        <DashboardStat label="Fatturato accettato" value={formatEuro(valoreAccettato)} tone="emerald" />
-        <DashboardStat label="Valore rifiutato" value={formatEuro(valoreRifiutato)} tone="red" />
-        <DashboardStat label="Conversione" value={conversione + '%'} tone="amber" />
+        <DashboardStat label="Totale preventivi" value={formatEuro(totalePreventivi)} />
+        <DashboardStat label="Totale deliberato" value={formatEuro(totaleDeliberato)} tone="emerald" />
+        <DashboardStat label="Da deliberare" value={formatEuro(daDeliberare)} tone="amber" />
+        <DashboardStat label="Provvigione 8%" value={formatEuro(provvigione)} tone="sky" />
       </div>
     </section>
   );
