@@ -626,6 +626,7 @@ export default function App() {
 
   const normalizzaSegnalazioni = (data) => (data || []).map((item) => ({
     ...item,
+    stato: item.stato_conversione === 'rifiutato' ? 'Rifiutata' : item.stato,
     condominio: item.condomini?.nome || item.condominio || '',
     allegatoUrl: item.allegatonome ? buildPublicUrl(item.allegatonome) : '',
     fotosopralluogourl: item.fotosopralluogonome ? buildPublicUrl(item.fotosopralluogonome) : '',
@@ -765,37 +766,23 @@ export default function App() {
 
   const aggiornaConversionePreventivo = async (id, stato_conversione) => {
     try {
-      const praticaCorrente = segnalazioni.find((s) => s.id === id);
-      const nuovoStato = stato_conversione === 'rifiutato'
-        ? 'Rifiutata'
-        : stato_conversione === 'accettato'
-          ? 'Chiusa'
-          : praticaCorrente?.stato || 'Preventivata';
+      const statoVisuale = stato_conversione === 'rifiutato' ? 'Rifiutata' : 'Preventivata';
 
-      const updatePayload = {
-        stato_conversione,
-        stato: nuovoStato,
-      };
-
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('segnalazioni')
-        .update(updatePayload)
-        .eq('id', id)
-        .select();
+        .update({ stato_conversione })
+        .eq('id', id);
 
       if (error) throw error;
 
-      if (!data || data.length === 0) {
-        throw new Error('Aggiornamento non applicato');
-      }
-
       setSegnalazioni((prev) => prev.map((item) => (
-        item.id === id ? { ...item, ...updatePayload } : item
+        item.id === id ? { ...item, stato_conversione, stato: statoVisuale } : item
       )));
 
       setDettaglioAperto((prev) => prev && prev.id === id ? {
         ...prev,
-        ...updatePayload,
+        stato_conversione,
+        stato: statoVisuale,
       } : prev);
 
       setStatusMessage(
