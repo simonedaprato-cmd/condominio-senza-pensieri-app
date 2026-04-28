@@ -636,13 +636,6 @@ export default function App() {
 
   const carica = async () => {
     setLoading(true);
-    setStatusMessage(
-        stato_conversione === 'rifiutato'
-          ? 'Preventivo rifiutato: pratica aggiornata.'
-          : stato_conversione === 'accettato'
-            ? 'Preventivo accettato: pratica chiusa automaticamente.'
-            : 'Preventivo aggiornato.'
-      );
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const currentUser = sessionData?.session?.user;
