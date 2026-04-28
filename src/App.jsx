@@ -15,12 +15,12 @@ function buildPublicUrl(fileName) {
 }
 
 function formatEuro(value) {
-  return new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
+  const numero = Number(value || 0);
+  return '€ ' + numero.toLocaleString('it-IT', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  });
+}).format(Number(value || 0));
 }
 
 function badgeClass(stato) {
