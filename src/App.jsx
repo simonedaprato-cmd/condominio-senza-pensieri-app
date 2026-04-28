@@ -191,9 +191,23 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
             <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione intelligente delle segnalazioni</p>
             {userProfile?.nome && (
-              <div className="mt-3">
+              <div className="mt-3 space-y-3">
                 <p className="text-2xl font-black leading-tight tracking-tight text-white drop-shadow md:text-4xl">{saluto} {userProfile.nome}</p>
-                <p className="mt-2 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">{messaggioRuolo}</p>
+                <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">{messaggioRuolo}</p>
+                <div className="grid grid-cols-3 gap-2 md:max-w-xl">
+                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-center backdrop-blur-xl">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70 md:text-xs">Criticità</p>
+                    <p className="mt-1 text-lg font-black text-white md:text-2xl">{criticita}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-center backdrop-blur-xl">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70 md:text-xs">Preventivi</p>
+                    <p className="mt-1 text-lg font-black text-white md:text-2xl">{preventiviAperti}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-center backdrop-blur-xl">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70 md:text-xs">Condomini</p>
+                    <p className="mt-1 text-lg font-black text-white md:text-2xl">{condominiVisibili.length}</p>
+                  </div>
+                </div>
               </div>
             )}
             <div className="mt-3 space-y-1 text-[11px] text-white/75 md:text-xs">
