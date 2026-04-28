@@ -765,14 +765,29 @@ export default function App() {
 
   const aggiornaConversionePreventivo = async (id, stato_conversione) => {
     try {
-      const nuovoStato = stato_conversione === 'rifiutato' ? 'Rifiutata' : 'Preventivata';
+      const praticaCorrente = segnalazioni.find((s) => s.id === id);
+      const nuovoStato = stato_conversione === 'rifiutato'
+        ? 'Rifiutata'
+        : stato_conversione === 'accettato'
+          ? 'Chiusa'
+          : praticaCorrente?.stato || 'Preventivata';
+
       const updatePayload = {
         stato_conversione,
         stato: nuovoStato,
       };
 
-      const { error } = await supabase.from('segnalazioni').update(updatePayload).eq('id', id);
+      const { data, error } = await supabase
+        .from('segnalazioni')
+        .update(updatePayload)
+        .eq('id', id)
+        .select();
+
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error('Aggiornamento non applicato');
+      }
 
       setSegnalazioni((prev) => prev.map((item) => (
         item.id === id ? { ...item, ...updatePayload } : item
@@ -782,6 +797,12 @@ export default function App() {
         ...prev,
         ...updatePayload,
       } : prev);
+
+      setStatusMessage(
+        stato_conversione === 'rifiutato'
+          ? 'Preventivo rifiutato: pratica aggiornata.'
+          : 'Preventivo accettato con successo.'
+      );
 
       await carica();
     } catch (error) {
