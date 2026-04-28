@@ -492,13 +492,23 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && (
                   <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => onConversionePreventivo(segnalazione.id, 'accettato')}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onConversionePreventivo(segnalazione.id, 'accettato');
+                      }}
                       className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white"
                     >
                       Accetta preventivo
                     </button>
                     <button
-                      onClick={() => onConversionePreventivo(segnalazione.id, 'rifiutato')}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onConversionePreventivo(segnalazione.id, 'rifiutato');
+                      }}
                       className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
                     >
                       Rifiuta preventivo
