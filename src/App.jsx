@@ -194,19 +194,16 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
               <div className="mt-3 space-y-3">
                 <p className="text-2xl font-black leading-tight tracking-tight text-white drop-shadow md:text-4xl">{saluto} {userProfile.nome}</p>
                 <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">{messaggioRuolo}</p>
-                <div className="grid grid-cols-3 gap-2 md:max-w-xl">
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-center backdrop-blur-xl">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70 md:text-xs">Criticità</p>
-                    <p className="mt-1 text-lg font-black text-white md:text-2xl">{criticita}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-center backdrop-blur-xl">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70 md:text-xs">Preventivi</p>
-                    <p className="mt-1 text-lg font-black text-white md:text-2xl">{preventiviAperti}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-center backdrop-blur-xl">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/70 md:text-xs">Condomini</p>
-                    <p className="mt-1 text-lg font-black text-white md:text-2xl">{condominiVisibili.length}</p>
-                  </div>
+                <div className="mt-2 flex flex-wrap gap-2 md:max-w-xl">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
+                    Criticità <strong className="text-white">{criticita}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
+                    Preventivi <strong className="text-white">{preventiviAperti}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
+                    Condomini <strong className="text-white">{condominiVisibili.length}</strong>
+                  </span>
                 </div>
               </div>
             )}
