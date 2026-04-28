@@ -753,8 +753,8 @@ export default function App() {
           </div>
         )}
 
-        <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
         <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
+        <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
 
         {ruoloNormalizzato !== 'amministratore' && (
           <section className="space-y-3 pb-36 md:pb-6">
