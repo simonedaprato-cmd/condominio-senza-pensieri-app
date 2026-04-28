@@ -20,7 +20,6 @@ function formatEuro(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
-}).format(Number(value || 0));
 }
 
 function badgeClass(stato) {
