@@ -556,6 +556,7 @@ export default function App() {
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
+  const [showFabLabel, setShowFabLabel] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -630,9 +631,22 @@ export default function App() {
   };
 
   useEffect(() => {
+    let scrollTimeout;
+    const handleScroll = () => {
+      setShowFabLabel(true);
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => setShowFabLabel(false), 900);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     carica();
     const { data: authListener } = supabase.auth.onAuthStateChange(() => carica());
-    return () => authListener?.subscription?.unsubscribe();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
   const uploadFile = async (file, prefix) => {
@@ -805,7 +819,9 @@ export default function App() {
           aria-label="Nuova segnalazione"
         >
           <span className="text-2xl leading-none">+</span>
-          <span className="whitespace-nowrap">Nuova segnalazione</span>
+          <span className={`overflow-hidden whitespace-nowrap transition-all duration-500 ${showFabLabel ? 'max-w-[180px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
+            Nuova segnalazione
+          </span>
         </button>
       )}
 
