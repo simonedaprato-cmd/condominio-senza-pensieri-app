@@ -36,14 +36,14 @@ function LogoMark() {
   const [erroreLogo, setErroreLogo] = useState(false);
 
   return (
-    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-visible md:h-24 md:w-24">
+    <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-visible md:h-36 md:w-36">
       <div className="absolute inset-0 rounded-full bg-emerald-200/40 blur-2xl" />
       {!erroreLogo ? (
         <img
           src={LOGO_SRC}
           alt="Condominio Senza Pensieri"
           onError={() => setErroreLogo(true)}
-          className="relative z-10 h-32 w-32 object-contain drop-shadow-2xl md:h-44 md:w-44"
+          className="relative z-10 h-48 w-48 object-contain drop-shadow-2xl md:h
         />
       ) : (
         <div className="relative z-10 rounded-2xl bg-white/90 px-3 py-2 text-center text-xs font-bold text-emerald-700">
