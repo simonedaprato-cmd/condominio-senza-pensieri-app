@@ -457,7 +457,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -470,11 +470,20 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-2 md:p-4">
       <div className="flex h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/60 bg-white shadow-2xl md:h-[90vh] md:rounded-3xl">
         <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur-xl md:p-5">
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
           <div>
             <h3 className="break-words text-lg font-bold leading-tight md:text-xl">{segnalazione.titolo}</h3>
             <p className="mt-1 text-sm text-slate-500">{segnalazione.condominio}</p>
           </div>
-          <button onClick={onClose} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Chiudi</button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => onGeneraReport(segnalazione)}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
+            >
+              Genera report
+            </button>
+            <button onClick={onClose} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Chiudi</button>
+          </div>
         </div>
 
         <div className="grid flex-1 grid-cols-1 gap-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5">
@@ -609,6 +618,80 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 }
 
 export default function App() {
+  const generaReportPratica = (pratica) => {
+    if (!pratica) return;
+
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) {
+      alert('Impossibile aprire il report. Verifica che il browser non blocchi i popup.');
+      return;
+    }
+
+    const noteHtml = (pratica.note || []).length
+      ? pratica.note.map((n) => `<div style="margin-bottom:12px;padding:10px;border:1px solid #d1d5db;border-radius:10px;"><strong>${n.data}</strong><br/>${n.testo}</div>`).join('')
+      : '<p>Nessuna nota presente.</p>';
+
+    reportWindow.document.write(`
+      <html>
+        <head>
+          <title>Report pratica - ${pratica.titolo}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; color: #0f172a; background: #f8fafc; }
+            h1, h2 { color: #047857; }
+            .page { max-width: 900px; margin: 0 auto; background: white; padding: 34px; border-radius: 22px; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08); }
+            .toolbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 18px; }
+            .btn { border: 0; background: #047857; color: white; font-weight: 700; padding: 11px 16px; border-radius: 12px; cursor: pointer; }
+            .btn.secondary { background: #0f172a; }
+            .section { margin-bottom: 30px; }
+            .box { border: 1px solid #d1d5db; padding: 16px; border-radius: 14px; margin-top: 10px; }
+            img { max-width: 100%; border-radius: 12px; margin-top: 10px; }
+            a { color: #047857; font-weight: bold; }
+            @media print {
+              body { background: white; padding: 0; }
+              .toolbar { display: none; }
+              .page { box-shadow: none; border-radius: 0; padding: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <button class="btn" onclick="window.print()">Scarica PDF / Stampa</button>
+            <button class="btn secondary" onclick="window.close()">Chiudi</button>
+          </div>
+          <div class="page">
+          <h1>Condominio Senza Pensieri</h1>
+          <h2>Report pratica</h2>
+
+          <div class="section box">
+            <p><strong>Condominio:</strong> ${pratica.condominio}</p>
+            <p><strong>Titolo:</strong> ${pratica.titolo}</p>
+            <p><strong>Descrizione:</strong> ${pratica.descrizione}</p>
+            <p><strong>Categoria:</strong> ${pratica.categoria || 'n.d.'}</p>
+            <p><strong>Stato:</strong> ${pratica.stato}</p>
+            <p><strong>Priorità:</strong> ${pratica.priorita}</p>
+            <p><strong>Luogo:</strong> ${pratica.luogo || 'n.d.'}</p>
+            <p><strong>Referente:</strong> ${pratica.referente || 'n.d.'}</p>
+            <p><strong>Telefono:</strong> ${pratica.telefono || 'n.d.'}</p>
+            <p><strong>Preventivo:</strong> ${formatEuro(pratica.importo_preventivo || 0)}</p>
+            ${pratica.data_inizio_lavori_presunta ? `<p><strong>Data presunta inizio lavori:</strong> ${new Date(pratica.data_inizio_lavori_presunta).toLocaleDateString('it-IT')}</p>` : ''}
+          </div>
+
+          ${pratica.allegatoUrl ? `<div class="section"><h2>Foto segnalazione</h2><img src="${pratica.allegatoUrl}" /></div>` : ''}
+          ${pratica.fotosopralluogourl ? `<div class="section"><h2>Foto sopralluogo</h2><img src="${pratica.fotosopralluogourl}" /></div>` : ''}
+          ${pratica.preventivourl ? `<div class="section"><h2>Preventivo</h2><p><a href="${pratica.preventivourl}" target="_blank">Apri documento preventivo</a></p></div>` : ''}
+
+          <div class="section">
+            <h2>Cronologia note</h2>
+            ${noteHtml}
+          </div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    reportWindow.document.close();
+    reportWindow.focus();
+  };
   const [utente, setUtente] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [ruolo, setRuolo] = useState('gestore');
@@ -1015,6 +1098,7 @@ export default function App() {
         ruolo={ruoloNormalizzato}
         onConversionePreventivo={aggiornaConversionePreventivo}
         onPianificaLavori={pianificaLavori}
+        onGeneraReport={generaReportPratica}
       />
     </div>
   );
