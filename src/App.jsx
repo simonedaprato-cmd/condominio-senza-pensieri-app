@@ -736,7 +736,11 @@ export default function App() {
 
   const normalizzaSegnalazioni = (data) => (data || []).map((item) => ({
     ...item,
-    stato: item.stato_conversione === 'rifiutato' ? 'Rifiutata' : item.stato,
+    stato: item.stato_conversione === 'rifiutato'
+      ? 'Rifiutata'
+      : item.stato_conversione === 'accettato'
+        ? 'Accettata'
+        : item.stato,
     condominio: item.condomini?.nome || item.condominio || '',
     allegatoUrl: item.allegatonome ? buildPublicUrl(item.allegatonome) : '',
     fotosopralluogourl: item.fotosopralluogonome ? buildPublicUrl(item.fotosopralluogonome) : '',
@@ -927,7 +931,7 @@ export default function App() {
 
       const { error } = await supabase
         .from('segnalazioni')
-        .update({ stato_conversione })
+        .update({ stato_conversione, stato: statoVisuale })
         .eq('id', id);
 
       if (error) throw error;
