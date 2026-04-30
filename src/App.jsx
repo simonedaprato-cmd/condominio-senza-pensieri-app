@@ -7,7 +7,7 @@ const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Pianificata', 'Chiusa'];
+const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa'];
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -24,6 +24,7 @@ function badgeClass(stato) {
   if (stato === 'Presa in carico') return 'bg-blue-100 text-blue-700 border-blue-200';
   if (stato === 'Sopralluogo effettuato') return 'bg-purple-100 text-purple-700 border-purple-200';
   if (stato === 'Preventivata') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  if (stato === 'Accettata') return 'bg-teal-100 text-teal-700 border-teal-200';
   if (stato === 'Pianificata') return 'bg-sky-100 text-sky-700 border-sky-200';
   if (stato === 'Chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
   if (stato === 'Rifiutata') return 'bg-red-100 text-red-700 border-red-200';
@@ -288,7 +289,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.priorita === 'Alta').length;
   const prese = segnalazioni.filter((s) => s.stato === 'Presa in carico').length;
-  const lavorazione = segnalazioni.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Pianificata').length;
+  const lavorazione = segnalazioni.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Accettata' || s.stato === 'Pianificata').length;
   const chiuse = segnalazioni.filter((s) => s.stato === 'Chiusa').length;
 
   const critiche = segnalazioni.filter((s) => s.priorita === 'Alta' || s.stato === 'Presa in carico').slice(0, 5);
@@ -921,7 +922,7 @@ export default function App() {
       const statoVisuale = stato_conversione === 'rifiutato'
         ? 'Rifiutata'
         : stato_conversione === 'accettato'
-          ? 'Chiusa'
+          ? 'Accettata'
           : 'Preventivata';
 
       const { error } = await supabase
