@@ -734,19 +734,28 @@ export default function App() {
 
   const hasPreventiviBanner = segnalazioni.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
 
-  const normalizzaSegnalazioni = (data) => (data || []).map((item) => ({
+  const normalizzaSegnalazioni = (data) => (data || []).map((item) => {
+    const statoDb = item.stato || '';
+    const statoCalcolato = statoDb === 'Chiusa'
+      ? 'Chiusa'
+      : statoDb === 'Pianificata' || item.data_inizio_lavori_presunta
+        ? 'Pianificata'
+        : statoDb === 'Rifiutata' || item.stato_conversione === 'rifiutato'
+          ? 'Rifiutata'
+          : statoDb === 'Accettata' || item.stato_conversione === 'accettato'
+            ? 'Accettata'
+            : statoDb;
+
+    return {
     ...item,
-    stato: item.stato_conversione === 'rifiutato'
-      ? 'Rifiutata'
-      : item.stato_conversione === 'accettato'
-        ? 'Accettata'
-        : item.stato,
+    stato: statoCalcolato,
     condominio: item.condomini?.nome || item.condominio || '',
     allegatoUrl: item.allegatonome ? buildPublicUrl(item.allegatonome) : '',
     fotosopralluogourl: item.fotosopralluogonome ? buildPublicUrl(item.fotosopralluogonome) : '',
     preventivourl: item.preventivonome ? buildPublicUrl(item.preventivonome) : '',
     note: Array.isArray(item.note) ? item.note : [],
-  }));
+  };
+  });
 
   const carica = async () => {
     setLoading(true);
@@ -841,10 +850,31 @@ export default function App() {
   };
 
   const cambiaStato = async (id, nuovoStato) => {
-    const { error } = await supabase.from('segnalazioni').update({ stato: nuovoStato }).eq('id', id);
-    if (error) throw error;
-    await carica();
-    setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, stato: nuovoStato } : prev);
+    try {
+      const updatePayload = {
+        stato: nuovoStato,
+        ...(nuovoStato === 'Chiusa' || nuovoStato === 'Pianificata' ? { stato_conversione: 'accettato' } : {}),
+      };
+
+      const { data, error } = await supabase
+        .from('segnalazioni')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      if (!data) throw new Error('Aggiornamento stato non applicato.');
+
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === id ? { ...item, ...updatePayload, stato: nuovoStato } : item
+      )));
+
+      setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, ...updatePayload, stato: nuovoStato } : prev);
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento stato: ' + (error.message || 'sconosciuto'));
+    }
   };
 
   const uploadFilePratica = async (id, file, columnName, prefix) => {
@@ -898,15 +928,19 @@ export default function App() {
     try {
       const updatePayload = {
         stato: 'Pianificata',
+        stato_conversione: 'accettato',
         data_inizio_lavori_presunta: dataPresunta,
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('segnalazioni')
         .update(updatePayload)
-        .eq('id', id);
+        .eq('id', id)
+        .select()
+        .single();
 
       if (error) throw error;
+      if (!data) throw new Error('Pianificazione non applicata.');
 
       setSegnalazioni((prev) => prev.map((item) => (
         item.id === id ? { ...item, ...updatePayload } : item
