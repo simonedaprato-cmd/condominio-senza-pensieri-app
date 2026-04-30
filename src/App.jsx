@@ -7,7 +7,7 @@ const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Chiusa'];
+const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Pianificata', 'Chiusa'];
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -24,6 +24,7 @@ function badgeClass(stato) {
   if (stato === 'Presa in carico') return 'bg-blue-100 text-blue-700 border-blue-200';
   if (stato === 'Sopralluogo effettuato') return 'bg-purple-100 text-purple-700 border-purple-200';
   if (stato === 'Preventivata') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  if (stato === 'Pianificata') return 'bg-sky-100 text-sky-700 border-sky-200';
   if (stato === 'Chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
   if (stato === 'Rifiutata') return 'bg-red-100 text-red-700 border-red-200';
   return 'bg-amber-100 text-amber-700 border-amber-200';
@@ -287,7 +288,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.priorita === 'Alta').length;
   const prese = segnalazioni.filter((s) => s.stato === 'Presa in carico').length;
-  const lavorazione = segnalazioni.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata').length;
+  const lavorazione = segnalazioni.filter((s) => s.stato === 'Sopralluogo effettuato' || s.stato === 'Preventivata' || s.stato === 'Pianificata').length;
   const chiuse = segnalazioni.filter((s) => s.stato === 'Chiusa').length;
 
   const critiche = segnalazioni.filter((s) => s.priorita === 'Alta' || s.stato === 'Presa in carico').slice(0, 5);
@@ -456,11 +457,12 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [dataInizioPresunta, setDataInizioPresunta] = useState('');
 
   if (!segnalazione) return null;
 
@@ -483,6 +485,9 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
             <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
+            {segnalazione.data_inizio_lavori_presunta && (
+              <p><span className="text-slate-500">Inizio lavori presunto:</span> {new Date(segnalazione.data_inizio_lavori_presunta).toLocaleDateString('it-IT')}</p>
+            )}
             {segnalazione.allegatoUrl && <img src={segnalazione.allegatoUrl} alt="Allegato" className="w-full rounded-xl border border-slate-200" />}
             {segnalazione.fotosopralluogourl && <img src={segnalazione.fotosopralluogourl} alt="Sopralluogo" className="w-full rounded-xl border border-purple-200" />}
             {segnalazione.preventivourl && (
@@ -540,6 +545,27 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 <button disabled={!file || uploading} onClick={async () => { setUploading(true); await onUploadFile(segnalazione.id, file, 'fotosopralluogonome', 'sopralluogo'); setFile(null); setUploading(false); }} className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
                   Carica foto
+                </button>
+              </div>
+            )}
+
+            {ruolo === 'gestore' && segnalazione.stato_conversione === 'accettato' && segnalazione.stato !== 'Pianificata' && (
+              <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <p className="font-semibold text-sky-800">Pianificazione lavori</p>
+                <p className="text-sm text-sky-700">Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.</p>
+                <input
+                  type="date"
+                  value={dataInizioPresunta}
+                  onChange={(e) => setDataInizioPresunta(e.target.value)}
+                  className="w-full rounded-xl border border-sky-200 px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={!dataInizioPresunta}
+                  onClick={() => onPianificaLavori(segnalazione.id, dataInizioPresunta)}
+                  className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  Pianifica lavori
                 </button>
               </div>
             )}
@@ -780,6 +806,33 @@ export default function App() {
     setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, note } : prev);
   };
 
+  const pianificaLavori = async (id, dataPresunta) => {
+    try {
+      const updatePayload = {
+        stato: 'Pianificata',
+        data_inizio_lavori_presunta: dataPresunta,
+      };
+
+      const { error } = await supabase
+        .from('segnalazioni')
+        .update(updatePayload)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === id ? { ...item, ...updatePayload } : item
+      )));
+
+      setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, ...updatePayload } : prev);
+      setStatusMessage('Lavori pianificati: amministratore avvisato.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore pianificazione lavori: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const aggiornaConversionePreventivo = async (id, stato_conversione) => {
     try {
       const statoVisuale = stato_conversione === 'rifiutato'
@@ -961,6 +1014,7 @@ export default function App() {
         onUpdateImporto={aggiornaImporto}
         ruolo={ruoloNormalizzato}
         onConversionePreventivo={aggiornaConversionePreventivo}
+        onPianificaLavori={pianificaLavori}
       />
     </div>
   );
