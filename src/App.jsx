@@ -458,7 +458,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -507,13 +507,51 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 </a>
 
                 {(ruolo === 'condominio' || ruolo === 'amministratore' || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
-                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
-                    <p className="text-sm font-semibold text-sky-800">
-                      Preventivo condiviso dall’amministratore
-                    </p>
-                    <p className="mt-1 text-xs text-sky-700">
-                      Documento disponibile per consultazione diretta.
-                    </p>
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-sky-800">
+                        Preventivo condiviso dall’amministratore
+                      </p>
+                      <p className="mt-1 text-xs text-sky-700">
+                        Documento disponibile per consultazione diretta.
+                      </p>
+                    </div>
+
+                    {ruolo === 'condominio' && (
+                      <div className="space-y-2 border-t border-sky-200 pt-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-sky-800">
+                          Voto consultivo condomino
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onVotoCondomino(segnalazione.id, 'favorevole')}
+                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Favorevole
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onVotoCondomino(segnalazione.id, 'contrario')}
+                            className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Contrario
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onVotoCondomino(segnalazione.id, 'indeciso')}
+                            className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Indeciso
+                          </button>
+                        </div>
+                        {segnalazione.voto_condomino && (
+                          <p className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-sky-800 border border-sky-100">
+                            Il tuo voto: {segnalazione.voto_condomino}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1001,6 +1039,32 @@ export default function App() {
     }
   };
 
+  const aggiornaVotoCondomino = async (id, voto) => {
+    try {
+      const { error } = await supabase
+        .from('segnalazioni')
+        .update({ voto_condomino: voto })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === id ? { ...item, voto_condomino: voto } : item
+      )));
+
+      setDettaglioAperto((prev) => prev && prev.id === id ? {
+        ...prev,
+        voto_condomino: voto,
+      } : prev);
+
+      setStatusMessage('Voto consultivo registrato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore registrazione voto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const pianificaLavori = async (id, dataPresunta) => {
     try {
       const updatePayload = {
@@ -1216,6 +1280,7 @@ export default function App() {
         onPianificaLavori={pianificaLavori}
         onGeneraReport={generaReportPratica}
         onCondividiCondomini={condividiPreventivoCondomini}
+        onVotoCondomino={aggiornaVotoCondomino}
       />
     </div>
   );
