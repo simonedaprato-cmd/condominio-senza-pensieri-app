@@ -505,6 +505,18 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
                   Apri preventivo
                 </a>
+
+                {(ruolo === 'condominio' || ruolo === 'amministratore' || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                    <p className="text-sm font-semibold text-sky-800">
+                      Preventivo condiviso dall’amministratore
+                    </p>
+                    <p className="mt-1 text-xs text-sky-700">
+                      Documento disponibile per consultazione diretta.
+                    </p>
+                  </div>
+                )}
+
                 {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && (
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -531,6 +543,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                     </button>
                   </div>
                 )}
+
                 {segnalazione.stato_conversione && (
                   <p className="text-sm font-semibold text-slate-700">
                     Stato preventivo: {segnalazione.stato_conversione}
@@ -551,7 +564,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </button>
                 )}
 
-                {segnalazione.preventivo_condiviso_condomini && (
+                {segnalazione.preventivo_condiviso_condomini && ruolo === 'amministratore' && (
                   <p className="rounded-xl bg-sky-100 px-3 py-2 text-sm font-semibold text-sky-700">
                     Preventivo condiviso con i condomini
                   </p>
