@@ -458,7 +458,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino, votiPreventivi }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -466,6 +466,13 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const [dataInizioPresunta, setDataInizioPresunta] = useState('');
 
   if (!segnalazione) return null;
+
+  const votiPratica = (votiPreventivi || []).filter((v) => v.segnalazione_id === segnalazione.id);
+  const votiFavorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
+  const votiContrari = votiPratica.filter((v) => v.voto === 'contrario').length;
+  const votiIndecisi = votiPratica.filter((v) => v.voto === 'indeciso').length;
+  const totaleVoti = votiPratica.length;
+  const consensoPercentuale = totaleVoti ? Math.round((votiFavorevoli / totaleVoti) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-2 md:p-4">
@@ -603,9 +610,27 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 )}
 
                 {segnalazione.preventivo_condiviso_condomini && ruolo === 'amministratore' && (
-                  <p className="rounded-xl bg-sky-100 px-3 py-2 text-sm font-semibold text-sky-700">
-                    Preventivo condiviso con i condomini
-                  </p>
+                  <div className="rounded-xl bg-sky-100 px-3 py-3 text-sm font-semibold text-sky-700">
+                    <p>Preventivo condiviso con i condomini</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
+                        <p className="text-lg font-black text-emerald-700">{votiFavorevoli}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Contrari</p>
+                        <p className="text-lg font-black text-red-600">{votiContrari}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Indecisi</p>
+                        <p className="text-lg font-black text-amber-600">{votiIndecisi}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Consenso</p>
+                        <p className="text-lg font-black text-sky-700">{consensoPercentuale}%</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -778,6 +803,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [showFabLabel, setShowFabLabel] = useState(false);
+  const [votiPreventivi, setVotiPreventivi] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -856,6 +882,13 @@ export default function App() {
 
       if (segnalazioniError) throw segnalazioniError;
       setSegnalazioni(normalizzaSegnalazioni(segnalazioniData));
+
+      const { data: votiData, error: votiError } = await supabase
+        .from('preventivo_voti')
+        .select('*');
+
+      if (votiError && votiError.code !== 'PGRST116') throw votiError;
+      setVotiPreventivi(votiData || []);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -1041,21 +1074,19 @@ export default function App() {
 
   const aggiornaVotoCondomino = async (id, voto) => {
     try {
+      if (!utente?.email) throw new Error('Utente non identificato');
+
+      const votoPayload = {
+        segnalazione_id: id,
+        email: utente.email.toLowerCase().trim(),
+        voto,
+      };
+
       const { error } = await supabase
-        .from('segnalazioni')
-        .update({ voto_condomino: voto })
-        .eq('id', id);
+        .from('preventivo_voti')
+        .upsert(votoPayload, { onConflict: 'segnalazione_id,email' });
 
       if (error) throw error;
-
-      setSegnalazioni((prev) => prev.map((item) => (
-        item.id === id ? { ...item, voto_condomino: voto } : item
-      )));
-
-      setDettaglioAperto((prev) => prev && prev.id === id ? {
-        ...prev,
-        voto_condomino: voto,
-      } : prev);
 
       setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
@@ -1281,6 +1312,7 @@ export default function App() {
         onGeneraReport={generaReportPratica}
         onCondividiCondomini={condividiPreventivoCondomini}
         onVotoCondomino={aggiornaVotoCondomino}
+        votiPreventivi={votiPreventivi}
       />
     </div>
   );
