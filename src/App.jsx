@@ -7,10 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
