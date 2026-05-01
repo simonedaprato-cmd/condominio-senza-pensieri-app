@@ -458,7 +458,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -534,6 +534,26 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 {segnalazione.stato_conversione && (
                   <p className="text-sm font-semibold text-slate-700">
                     Stato preventivo: {segnalazione.stato_conversione}
+                  </p>
+                )}
+
+                {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && !segnalazione.preventivo_condiviso_condomini && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onCondividiCondomini(segnalazione);
+                    }}
+                    className="w-full rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700"
+                  >
+                    Condividi con i condomini
+                  </button>
+                )}
+
+                {segnalazione.preventivo_condiviso_condomini && (
+                  <p className="rounded-xl bg-sky-100 px-3 py-2 text-sm font-semibold text-sky-700">
+                    Preventivo condiviso con i condomini
                   </p>
                 )}
               </div>
@@ -924,6 +944,50 @@ export default function App() {
     setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, note } : prev);
   };
 
+  const condividiPreventivoCondomini = async (pratica) => {
+    try {
+      if (!pratica?.id) return;
+      const conferma = window.confirm('Vuoi condividere questo preventivo con i condomini del condominio?');
+      if (!conferma) return;
+
+      const { data, error } = await supabase.functions.invoke('share-preventivo-condomini', {
+        body: {
+          id: pratica.id,
+          titolo: pratica.titolo,
+          condominio_id: pratica.condominio_id,
+          importo_preventivo: pratica.importo_preventivo,
+          preventivonome: pratica.preventivonome,
+        },
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Condivisione non riuscita.');
+
+      const updatePayload = {
+        preventivo_condiviso_condomini: true,
+        data_condivisione_preventivo: new Date().toISOString(),
+      };
+
+      const { error: updateError } = await supabase
+        .from('segnalazioni')
+        .update(updatePayload)
+        .eq('id', pratica.id);
+
+      if (updateError) throw updateError;
+
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === pratica.id ? { ...item, ...updatePayload } : item
+      )));
+
+      setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, ...updatePayload } : prev);
+      setStatusMessage('Preventivo condiviso con i condomini.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore condivisione preventivo: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const pianificaLavori = async (id, dataPresunta) => {
     try {
       const updatePayload = {
@@ -1138,6 +1202,7 @@ export default function App() {
         onConversionePreventivo={aggiornaConversionePreventivo}
         onPianificaLavori={pianificaLavori}
         onGeneraReport={generaReportPratica}
+        onCondividiCondomini={condividiPreventivoCondomini}
       />
     </div>
   );
