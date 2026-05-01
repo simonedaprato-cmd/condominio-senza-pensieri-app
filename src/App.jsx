@@ -261,6 +261,50 @@ function DashboardStat({ label, value, tone = 'slate' }) {
   );
 }
 
+function DashboardEconomica({ segnalazioni, condomini }) {
+  const totaleStorico = segnalazioni.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const accettate = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
+  const fatturatoAccettato = accettate.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+  const ticketMedio = accettate.length ? Math.round(fatturatoAccettato / accettate.length) : 0;
+  const perCondominio = condomini.map((c) => {
+    const pratiche = segnalazioni.filter((s) => s.condominio_id === c.id);
+    const valore = pratiche.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+    return { nome: c.nome, valore, pratiche: pratiche.length };
+  }).sort((a, b) => b.valore - a.valore).slice(0, 5);
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Economica</p>
+      <h2 className="mt-1 text-xl font-bold">Dashboard economica premium</h2>
+      <p className="mt-1 text-sm text-slate-500">Analisi fatturato, ticket medio e condomini a maggior valore.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Valore totale" value={formatEuro(totaleStorico)} tone="sky" />
+        <DashboardStat label="Fatturato accettato" value={formatEuro(fatturatoAccettato)} tone="emerald" />
+        <DashboardStat label="Ticket medio" value={formatEuro(ticketMedio)} tone="amber" />
+        <DashboardStat label="Pratiche accettate" value={accettate.length} />
+      </div>
+      <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm font-bold text-slate-700">Top condomini per valore</p>
+        <div className="mt-3 space-y-2">
+          {perCondominio.length === 0 ? (
+            <p className="text-sm text-slate-500">Nessun dato disponibile.</p>
+          ) : (
+            perCondominio.map((item) => (
+              <div key={item.nome} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 border border-slate-200">
+                <div>
+                  <p className="font-semibold text-slate-800">{item.nome}</p>
+                  <p className="text-xs text-slate-500">{item.pratiche} pratiche</p>
+                </div>
+                <p className="font-bold text-sky-700">{formatEuro(item.valore)}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DashboardVendite({ segnalazioni }) {
   const preventivi = segnalazioni.filter((s) => Number(s.importo_preventivo || 0) > 0);
   const deliberati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
@@ -1406,6 +1450,9 @@ export default function App() {
           <DashboardStorico segnalazioni={segnalazioniVisualizzate} />
         )}
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
+        {ruoloNormalizzato === 'gestore' && (
+          <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
+        )}
 
         {ruoloNormalizzato !== 'amministratore' && (
           <section className="space-y-3 pb-36 md:pb-6">
