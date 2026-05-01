@@ -458,7 +458,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino, votiPreventivi }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, votiPreventivi }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -611,7 +611,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
                 {segnalazione.preventivo_condiviso_condomini && ruolo === 'amministratore' && (
                   <div className="rounded-xl bg-sky-100 px-3 py-3 text-sm font-semibold text-sky-700">
-                    <p>Preventivo condiviso con i condomini</p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p>Preventivo condiviso con i condomini</p>
+                      <button
+                        type="button"
+                        onClick={() => onInviaReminderVoto(segnalazione)}
+                        className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-800"
+                      >
+                        Invia reminder non votanti
+                      </button>
+                    </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                       <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
@@ -1072,6 +1081,31 @@ export default function App() {
     }
   };
 
+  const inviaReminderVoto = async (pratica) => {
+    try {
+      if (!pratica?.id) return;
+      const conferma = window.confirm('Vuoi inviare un reminder ai condomini che non hanno ancora votato?');
+      if (!conferma) return;
+
+      const { data, error } = await supabase.functions.invoke('reminder-voto-condomini', {
+        body: {
+          id: pratica.id,
+          titolo: pratica.titolo,
+          condominio_id: pratica.condominio_id,
+          importo_preventivo: pratica.importo_preventivo,
+        },
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Reminder non riuscito.');
+
+      setStatusMessage(`Reminder inviato a ${data?.emails?.length || 0} condomini non votanti.`);
+    } catch (error) {
+      console.error(error);
+      alert('Errore invio reminder: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const aggiornaVotoCondomino = async (id, voto) => {
     try {
       if (!utente?.email) throw new Error('Utente non identificato');
@@ -1312,6 +1346,7 @@ export default function App() {
         onGeneraReport={generaReportPratica}
         onCondividiCondomini={condividiPreventivoCondomini}
         onVotoCondomino={aggiornaVotoCondomino}
+        onInviaReminderVoto={inviaReminderVoto}
         votiPreventivi={votiPreventivi}
       />
     </div>
