@@ -285,6 +285,48 @@ function DashboardVendite({ segnalazioni }) {
   );
 }
 
+function DashboardStorico({ segnalazioni }) {
+  const archiviate = segnalazioni.filter((s) => s.archiviata === true);
+  const chiuse = archiviate.filter((s) => s.stato === 'Chiusa').length;
+  const rifiutate = archiviate.filter((s) => s.stato === 'Rifiutata').length;
+  const valoreStorico = archiviate.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
+
+  const perAnno = archiviate.reduce((acc, s) => {
+    const data = s.data_archiviazione || s.created_at;
+    const anno = data ? new Date(data).getFullYear() : 'n.d.';
+    acc[anno] = (acc[anno] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-600">Archivio</p>
+      <h2 className="mt-1 text-xl font-bold">Storico pratiche archiviate</h2>
+      <p className="mt-1 text-sm text-slate-500">Riepilogo delle pratiche archiviate e del valore storico gestito.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Archiviate" value={archiviate.length} />
+        <DashboardStat label="Chiuse" value={chiuse} tone="emerald" />
+        <DashboardStat label="Rifiutate" value={rifiutate} tone="red" />
+        <DashboardStat label="Valore storico" value={formatEuro(valoreStorico)} tone="sky" />
+      </div>
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm font-bold text-slate-700">Distribuzione per anno</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {Object.keys(perAnno).length === 0 ? (
+            <span className="text-sm text-slate-500">Nessuna pratica archiviata.</span>
+          ) : (
+            Object.entries(perAnno).map(([anno, totale]) => (
+              <span key={anno} className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-700 border border-slate-200">
+                {anno}: {totale}
+              </span>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   const totale = segnalazioni.length;
   const urgenti = segnalazioni.filter((s) => s.priorita === 'Alta').length;
@@ -352,7 +394,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   );
 }
 
-function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo }) {
+function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -372,6 +414,15 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, se
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        {ruolo === 'gestore' && (
+          <button
+            type="button"
+            onClick={onToggleArchiviate}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 font-bold text-slate-700"
+          >
+            {showArchiviate ? 'Mostra pratiche attive' : 'Mostra archivio pratiche'}
+          </button>
+        )}
         <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Vista: {ruolo}</span>
         <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-600">Condomini visibili: {condomini.length}</span>
       </div>
@@ -489,7 +540,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 onClick={() => onDeletePratica(segnalazione)}
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
               >
-                Elimina pratica
+                Archivia pratica
               </button>
             )}
             <button
@@ -821,6 +872,7 @@ export default function App() {
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [showFabLabel, setShowFabLabel] = useState(false);
   const [votiPreventivi, setVotiPreventivi] = useState([]);
+  const [showArchiviate, setShowArchiviate] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -840,9 +892,10 @@ export default function App() {
   const segnalazioniVisualizzate = useMemo(() => {
     const testo = searchTerm.toLowerCase().trim();
     return segnalazioniFiltrate.filter((s) => {
+      const passaArchivio = showArchiviate ? s.archiviata === true : s.archiviata !== true;
       const passaCondominio = filtroCondominioId ? String(s.condominio_id) === String(filtroCondominioId) : true;
       const passaRicerca = !testo || [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente].filter(Boolean).some((v) => String(v).toLowerCase().includes(testo));
-      return passaCondominio && passaRicerca;
+      return passaCondominio && passaRicerca && passaArchivio;
     });
   }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
 
@@ -1210,23 +1263,35 @@ export default function App() {
   const eliminaPratica = async (pratica) => {
     try {
       if (!pratica?.id) return;
-      const conferma = window.confirm('Vuoi eliminare definitivamente questa pratica? Questa azione non è reversibile.');
+      const conferma = window.confirm('Vuoi archiviare questa pratica? Potrai consultarla nello storico.');
       if (!conferma) return;
 
       const { error } = await supabase
         .from('segnalazioni')
-        .delete()
+        .update({
+          archiviata: true,
+          data_archiviazione: new Date().toISOString(),
+        })
         .eq('id', pratica.id);
 
       if (error) throw error;
 
-      setSegnalazioni((prev) => prev.filter((item) => item.id !== pratica.id));
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === pratica.id
+          ? {
+              ...item,
+              archiviata: true,
+              data_archiviazione: new Date().toISOString(),
+            }
+          : item
+      )));
+
       setDettaglioAperto(null);
-      setStatusMessage('Pratica eliminata con successo.');
+      setStatusMessage('Pratica archiviata con successo.');
       await carica();
     } catch (error) {
       console.error(error);
-      alert('Errore eliminazione pratica: ' + (error.message || 'sconosciuto'));
+      alert('Errore archiviazione pratica: ' + (error.message || 'sconosciuto'));
     }
   };
 
@@ -1247,6 +1312,8 @@ export default function App() {
         <Header
           utente={utente}
           ruolo={ruoloNormalizzato}
+          showArchiviate={showArchiviate}
+          onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
           userProfile={userProfile}
           condominiVisibili={condominiVisibili}
           segnalazioni={segnalazioniVisualizzate}
@@ -1262,6 +1329,8 @@ export default function App() {
           onRefresh={carica}
           loading={loading}
           ruolo={ruoloNormalizzato}
+          showArchiviate={showArchiviate}
+          onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
         />
 
         {ruoloNormalizzato === 'amministratore' && (
@@ -1294,6 +1363,9 @@ export default function App() {
         <div className="-mt-2">
           <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
         </div>
+        {ruoloNormalizzato === 'gestore' && showArchiviate && (
+          <DashboardStorico segnalazioni={segnalazioniVisualizzate} />
+        )}
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
 
         {ruoloNormalizzato !== 'amministratore' && (
