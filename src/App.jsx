@@ -509,7 +509,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, votiPreventivi }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -535,12 +535,20 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p className="mt-1 text-sm text-slate-500">{segnalazione.condominio}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {ruolo === 'gestore' && (
+            {ruolo === 'gestore' && !segnalazione.archiviata && (
               <button
                 onClick={() => onDeletePratica(segnalazione)}
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
               >
                 Archivia pratica
+              </button>
+            )}
+            {ruolo === 'gestore' && segnalazione.archiviata && (
+              <button
+                onClick={() => onRipristinaPratica(segnalazione)}
+                className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white"
+              >
+                Ripristina pratica
               </button>
             )}
             <button
@@ -1295,6 +1303,37 @@ export default function App() {
     }
   };
 
+  const ripristinaPratica = async (pratica) => {
+    try {
+      if (!pratica?.id) return;
+      const conferma = window.confirm('Vuoi ripristinare questa pratica tra quelle attive?');
+      if (!conferma) return;
+
+      const updatePayload = {
+        archiviata: false,
+        data_archiviazione: null,
+      };
+
+      const { error } = await supabase
+        .from('segnalazioni')
+        .update(updatePayload)
+        .eq('id', pratica.id);
+
+      if (error) throw error;
+
+      setSegnalazioni((prev) => prev.map((item) => (
+        item.id === pratica.id ? { ...item, ...updatePayload } : item
+      )));
+
+      setDettaglioAperto(null);
+      setStatusMessage('Pratica ripristinata tra le pratiche attive.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore ripristino pratica: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUtente(null);
@@ -1451,6 +1490,7 @@ export default function App() {
         onVotoCondomino={aggiornaVotoCondomino}
         onInviaReminderVoto={inviaReminderVoto}
         onDeletePratica={eliminaPratica}
+        onRipristinaPratica={ripristinaPratica}
         votiPreventivi={votiPreventivi}
       />
     </div>
