@@ -261,6 +261,63 @@ function DashboardStat({ label, value, tone = 'slate' }) {
   );
 }
 
+function DashboardAssemblea({ segnalazioni, votiPreventivi }) {
+  const praticheCondivise = segnalazioni.filter((s) => s.preventivo_condiviso_condomini);
+
+  const dati = praticheCondivise.map((pratica) => {
+    const voti = (votiPreventivi || []).filter((v) => v.segnalazione_id === pratica.id);
+    const favorevoli = voti.filter((v) => v.voto === 'favorevole').length;
+    const contrari = voti.filter((v) => v.voto === 'contrario').length;
+    const indecisi = voti.filter((v) => v.voto === 'indeciso').length;
+    const totale = voti.length;
+    const quorum = totale > 0 ? Math.round((favorevoli / totale) * 100) : 0;
+
+    return {
+      id: pratica.id,
+      titolo: pratica.titolo,
+      condominio: pratica.condominio,
+      favorevoli,
+      contrari,
+      indecisi,
+      totale,
+      quorum,
+    };
+  }).sort((a, b) => b.quorum - a.quorum);
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-purple-700">Assemblea</p>
+      <h2 className="mt-1 text-xl font-bold">Quorum digitale preventivi</h2>
+      <p className="mt-1 text-sm text-slate-500">Monitoraggio consenso condomini pre-assemblea.</p>
+
+      <div className="mt-4 space-y-3">
+        {dati.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+            Nessun preventivo condiviso disponibile.
+          </div>
+        ) : (
+          dati.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-bold text-slate-900">{item.titolo}</p>
+                  <p className="text-sm text-slate-500">{item.condominio}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 font-bold text-emerald-700">Fav: {item.favorevoli}</span>
+                  <span className="rounded-full bg-red-100 px-3 py-1 font-bold text-red-700">Con: {item.contrari}</span>
+                  <span className="rounded-full bg-amber-100 px-3 py-1 font-bold text-amber-700">Ind: {item.indecisi}</span>
+                  <span className="rounded-full bg-sky-100 px-3 py-1 font-bold text-sky-700">Quorum: {item.quorum}%</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardEconomica({ segnalazioni, condomini }) {
   const totaleStorico = segnalazioni.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
   const accettate = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
@@ -553,7 +610,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -601,6 +658,14 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             >
               Genera report
             </button>
+            {segnalazione.preventivo_condiviso_condomini && (
+              <button
+                onClick={() => onGeneraPdfVotazioni(segnalazione)}
+                className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-bold text-white"
+              >
+                Export PDF votazioni
+              </button>
+            )}
             <button onClick={onClose} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Chiudi</button>
           </div>
         </div>
@@ -835,6 +900,74 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 }
 
 export default function App() {
+  const generaPdfVotazioni = (pratica) => {
+    if (!pratica) return;
+
+    const votiPratica = (votiPreventivi || []).filter((v) => v.segnalazione_id === pratica.id);
+    const favorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
+    const contrari = votiPratica.filter((v) => v.voto === 'contrario').length;
+    const indecisi = votiPratica.filter((v) => v.voto === 'indeciso').length;
+    const totale = votiPratica.length;
+    const quorum = totale ? Math.round((favorevoli / totale) * 100) : 0;
+
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) return;
+
+    const dettaglioVoti = votiPratica.length
+      ? votiPratica.map((v) => `<tr><td style="padding:8px;border:1px solid #ccc;">${v.email}</td><td style="padding:8px;border:1px solid #ccc;">${v.voto}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="padding:12px;border:1px solid #ccc;">Nessun voto registrato</td></tr>';
+
+    reportWindow.document.write(`
+      <html>
+        <head>
+          <title>Report votazioni - ${pratica.titolo}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; background:#f8fafc; color:#0f172a; }
+            .page { max-width: 900px; margin:auto; background:white; padding:35px; border-radius:20px; }
+            .toolbar { display:flex; justify-content:flex-end; gap:10px; margin-bottom:20px; }
+            .btn { background:#047857; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:bold; cursor:pointer; }
+            table { width:100%; border-collapse:collapse; margin-top:20px; }
+            th, td { text-align:left; }
+            th { background:#ecfdf5; }
+            @media print { .toolbar { display:none; } body { background:white; padding:0; } }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <button class="btn" onclick="window.print()">Scarica PDF / Stampa</button>
+          </div>
+          <div class="page">
+            <h1>Condominio Senza Pensieri</h1>
+            <h2>Report votazioni condomini</h2>
+            <p><strong>Condominio:</strong> ${pratica.condominio}</p>
+            <p><strong>Pratica:</strong> ${pratica.titolo}</p>
+            <p><strong>Importo preventivo:</strong> ${formatEuro(pratica.importo_preventivo || 0)}</p>
+            <hr/>
+            <h3>Riepilogo votazioni</h3>
+            <p>Favorevoli: <strong>${favorevoli}</strong></p>
+            <p>Contrari: <strong>${contrari}</strong></p>
+            <p>Indecisi: <strong>${indecisi}</strong></p>
+            <p>Quorum favorevole: <strong>${quorum}%</strong></p>
+            <h3>Dettaglio voti</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th style="padding:8px;border:1px solid #ccc;">Condomino</th>
+                  <th style="padding:8px;border:1px solid #ccc;">Voto</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${dettaglioVoti}
+              </tbody>
+            </table>
+          </div>
+        </body>
+      </html>
+    `);
+
+    reportWindow.document.close();
+  };
+
   const generaReportPratica = (pratica) => {
     if (!pratica) return;
 
@@ -1451,7 +1584,10 @@ export default function App() {
         )}
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
         {ruoloNormalizzato === 'gestore' && (
-          <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
+          <>
+            <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
+            <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
+          </>
         )}
 
         {ruoloNormalizzato !== 'amministratore' && (
@@ -1533,6 +1669,7 @@ export default function App() {
         onConversionePreventivo={aggiornaConversionePreventivo}
         onPianificaLavori={pianificaLavori}
         onGeneraReport={generaReportPratica}
+        onGeneraPdfVotazioni={generaPdfVotazioni}
         onCondividiCondomini={condividiPreventivoCondomini}
         onVotoCondomino={aggiornaVotoCondomino}
         onInviaReminderVoto={inviaReminderVoto}
