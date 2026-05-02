@@ -395,6 +395,49 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardRanking({ contratti, condomini }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+
+  const ranking = attivi.map((contratto) => {
+    const condominio = condomini.find((c) => c.id === contratto.condominio_id);
+    return {
+      ...contratto,
+      nome: condominio?.nome || `Condominio #${contratto.condominio_id}`,
+    };
+  }).sort((a, b) => Number(b.ricavo_annuo || 0) - Number(a.ricavo_annuo || 0));
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-700">Ranking</p>
+      <h2 className="mt-1 text-xl font-bold">Top amministratori / condomini</h2>
+      <p className="mt-1 text-sm text-slate-500">Classifica clienti per redditività annuale.</p>
+
+      <div className="mt-4 space-y-3">
+        {ranking.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+            Nessun contratto disponibile.
+          </div>
+        ) : (
+          ranking.slice(0, 10).map((cliente, index) => (
+            <div key={cliente.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-500 text-sm font-black text-white">
+                  {index + 1}
+                </span>
+                <div>
+                  <p className="font-bold text-slate-900">{cliente.nome}</p>
+                  <p className="text-xs text-slate-500">Piano: {PIANI_ABBONAMENTO[cliente.piano]?.nome}</p>
+                </div>
+              </div>
+              <p className="font-black text-yellow-700">{formatEuro(cliente.ricavo_annuo)}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardForecast({ contratti }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
   const mrr = attivi.reduce((sum, c) => sum + Number(c.ricavo_mensile || 0), 0);
@@ -1947,6 +1990,7 @@ export default function App() {
             <DashboardPagamenti contratti={contratti} />
             <DashboardCRM contratti={contratti} condomini={condomini} />
             <DashboardForecast contratti={contratti} />
+            <DashboardRanking contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
