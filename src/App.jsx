@@ -395,6 +395,39 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardForecast({ contratti }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+  const mrr = attivi.reduce((sum, c) => sum + Number(c.ricavo_mensile || 0), 0);
+  const arr = mrr * 12;
+  const crescitaStimata = Math.round(arr * 1.25);
+  const premium = attivi.filter((c) => c.piano === 'premium').length;
+  const totale = attivi.length;
+  const premiumRatio = totale ? Math.round((premium / totale) * 100) : 0;
+  const churnStimato = Math.max(5, 100 - premiumRatio);
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Forecast</p>
+      <h2 className="mt-1 text-xl font-bold">Previsione crescita annuale</h2>
+      <p className="mt-1 text-sm text-slate-500">Previsioni business e stabilità commerciale.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="ARR attuale" value={formatEuro(arr)} tone="emerald" />
+        <DashboardStat label="ARR stimato +25%" value={formatEuro(crescitaStimata)} tone="sky" />
+        <DashboardStat label="Premium ratio" value={premiumRatio + '%'} tone="amber" />
+        <DashboardStat label="Churn rischio" value={churnStimato + '%'} tone="red" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+        <p className="text-sm font-bold text-indigo-800">Indicatore strategico</p>
+        <p className="mt-2 text-sm text-indigo-700">
+          Con il mantenimento dell'attuale conversione e una crescita commerciale moderata, il business può raggiungere un incremento stimato del 25% annuo.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function DashboardCRM({ contratti, condomini }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -1913,6 +1946,7 @@ export default function App() {
             <DashboardAbbonamenti contratti={contratti} />
             <DashboardPagamenti contratti={contratti} />
             <DashboardCRM contratti={contratti} condomini={condomini} />
+            <DashboardForecast contratti={contratti} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
