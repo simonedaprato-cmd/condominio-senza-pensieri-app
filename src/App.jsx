@@ -395,6 +395,150 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardTerritorioToscana({ contratti, condomini }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+
+  const province = {};
+  attivi.forEach((contratto) => {
+    const condominio = condomini.find((c) => c.id === contratto.condominio_id);
+    const indirizzo = (condominio?.indirizzo || '').toLowerCase();
+
+    let provincia = 'Toscana generica';
+    if (indirizzo.includes('firenze')) provincia = 'Firenze';
+    else if (indirizzo.includes('prato')) provincia = 'Prato';
+    else if (indirizzo.includes('pistoia')) provincia = 'Pistoia';
+    else if (indirizzo.includes('lucca')) provincia = 'Lucca';
+    else if (indirizzo.includes('pisa')) provincia = 'Pisa';
+    else if (indirizzo.includes('livorno')) provincia = 'Livorno';
+    else if (indirizzo.includes('arezzo')) provincia = 'Arezzo';
+    else if (indirizzo.includes('siena')) provincia = 'Siena';
+    else if (indirizzo.includes('massa')) provincia = 'Massa-Carrara';
+    else if (indirizzo.includes('grosseto')) provincia = 'Grosseto';
+
+    if (!province[provincia]) {
+      province[provincia] = {
+        nome: provincia,
+        condomini: 0,
+        fatturato: 0,
+      };
+    }
+
+    province[provincia].condomini += 1;
+    province[provincia].fatturato += Number(contratto.ricavo_annuo || 0);
+  });
+
+  const ranking = Object.values(province).sort((a, b) => b.fatturato - a.fatturato);
+  const fatturatoTotale = ranking.reduce((sum, p) => sum + p.fatturato, 0);
+  const provinciaTop = ranking[0]?.nome || 'N.D.';
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-700">Toscana</p>
+      <h2 className="mt-1 text-xl font-bold">Espansione territoriale Toscana</h2>
+      <p className="mt-1 text-sm text-slate-500">Monitoraggio crescita strategica regionale.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Province attive" value={ranking.length} tone="sky" />
+        <DashboardStat label="Condomini attivi" value={attivi.length} tone="emerald" />
+        <DashboardStat label="ARR Toscana" value={formatEuro(fatturatoTotale)} tone="amber" />
+        <DashboardStat label="Top provincia" value={provinciaTop} tone="slate" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+        <p className="text-sm font-bold text-orange-800">Priorità provinciali</p>
+        <div className="mt-3 space-y-2">
+          {ranking.length === 0 ? (
+            <p className="text-sm text-orange-700">Nessun dato disponibile.</p>
+          ) : (
+            ranking.slice(0, 7).map((provincia) => (
+              <div key={provincia.nome} className="flex items-center justify-between rounded-xl border border-orange-100 bg-white px-3 py-2">
+                <div>
+                  <p className="font-semibold text-slate-900">{provincia.nome}</p>
+                  <p className="text-xs text-slate-500">{provincia.condomini} condomini</p>
+                </div>
+                <p className="font-bold text-orange-700">{formatEuro(provincia.fatturato)}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardProvinceOpportunita({ contratti, condomini }) {
+  const attiviIds = new Set(contratti.filter((c) => c.stato === 'attivo').map((c) => c.condominio_id));
+
+  const provinceStats = {};
+
+  condomini.forEach((condominio) => {
+    const indirizzo = (condominio.indirizzo || '').toLowerCase();
+    let provincia = 'Toscana generica';
+
+    if (indirizzo.includes('firenze')) provincia = 'Firenze';
+    else if (indirizzo.includes('prato')) provincia = 'Prato';
+    else if (indirizzo.includes('pistoia')) provincia = 'Pistoia';
+    else if (indirizzo.includes('lucca')) provincia = 'Lucca';
+    else if (indirizzo.includes('pisa')) provincia = 'Pisa';
+    else if (indirizzo.includes('livorno')) provincia = 'Livorno';
+    else if (indirizzo.includes('arezzo')) provincia = 'Arezzo';
+    else if (indirizzo.includes('siena')) provincia = 'Siena';
+    else if (indirizzo.includes('massa')) provincia = 'Massa-Carrara';
+    else if (indirizzo.includes('grosseto')) provincia = 'Grosseto';
+
+    if (!provinceStats[provincia]) {
+      provinceStats[provincia] = {
+        nome: provincia,
+        totali: 0,
+        acquisiti: 0,
+      };
+    }
+
+    provinceStats[provincia].totali += 1;
+    if (attiviIds.has(condominio.id)) {
+      provinceStats[provincia].acquisiti += 1;
+    }
+  });
+
+  const opportunita = Object.values(provinceStats)
+    .map((p) => ({
+      ...p,
+      prospect: p.totali - p.acquisiti,
+      penetrazione: p.totali ? Math.round((p.acquisiti / p.totali) * 100) : 0,
+    }))
+    .sort((a, b) => b.prospect - a.prospect);
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-rose-700">Opportunità Toscana</p>
+      <h2 className="mt-1 text-xl font-bold">Province a maggior potenziale</h2>
+      <p className="mt-1 text-sm text-slate-500">Dove concentrare acquisizione amministratori e campagne locali.</p>
+
+      <div className="mt-4 space-y-3">
+        {opportunita.length === 0 ? (
+          <p className="text-sm text-slate-500">Nessun dato disponibile.</p>
+        ) : (
+          opportunita.slice(0, 7).map((provincia) => (
+            <div key={provincia.nome} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-bold text-slate-900">{provincia.nome}</p>
+                  <p className="text-xs text-slate-500">
+                    Copertura: {provincia.acquisiti}/{provincia.totali} • Penetrazione {provincia.penetrazione}%
+                  </p>
+                </div>
+                <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+                  Prospect: {provincia.prospect}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardFranchising({ contratti, condomini }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -2165,7 +2309,8 @@ export default function App() {
             <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
             <DashboardMarginalita contratti={contratti} />
-            <DashboardFranchising contratti={contratti} condomini={condomini} />
+            <DashboardTerritorioToscana contratti={contratti} condomini={condomini} />
+            <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
