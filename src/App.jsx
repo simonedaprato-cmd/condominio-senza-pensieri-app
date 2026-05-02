@@ -395,6 +395,55 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardCRM({ contratti, condomini }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+
+  const clientiTop = attivi.map((contratto) => {
+    const condominio = condomini.find((c) => c.id === contratto.condominio_id);
+    return {
+      ...contratto,
+      nome: condominio?.nome || `Condominio #${contratto.condominio_id}`,
+    };
+  }).sort((a, b) => Number(b.ricavo_annuo || 0) - Number(a.ricavo_annuo || 0)).slice(0, 5);
+
+  const baseDaConvertire = attivi.filter((c) => c.piano === 'base').length;
+  const plusDaConvertire = attivi.filter((c) => c.piano === 'plus').length;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-700">CRM</p>
+      <h2 className="mt-1 text-xl font-bold">CRM amministratori / clienti</h2>
+      <p className="mt-1 text-sm text-slate-500">Controllo clienti top e potenziale upgrade commerciale.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Base da convertire" value={baseDaConvertire} tone="amber" />
+        <DashboardStat label="Plus da convertire" value={plusDaConvertire} tone="sky" />
+        <DashboardStat label="Clienti top" value={clientiTop.length} tone="emerald" />
+        <DashboardStat label="Premium attivi" value={attivi.filter((c) => c.piano === 'premium').length} tone="slate" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm font-bold text-slate-700">Top clienti per valore annuale</p>
+        <div className="mt-3 space-y-2">
+          {clientiTop.length === 0 ? (
+            <p className="text-sm text-slate-500">Nessun contratto disponibile.</p>
+          ) : (
+            clientiTop.map((cliente) => (
+              <div key={cliente.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <div>
+                  <p className="font-semibold text-slate-900">{cliente.nome}</p>
+                  <p className="text-xs text-slate-500">Piano: {PIANI_ABBONAMENTO[cliente.piano]?.nome}</p>
+                </div>
+                <p className="font-bold text-fuchsia-700">{formatEuro(cliente.ricavo_annuo)}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DashboardPagamenti({ contratti }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
   const totaleIncassato = attivi.reduce((sum, c) => sum + Number(c.ricavo_annuo || 0), 0);
@@ -1863,6 +1912,7 @@ export default function App() {
             />
             <DashboardAbbonamenti contratti={contratti} />
             <DashboardPagamenti contratti={contratti} />
+            <DashboardCRM contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
