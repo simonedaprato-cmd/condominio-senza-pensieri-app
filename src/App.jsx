@@ -8,6 +8,11 @@ const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa'];
+const PIANI_ABBONAMENTO = {
+  base: { nome: 'Base', costo: 3.5, app: false, whatsapp: false },
+  plus: { nome: 'Plus', costo: 6.5, app: false, whatsapp: true },
+  premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true },
+};
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -258,6 +263,45 @@ function DashboardStat({ label, value, tone = 'slate' }) {
       <p className="text-xs text-slate-500">{label}</p>
       <p className={'mt-2 inline-flex min-w-14 justify-center rounded-xl px-3 py-2 text-lg font-bold ' + toneClass}>{value}</p>
     </div>
+  );
+}
+
+function DashboardAbbonamenti({ contratti }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+  const base = attivi.filter((c) => c.piano === 'base');
+  const plus = attivi.filter((c) => c.piano === 'plus');
+  const premium = attivi.filter((c) => c.piano === 'premium');
+
+  const totaleFamiglie = attivi.reduce((sum, c) => sum + Number(c.famiglie || 0), 0);
+  const mrr = attivi.reduce((sum, c) => sum + Number(c.ricavo_mensile || 0), 0);
+  const arr = mrr * 12;
+  const premiumRatio = attivi.length ? Math.round((premium.length / attivi.length) * 100) : 0;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Business</p>
+      <h2 className="mt-1 text-xl font-bold">Dashboard abbonamenti</h2>
+      <p className="mt-1 text-sm text-slate-500">Monitoraggio business ricorrente e crescita annuale.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Condomini attivi" value={attivi.length} tone="sky" />
+        <DashboardStat label="Famiglie attive" value={totaleFamiglie} tone="emerald" />
+        <DashboardStat label="MRR" value={formatEuro(mrr)} tone="amber" />
+        <DashboardStat label="ARR" value={formatEuro(arr)} tone="slate" />
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <DashboardStat label="Base" value={base.length} />
+        <DashboardStat label="Plus" value={plus.length} tone="amber" />
+        <DashboardStat label="Premium" value={premium.length} tone="emerald" />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+        <p className="text-sm font-bold text-emerald-800">Premium ratio</p>
+        <p className="mt-2 text-3xl font-black text-emerald-700">{premiumRatio}%</p>
+        <p className="text-xs text-emerald-700">Percentuale condomini premium sul totale attivo</p>
+      </div>
+    </section>
   );
 }
 
@@ -1058,6 +1102,7 @@ export default function App() {
   const [showFabLabel, setShowFabLabel] = useState(false);
   const [votiPreventivi, setVotiPreventivi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
+  const [contratti, setContratti] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -1144,6 +1189,13 @@ export default function App() {
 
       if (votiError && votiError.code !== 'PGRST116') throw votiError;
       setVotiPreventivi(votiData || []);
+
+      const { data: contrattiData, error: contrattiError } = await supabase
+        .from('contratti_condominio')
+        .select('*');
+
+      if (contrattiError && contrattiError.code !== 'PGRST116') throw contrattiError;
+      setContratti(contrattiData || []);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -1585,6 +1637,7 @@ export default function App() {
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
         {ruoloNormalizzato === 'gestore' && (
           <>
+            <DashboardAbbonamenti contratti={contratti} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
