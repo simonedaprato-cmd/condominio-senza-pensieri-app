@@ -395,6 +395,37 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardMarginalita({ contratti }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+
+  const fatturato = attivi.reduce((sum, c) => sum + Number(c.ricavo_annuo || 0), 0);
+  const costoOperativoStimato = Math.round(fatturato * 0.38);
+  const margineLordo = fatturato - costoOperativoStimato;
+  const marginalitaPercentuale = fatturato ? Math.round((margineLordo / fatturato) * 100) : 0;
+  const valoreMedioCliente = attivi.length ? Math.round(fatturato / attivi.length) : 0;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-green-700">Marginalità</p>
+      <h2 className="mt-1 text-xl font-bold">KPI marginalità netta reale</h2>
+      <p className="mt-1 text-sm text-slate-500">Controllo sostenibilità economica e profitto operativo.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Fatturato annuo" value={formatEuro(fatturato)} tone="sky" />
+        <DashboardStat label="Costi stimati" value={formatEuro(costoOperativoStimato)} tone="red" />
+        <DashboardStat label="Margine lordo" value={formatEuro(margineLordo)} tone="emerald" />
+        <DashboardStat label="Marginalità" value={marginalitaPercentuale + '%'} tone="amber" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 p-4">
+        <p className="text-sm font-bold text-green-800">Valore medio cliente</p>
+        <p className="mt-2 text-2xl font-black text-green-700">{formatEuro(valoreMedioCliente)}</p>
+        <p className="text-xs text-green-700">Redditività media annuale per condominio attivo</p>
+      </div>
+    </section>
+  );
+}
+
 function DashboardLeadPipeline({ contratti, condomini }) {
   const attiviIds = new Set(
     contratti.filter((c) => c.stato === 'attivo').map((c) => c.condominio_id)
@@ -2074,6 +2105,7 @@ export default function App() {
             <DashboardRanking contratti={contratti} condomini={condomini} />
             <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
+            <DashboardMarginalita contratti={contratti} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
