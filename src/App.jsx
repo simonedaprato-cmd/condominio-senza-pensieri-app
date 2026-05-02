@@ -395,6 +395,39 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardEspansione({ contratti, condomini }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+
+  const totaleCondomini = condomini.length;
+  const coperti = new Set(attivi.map((c) => c.condominio_id)).size;
+  const penetrazione = totaleCondomini ? Math.round((coperti / totaleCondomini) * 100) : 0;
+  const prospect = Math.max(totaleCondomini - coperti, 0);
+
+  const potenzialeMensile = prospect * 12 * PIANI_ABBONAMENTO.premium.costo;
+  const potenzialeAnnuale = potenzialeMensile * 12;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-rose-700">Espansione</p>
+      <h2 className="mt-1 text-xl font-bold">Espansione territoriale / prospect</h2>
+      <p className="mt-1 text-sm text-slate-500">Monitoraggio copertura commerciale e crescita potenziale.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Condomini totali" value={totaleCondomini} tone="slate" />
+        <DashboardStat label="Condomini attivi" value={coperti} tone="emerald" />
+        <DashboardStat label="Penetrazione" value={penetrazione + '%'} tone="sky" />
+        <DashboardStat label="Prospect" value={prospect} tone="amber" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-rose-100 bg-rose-50 p-4">
+        <p className="text-sm font-bold text-rose-800">Potenziale Premium inesplorato</p>
+        <p className="mt-2 text-sm text-rose-700">MRR potenziale: {formatEuro(potenzialeMensile)}</p>
+        <p className="text-sm text-rose-700">ARR potenziale: {formatEuro(potenzialeAnnuale)}</p>
+      </div>
+    </section>
+  );
+}
+
 function DashboardRanking({ contratti, condomini }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -1991,6 +2024,7 @@ export default function App() {
             <DashboardCRM contratti={contratti} condomini={condomini} />
             <DashboardForecast contratti={contratti} />
             <DashboardRanking contratti={contratti} condomini={condomini} />
+            <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
