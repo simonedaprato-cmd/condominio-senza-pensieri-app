@@ -340,6 +340,61 @@ function GestioneContratti({ condomini, contratti, onCreateContratto }) {
   );
 }
 
+function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeContratto }) {
+  const inScadenza = contratti.filter((c) => {
+    if (!c.data_scadenza || c.stato !== 'attivo') return false;
+    const oggi = new Date();
+    const scadenza = new Date(c.data_scadenza);
+    const diff = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+    return diff <= 30;
+  });
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Rinnovi</p>
+      <h2 className="mt-1 text-xl font-bold">Contratti in scadenza / upgrade</h2>
+      <p className="mt-1 text-sm text-slate-500">Monitoraggio rinnovi e crescita commerciale.</p>
+
+      <div className="mt-4 space-y-3">
+        {inScadenza.length === 0 ? (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
+            Nessun contratto in scadenza nei prossimi 30 giorni.
+          </div>
+        ) : (
+          inScadenza.map((contratto) => (
+            <div key={contratto.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-bold text-slate-900">Condominio ID #{contratto.condominio_id}</p>
+                  <p className="text-sm text-slate-500">
+                    Piano: {PIANI_ABBONAMENTO[contratto.piano]?.nome || contratto.piano} • Scadenza: {new Date(contratto.data_scadenza).toLocaleDateString('it-IT')}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => onRinnovaContratto(contratto)}
+                    className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white"
+                  >
+                    Rinnova
+                  </button>
+                  {contratto.piano !== 'premium' && (
+                    <button
+                      onClick={() => onUpgradeContratto(contratto)}
+                      className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-bold text-white"
+                    >
+                      Upgrade Premium
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardAbbonamenti({ contratti }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
   const base = attivi.filter((c) => c.piano === 'base');
@@ -1655,6 +1710,54 @@ export default function App() {
     }
   };
 
+  const rinnovaContratto = async (contratto) => {
+    try {
+      const nuovaScadenza = new Date();
+      nuovaScadenza.setFullYear(nuovaScadenza.getFullYear() + 1);
+
+      const { error } = await supabase
+        .from('contratti_condominio')
+        .update({
+          data_scadenza: nuovaScadenza.toISOString(),
+          stato: 'attivo',
+        })
+        .eq('id', contratto.id);
+
+      if (error) throw error;
+      setStatusMessage('Contratto rinnovato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore rinnovo contratto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const upgradeContratto = async (contratto) => {
+    try {
+      const pianoPremium = PIANI_ABBONAMENTO.premium;
+      const ricavoMensile = Number(contratto.famiglie || 0) * pianoPremium.costo;
+
+      const { error } = await supabase
+        .from('contratti_condominio')
+        .update({
+          piano: 'premium',
+          costo_unitario: pianoPremium.costo,
+          ricavo_mensile: ricavoMensile,
+          ricavo_annuo: ricavoMensile * 12,
+          app_attiva: true,
+          gruppo_whatsapp_attivo: true,
+        })
+        .eq('id', contratto.id);
+
+      if (error) throw error;
+      setStatusMessage('Contratto aggiornato a Premium con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore upgrade contratto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUtente(null);
@@ -1730,6 +1833,11 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && (
           <>
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
+            <GestioneRinnoviContratti
+              contratti={contratti}
+              onRinnovaContratto={rinnovaContratto}
+              onUpgradeContratto={upgradeContratto}
+            />
             <DashboardAbbonamenti contratti={contratti} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
