@@ -395,6 +395,29 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardPagamenti({ contratti }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+  const totaleIncassato = attivi.reduce((sum, c) => sum + Number(c.ricavo_annuo || 0), 0);
+  const mensile = attivi.reduce((sum, c) => sum + Number(c.ricavo_mensile || 0), 0);
+  const scaduti = contratti.filter((c) => c.stato === 'scaduto').length;
+  const sospesi = contratti.filter((c) => c.stato === 'sospeso').length;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Pagamenti</p>
+      <h2 className="mt-1 text-xl font-bold">Storico economico contratti</h2>
+      <p className="mt-1 text-sm text-slate-500">Monitoraggio stato economico complessivo.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Incasso annuale attivo" value={formatEuro(totaleIncassato)} tone="emerald" />
+        <DashboardStat label="Incasso mensile" value={formatEuro(mensile)} tone="sky" />
+        <DashboardStat label="Contratti scaduti" value={scaduti} tone="amber" />
+        <DashboardStat label="Contratti sospesi" value={sospesi} tone="red" />
+      </div>
+    </section>
+  );
+}
+
 function DashboardAbbonamenti({ contratti }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
   const base = attivi.filter((c) => c.piano === 'base');
@@ -1839,6 +1862,7 @@ export default function App() {
               onUpgradeContratto={upgradeContratto}
             />
             <DashboardAbbonamenti contratti={contratti} />
+            <DashboardPagamenti contratti={contratti} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
