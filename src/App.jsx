@@ -1941,23 +1941,27 @@ export default function App() {
   };
 
   useEffect(() => {
-    let scrollTimeout;
-    const handleScroll = () => {
-      setShowFabLabel(true);
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => setShowFabLabel(false), 900);
-    };
+  const getInitialSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setSession(session);
+    setUser(session?.user ?? null);
+    setLoading(false);
+  };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+  getInitialSession();
 
-    carica();
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => carica());
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      clearTimeout(scrollTimeout);
-      authListener?.subscription?.unsubscribe();
-    };
-  }, []);
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setSession(session);
+    setUser(session?.user ?? null);
+    setLoading(false);
+  });
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, []);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
