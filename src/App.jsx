@@ -395,6 +395,54 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardLeadPipeline({ contratti, condomini }) {
+  const attiviIds = new Set(
+    contratti.filter((c) => c.stato === 'attivo').map((c) => c.condominio_id)
+  );
+
+  const prospectCondomini = condomini.filter((c) => !attiviIds.has(c.id));
+
+  const leadCaldi = prospectCondomini.slice(0, Math.ceil(prospectCondomini.length * 0.35));
+  const leadTiepidi = prospectCondomini.slice(leadCaldi.length, Math.ceil(prospectCondomini.length * 0.7));
+  const leadFreddi = prospectCondomini.slice(leadCaldi.length + leadTiepidi.length);
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Pipeline</p>
+      <h2 className="mt-1 text-xl font-bold">CRM lead amministratori prospect</h2>
+      <p className="mt-1 text-sm text-slate-500">Pipeline acquisizione commerciale nuovi clienti.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Prospect totali" value={prospectCondomini.length} tone="slate" />
+        <DashboardStat label="Lead caldi" value={leadCaldi.length} tone="red" />
+        <DashboardStat label="Lead tiepidi" value={leadTiepidi.length} tone="amber" />
+        <DashboardStat label="Lead freddi" value={leadFreddi.length} tone="sky" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+        <p className="text-sm font-bold text-cyan-800">Top prospect prioritari</p>
+        <div className="mt-3 space-y-2">
+          {leadCaldi.length === 0 ? (
+            <p className="text-sm text-cyan-700">Nessun prospect disponibile.</p>
+          ) : (
+            leadCaldi.slice(0, 5).map((lead) => (
+              <div key={lead.id} className="flex items-center justify-between rounded-xl border border-cyan-100 bg-white px-3 py-2">
+                <div>
+                  <p className="font-semibold text-slate-900">{lead.nome}</p>
+                  <p className="text-xs text-slate-500">{lead.indirizzo || 'Area non specificata'}</p>
+                </div>
+                <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                  Alta priorità
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DashboardEspansione({ contratti, condomini }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -2025,6 +2073,7 @@ export default function App() {
             <DashboardForecast contratti={contratti} />
             <DashboardRanking contratti={contratti} condomini={condomini} />
             <DashboardEspansione contratti={contratti} condomini={condomini} />
+            <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
