@@ -1941,27 +1941,51 @@ export default function App() {
   };
 
   useEffect(() => {
-  const getInitialSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setSession(session);
-    setUser(session?.user ?? null);
-    setLoading(false);
-  };
+    let active = true;
 
-  getInitialSession();
+    const inizializzaAuth = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
 
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    setSession(session);
-    setUser(session?.user ?? null);
-    setLoading(false);
-  });
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
-  return () => {
-    subscription.unsubscribe();
-  };
-}, []);
+        if (active) {
+          await carica();
+        }
+      } catch (error) {
+        console.error(error);
+        setStatusMessage('Errore accesso: ' + (error.message || 'sconosciuto'));
+        setLoading(false);
+      }
+    };
+
+    inizializzaAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+
+      if (session?.user) {
+        setUtente(session.user);
+        setTimeout(() => {
+          carica();
+        }, 0);
+      } else {
+        setUtente(null);
+        setUserProfile(null);
+        setRuolo('');
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
@@ -2393,7 +2417,15 @@ export default function App() {
     setDettaglioAperto(null);
   };
 
-  if (loading && !utente) return <Login />;
+  if (loading && !utente) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-600 shadow-sm">
+          Accesso in corso...
+        </div>
+      </div>
+    );
+  }
   if (!utente) return <Login />;
 
   return (
