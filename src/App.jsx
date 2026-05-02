@@ -395,6 +395,65 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
   );
 }
 
+function DashboardFranchising({ contratti, condomini }) {
+  const attivi = contratti.filter((c) => c.stato === 'attivo');
+
+  const aree = {};
+  attivi.forEach((contratto) => {
+    const condominio = condomini.find((c) => c.id === contratto.condominio_id);
+    const area = condominio?.indirizzo?.split(',').pop()?.trim() || 'Area generale';
+
+    if (!aree[area]) {
+      aree[area] = {
+        area,
+        condomini: 0,
+        fatturato: 0,
+      };
+    }
+
+    aree[area].condomini += 1;
+    aree[area].fatturato += Number(contratto.ricavo_annuo || 0);
+  });
+
+  const rankingAree = Object.values(aree).sort((a, b) => b.fatturato - a.fatturato);
+  const fatturatoTotale = rankingAree.reduce((sum, area) => sum + area.fatturato, 0);
+  const potenzialiPartner = rankingAree.filter((a) => a.condomini >= 3).length;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-700">Franchising</p>
+      <h2 className="mt-1 text-xl font-bold">Dashboard multi-area / agenzie partner</h2>
+      <p className="mt-1 text-sm text-slate-500">Base strategica per espansione territoriale e rete commerciale.</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <DashboardStat label="Aree attive" value={rankingAree.length} tone="sky" />
+        <DashboardStat label="Partner potenziali" value={potenzialiPartner} tone="amber" />
+        <DashboardStat label="Fatturato rete" value={formatEuro(fatturatoTotale)} tone="emerald" />
+        <DashboardStat label="Top area" value={rankingAree[0]?.condomini || 0} tone="slate" />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50 p-4">
+        <p className="text-sm font-bold text-violet-800">Aree prioritarie espansione</p>
+        <div className="mt-3 space-y-2">
+          {rankingAree.length === 0 ? (
+            <p className="text-sm text-violet-700">Nessuna area disponibile.</p>
+          ) : (
+            rankingAree.slice(0, 5).map((area) => (
+              <div key={area.area} className="flex items-center justify-between rounded-xl border border-violet-100 bg-white px-3 py-2">
+                <div>
+                  <p className="font-semibold text-slate-900">{area.area}</p>
+                  <p className="text-xs text-slate-500">{area.condomini} condomini</p>
+                </div>
+                <p className="font-bold text-violet-700">{formatEuro(area.fatturato)}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DashboardMarginalita({ contratti }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -2106,6 +2165,7 @@ export default function App() {
             <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
             <DashboardMarginalita contratti={contratti} />
+            <DashboardFranchising contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
