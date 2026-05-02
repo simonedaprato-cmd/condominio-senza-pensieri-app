@@ -539,60 +539,76 @@ function DashboardProvinceOpportunita({ contratti, condomini }) {
   );
 }
 
-function DashboardFranchising({ contratti, condomini }) {
-  const attivi = contratti.filter((c) => c.stato === 'attivo');
+function DashboardLeadCommercialeToscana({ contratti, condomini }) {
+  const attiviIds = new Set(
+    contratti.filter((c) => c.stato === 'attivo').map((c) => c.condominio_id)
+  );
 
-  const aree = {};
-  attivi.forEach((contratto) => {
-    const condominio = condomini.find((c) => c.id === contratto.condominio_id);
-    const area = condominio?.indirizzo?.split(',').pop()?.trim() || 'Area generale';
+  const leadPerProvincia = {};
 
-    if (!aree[area]) {
-      aree[area] = {
-        area,
-        condomini: 0,
-        fatturato: 0,
+  condomini.forEach((condominio) => {
+    const indirizzo = (condominio.indirizzo || '').toLowerCase();
+    let provincia = 'Toscana generica';
+
+    if (indirizzo.includes('firenze')) provincia = 'Firenze';
+    else if (indirizzo.includes('prato')) provincia = 'Prato';
+    else if (indirizzo.includes('pistoia')) provincia = 'Pistoia';
+    else if (indirizzo.includes('lucca')) provincia = 'Lucca';
+    else if (indirizzo.includes('pisa')) provincia = 'Pisa';
+    else if (indirizzo.includes('livorno')) provincia = 'Livorno';
+    else if (indirizzo.includes('arezzo')) provincia = 'Arezzo';
+    else if (indirizzo.includes('siena')) provincia = 'Siena';
+    else if (indirizzo.includes('massa')) provincia = 'Massa-Carrara';
+    else if (indirizzo.includes('grosseto')) provincia = 'Grosseto';
+
+    if (!leadPerProvincia[provincia]) {
+      leadPerProvincia[provincia] = {
+        nome: provincia,
+        prospect: 0,
+        attivi: 0,
       };
     }
 
-    aree[area].condomini += 1;
-    aree[area].fatturato += Number(contratto.ricavo_annuo || 0);
+    if (attiviIds.has(condominio.id)) {
+      leadPerProvincia[provincia].attivi += 1;
+    } else {
+      leadPerProvincia[provincia].prospect += 1;
+    }
   });
 
-  const rankingAree = Object.values(aree).sort((a, b) => b.fatturato - a.fatturato);
-  const fatturatoTotale = rankingAree.reduce((sum, area) => sum + area.fatturato, 0);
-  const potenzialiPartner = rankingAree.filter((a) => a.condomini >= 3).length;
+  const ranking = Object.values(leadPerProvincia)
+    .map((provincia) => ({
+      ...provincia,
+      score: provincia.prospect * 2 + provincia.attivi,
+    }))
+    .sort((a, b) => b.score - a.score);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-700">Franchising</p>
-      <h2 className="mt-1 text-xl font-bold">Dashboard multi-area / agenzie partner</h2>
-      <p className="mt-1 text-sm text-slate-500">Base strategica per espansione territoriale e rete commerciale.</p>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Lead Toscana</p>
+      <h2 className="mt-1 text-xl font-bold">Pipeline commerciale territoriale</h2>
+      <p className="mt-1 text-sm text-slate-500">Province prioritarie per acquisizione amministratori e campagne locali.</p>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <DashboardStat label="Aree attive" value={rankingAree.length} tone="sky" />
-        <DashboardStat label="Partner potenziali" value={potenzialiPartner} tone="amber" />
-        <DashboardStat label="Fatturato rete" value={formatEuro(fatturatoTotale)} tone="emerald" />
-        <DashboardStat label="Top area" value={rankingAree[0]?.condomini || 0} tone="slate" />
-      </div>
-
-      <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50 p-4">
-        <p className="text-sm font-bold text-violet-800">Aree prioritarie espansione</p>
-        <div className="mt-3 space-y-2">
-          {rankingAree.length === 0 ? (
-            <p className="text-sm text-violet-700">Nessuna area disponibile.</p>
-          ) : (
-            rankingAree.slice(0, 5).map((area) => (
-              <div key={area.area} className="flex items-center justify-between rounded-xl border border-violet-100 bg-white px-3 py-2">
+      <div className="mt-4 space-y-3">
+        {ranking.length === 0 ? (
+          <p className="text-sm text-slate-500">Nessun dato disponibile.</p>
+        ) : (
+          ranking.slice(0, 8).map((provincia) => (
+            <div key={provincia.nome} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="font-semibold text-slate-900">{area.area}</p>
-                  <p className="text-xs text-slate-500">{area.condomini} condomini</p>
+                  <p className="font-bold text-slate-900">{provincia.nome}</p>
+                  <p className="text-xs text-slate-500">
+                    Attivi: {provincia.attivi} • Prospect: {provincia.prospect}
+                  </p>
                 </div>
-                <p className="font-bold text-violet-700">{formatEuro(area.fatturato)}</p>
+                <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-700">
+                  Score: {provincia.score}
+                </span>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          ))
+        )}
       </div>
     </section>
   );
@@ -2311,7 +2327,7 @@ export default function App() {
             <DashboardMarginalita contratti={contratti} />
             <DashboardTerritorioToscana contratti={contratti} condomini={condomini} />
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
-            <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
+            <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
