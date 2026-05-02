@@ -266,6 +266,80 @@ function DashboardStat({ label, value, tone = 'slate' }) {
   );
 }
 
+function GestioneContratti({ condomini, contratti, onCreateContratto }) {
+  const [condominioId, setCondominioId] = useState('');
+  const [piano, setPiano] = useState('premium');
+  const [famiglie, setFamiglie] = useState('');
+
+  const pianoConfig = PIANI_ABBONAMENTO[piano] || PIANI_ABBONAMENTO.premium;
+  const famiglieNum = Number(famiglie || 0);
+  const ricavoMensile = famiglieNum * pianoConfig.costo;
+  const ricavoAnnuale = ricavoMensile * 12;
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!condominioId || !famiglieNum) return;
+
+    await onCreateContratto({
+      condominio_id: Number(condominioId),
+      piano,
+      famiglie: famiglieNum,
+      costo_unitario: pianoConfig.costo,
+      ricavo_mensile: ricavoMensile,
+      ricavo_annuo: ricavoAnnuale,
+      gruppo_whatsapp_attivo: pianoConfig.whatsapp,
+      app_attiva: pianoConfig.app,
+    });
+
+    setCondominioId('');
+    setFamiglie('');
+    setPiano('premium');
+  };
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Contratti</p>
+      <h2 className="mt-1 text-xl font-bold">Attiva nuovo abbonamento</h2>
+      <p className="mt-1 text-sm text-slate-500">Gestione commerciale ricorrente Condominio Senza Pensieri.</p>
+
+      <form onSubmit={submit} className="mt-4 space-y-3">
+        <select value={condominioId} onChange={(e) => setCondominioId(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
+          <option value="">Seleziona condominio</option>
+          {condomini.map((c) => (
+            <option key={c.id} value={c.id}>{c.nome}</option>
+          ))}
+        </select>
+
+        <select value={piano} onChange={(e) => setPiano(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
+          <option value="base">Base</option>
+          <option value="plus">Plus</option>
+          <option value="premium">Premium</option>
+        </select>
+
+        <input
+          type="number"
+          min="1"
+          placeholder="Numero famiglie"
+          value={famiglie}
+          onChange={(e) => setFamiglie(e.target.value)}
+          className="w-full rounded-2xl border border-slate-200 px-3 py-3"
+        />
+
+        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+          <p className="text-sm font-semibold">Riepilogo economico</p>
+          <p className="text-sm text-slate-600">Costo unitario: {formatEuro(pianoConfig.costo)}</p>
+          <p className="text-sm text-slate-600">MRR: {formatEuro(ricavoMensile)}</p>
+          <p className="text-sm text-slate-600">ARR: {formatEuro(ricavoAnnuale)}</p>
+        </div>
+
+        <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-bold text-white">
+          Attiva contratto
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function DashboardAbbonamenti({ contratti }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
   const base = attivi.filter((c) => c.piano === 'base');
@@ -1563,6 +1637,24 @@ export default function App() {
     }
   };
 
+  const creaContratto = async (contratto) => {
+    try {
+      const { error } = await supabase.from('contratti_condominio').insert({
+        ...contratto,
+        stato: 'attivo',
+        data_attivazione: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      setStatusMessage('Contratto attivato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore creazione contratto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUtente(null);
@@ -1637,6 +1729,7 @@ export default function App() {
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
         {ruoloNormalizzato === 'gestore' && (
           <>
+            <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <DashboardAbbonamenti contratti={contratti} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
