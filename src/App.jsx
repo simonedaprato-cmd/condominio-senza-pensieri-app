@@ -802,6 +802,118 @@ function DashboardForecast({ contratti }) {
   );
 }
 
+function GestioneLeadAmministratori({ onCreateLead }) {
+  const [form, setForm] = useState({
+    nome_studio: '',
+    referente: '',
+    telefono: '',
+    email: '',
+    provincia: 'Firenze',
+    numero_condomini: '',
+    origine: 'LinkedIn',
+    stato_pipeline: 'prospect',
+    note: '',
+  });
+
+  const numeroCondomini = Number(form.numero_condomini || 0);
+  const valorePotenziale = numeroCondomini * 12 * PIANI_ABBONAMENTO.premium.costo * 12;
+
+  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.nome_studio.trim()) return;
+
+    await onCreateLead({
+      ...form,
+      numero_condomini: numeroCondomini,
+      valore_potenziale: valorePotenziale,
+    });
+
+    setForm({
+      nome_studio: '',
+      referente: '',
+      telefono: '',
+      email: '',
+      provincia: 'Firenze',
+      numero_condomini: '',
+      origine: 'LinkedIn',
+      stato_pipeline: 'prospect',
+      note: '',
+    });
+  };
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">CRM Lead</p>
+      <h2 className="mt-1 text-xl font-bold">Nuovo lead amministratore</h2>
+      <p className="mt-1 text-sm text-slate-500">Inserisci uno studio amministrativo prospect e calcola il potenziale annuo.</p>
+
+      <form onSubmit={submit} className="mt-4 space-y-3">
+        <input value={form.nome_studio} onChange={(e) => update('nome_studio', e.target.value)} placeholder="Nome studio / amministratore" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <input value={form.referente} onChange={(e) => update('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <input value={form.telefono} onChange={(e) => update('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-slate-200 px-3 py-3" />
+        </div>
+        <input value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="Email" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <select value={form.provincia} onChange={(e) => update('provincia', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+            {['Firenze', 'Prato', 'Pistoia', 'Lucca', 'Pisa', 'Livorno', 'Arezzo', 'Siena', 'Massa-Carrara', 'Grosseto'].map((p) => <option key={p}>{p}</option>)}
+          </select>
+          <input type="number" min="0" value={form.numero_condomini} onChange={(e) => update('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <select value={form.origine} onChange={(e) => update('origine', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+            <option>LinkedIn</option><option>Sito</option><option>Referral</option><option>Telefono</option><option>Email</option><option>Evento</option>
+          </select>
+        </div>
+        <textarea value={form.note} onChange={(e) => update('note', e.target.value)} placeholder="Note commerciali" className="min-h-24 w-full rounded-2xl border border-slate-200 px-3 py-3" />
+        <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+          <p className="text-sm font-bold text-cyan-800">Potenziale stimato Premium</p>
+          <p className="mt-1 text-2xl font-black text-cyan-700">{formatEuro(valorePotenziale)}</p>
+        </div>
+        <button type="submit" className="w-full rounded-2xl bg-cyan-700 px-4 py-3 font-bold text-white">Salva lead</button>
+      </form>
+    </section>
+  );
+}
+
+function DashboardLeadAmministratori({ leadAmministratori }) {
+  const totale = leadAmministratori.length;
+  const clienti = leadAmministratori.filter((l) => l.stato_pipeline === 'cliente').length;
+  const trattative = leadAmministratori.filter((l) => ['trattativa', 'preventivo_inviato'].includes(l.stato_pipeline)).length;
+  const valorePipeline = leadAmministratori.reduce((sum, l) => sum + Number(l.valore_potenziale || 0), 0);
+  const followupOggi = leadAmministratori.filter((l) => l.prossimo_followup && new Date(l.prossimo_followup) <= new Date()).length;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Lead Amministratori</p>
+      <h2 className="mt-1 text-xl font-bold">Dashboard pipeline commerciale</h2>
+      <p className="mt-1 text-sm text-slate-500">Controllo prospect, trattative e valore potenziale Toscana.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <DashboardStat label="Lead totali" value={totale} tone="slate" />
+        <DashboardStat label="Trattative" value={trattative} tone="amber" />
+        <DashboardStat label="Clienti" value={clienti} tone="emerald" />
+        <DashboardStat label="Follow-up" value={followupOggi} tone="red" />
+        <DashboardStat label="Valore pipeline" value={formatEuro(valorePipeline)} tone="sky" />
+      </div>
+      <div className="mt-5 space-y-2">
+        {leadAmministratori.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Nessun lead inserito.</p>
+        ) : (
+          leadAmministratori.slice(0, 6).map((lead) => (
+            <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div>
+                <p className="font-bold text-slate-900">{lead.nome_studio}</p>
+                <p className="text-xs text-slate-500">{lead.provincia} • {lead.stato_pipeline} • {lead.numero_condomini || 0} condomini</p>
+              </div>
+              <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DashboardCRM({ contratti, condomini }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -1711,6 +1823,7 @@ export default function App() {
   const [votiPreventivi, setVotiPreventivi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
   const [contratti, setContratti] = useState([]);
+  const [leadAmministratori, setLeadAmministratori] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -1804,6 +1917,14 @@ export default function App() {
 
       if (contrattiError && contrattiError.code !== 'PGRST116') throw contrattiError;
       setContratti(contrattiData || []);
+
+      const { data: leadData, error: leadError } = await supabase
+        .from('lead_amministratori')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (leadError && leadError.code !== 'PGRST116') throw leadError;
+      setLeadAmministratori(leadData || []);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -2171,6 +2292,22 @@ export default function App() {
     }
   };
 
+  const creaLeadAmministratore = async (lead) => {
+    try {
+      const { error } = await supabase.from('lead_amministratori').insert({
+        ...lead,
+        stato_pipeline: lead.stato_pipeline || 'prospect',
+      });
+
+      if (error) throw error;
+      setStatusMessage('Lead amministratore salvato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore creazione lead: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -2311,6 +2448,8 @@ export default function App() {
         <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
         {ruoloNormalizzato === 'gestore' && (
           <>
+            <GestioneLeadAmministratori onCreateLead={creaLeadAmministratore} />
+            <DashboardLeadAmministratori leadAmministratori={leadAmministratori} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
