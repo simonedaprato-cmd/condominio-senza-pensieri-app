@@ -1587,7 +1587,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              {STATI_PRATICA.map((stato) => (
+              {ruolo === 'gestore' && STATI_PRATICA.map((stato) => (
                 <button key={stato} onClick={() => onChangeStatus(segnalazione.id, stato)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
                   {stato}
                 </button>
@@ -2439,13 +2439,17 @@ export default function App() {
           </div>
         )}
 
-        <div className="-mt-2">
-          <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
-        </div>
+        {ruoloNormalizzato !== 'condominio' && (
+          <div className="-mt-2">
+            <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
+          </div>
+        )}
         {ruoloNormalizzato === 'gestore' && showArchiviate && (
           <DashboardStorico segnalazioni={segnalazioniVisualizzate} />
         )}
-        <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
+        {ruoloNormalizzato === 'amministratore' && (
+          <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
+        )}
         {ruoloNormalizzato === 'gestore' && (
           <>
             <GestioneLeadAmministratori onCreateLead={creaLeadAmministratore} />
@@ -2472,7 +2476,7 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato !== 'amministratore' && (
+        {(ruoloNormalizzato === 'gestore' || ruoloNormalizzato === 'condominio') && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
