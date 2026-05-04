@@ -1448,7 +1448,9 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
-            <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
+            {ruolo === 'gestore' && (
+              <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
+            )}
             {segnalazione.data_inizio_lavori_presunta && (
               <p><span className="text-slate-500">Inizio lavori presunto:</span> {new Date(segnalazione.data_inizio_lavori_presunta).toLocaleDateString('it-IT')}</p>
             )}
@@ -1632,7 +1634,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {segnalazione.stato === 'Preventivata' && (
+            {ruolo === 'gestore' && segnalazione.stato === 'Preventivata' && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <p className="font-semibold text-emerald-800">Preventivo</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
