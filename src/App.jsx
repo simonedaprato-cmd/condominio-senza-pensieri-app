@@ -16,8 +16,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa'];
 const PIANI_ABBONAMENTO = {
-  base: { nome: 'Base', costo: 3.5, app: false, whatsapp: false },
-  plus: { nome: 'Plus', costo: 6.5, app: false, whatsapp: true },
+  base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false },
+  plus: { nome: 'Plus', costo: 6.9, app: false, whatsapp: true },
   premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true },
 };
 
@@ -1140,18 +1140,18 @@ function DashboardVendite({ segnalazioni }) {
   const totalePreventivi = preventivi.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
   const totaleDeliberato = deliberati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
   const daDeliberare = Math.max(totalePreventivi - totaleDeliberato, 0);
-  const provvigione = totaleDeliberato * 0.08;
+  const provvigione = totaleDeliberato * 0.10;
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Vendite</p>
       <h2 className="mt-1 text-xl font-bold">Dashboard vendite amministratore</h2>
-      <p className="mt-1 text-sm text-slate-500">Totale preventivi, deliberato, da deliberare e provvigione stimata all’8%.</p>
+      <p className="mt-1 text-sm text-slate-500">Totale preventivi, deliberato, da deliberare e provvigione stimata al 10%.</p>
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <DashboardStat label="Totale preventivi" value={formatEuro(totalePreventivi)} />
         <DashboardStat label="Totale deliberato" value={formatEuro(totaleDeliberato)} tone="emerald" />
         <DashboardStat label="Da deliberare" value={formatEuro(daDeliberare)} tone="amber" />
-        <DashboardStat label="Provvigione 8%" value={formatEuro(provvigione)} tone="sky" />
+        <DashboardStat label="Provvigione 10%" value={formatEuro(provvigione)} tone="sky" />
       </div>
     </section>
   );
@@ -1381,12 +1381,15 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
   const [uploading, setUploading] = useState(false);
   const [dataInizioPresunta, setDataInizioPresunta] = useState('');
+  const [importoRiparto, setImportoRiparto] = useState('');
+  const [scadenzaRiparto, setScadenzaRiparto] = useState('');
+  const [rateRiparto, setRateRiparto] = useState('1');
 
   if (!segnalazione) return null;
 
@@ -1422,6 +1425,27 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const nonVotanti = aventiDirittoVoto.filter((email) => !emailVotanti.has(email));
   const partecipazioneRealePercentuale = totaleAventiDiritto ? Math.round((totaleVoti / totaleAventiDiritto) * 100) : 0;
   const consultazioneCompletata = totaleAventiDiritto > 0 && votiMancanti === 0;
+
+  const condominiRiparto = (utentiCondomini || [])
+    .filter((item) => Number(item.condominio_id) === Number(segnalazione.condominio_id))
+    .map((item) => {
+      const email = String(item.email || '').toLowerCase().trim();
+      const utente = (utentiSistema || []).find((u) => String(u.email || '').toLowerCase().trim() === email);
+      return {
+        email,
+        nome: utente?.nome || email,
+        ruolo: String(utente?.ruolo || '').toLowerCase().trim(),
+        millesimi: Number(item.millesimi || 0),
+      };
+    })
+    .filter((item) => item.email && item.ruolo === 'condominio');
+
+  const totaleMillesimi = condominiRiparto.reduce((sum, item) => sum + Number(item.millesimi || 0), 0);
+  const importoRipartoNumero = Number(importoRiparto || segnalazione.importo_preventivo || 0);
+  const quoteRiparto = condominiRiparto.map((item) => ({
+    ...item,
+    quota: importoRipartoNumero * Number(item.millesimi || 0) / 1000,
+  }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-2 md:p-4">
@@ -1742,6 +1766,48 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
+            {ruolo === 'amministratore' && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
+              <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <div>
+                  <p className="font-semibold text-amber-900">Riparto costi per millesimi</p>
+                  <p className="mt-1 text-sm text-amber-800">Calcola e invia ai soli condomini la quota individuale della pratica deliberata.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <input type="number" min="0" step="0.01" value={importoRiparto} onChange={(e) => setImportoRiparto(e.target.value)} placeholder={`Importo totale ${formatEuro(segnalazione.importo_preventivo || 0)}`} className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                  <input type="date" value={scadenzaRiparto} onChange={(e) => setScadenzaRiparto(e.target.value)} className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                  <input type="number" min="1" value={rateRiparto} onChange={(e) => setRateRiparto(e.target.value)} placeholder="Numero rate" className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-white p-3 text-sm">
+                  <div className="flex flex-wrap gap-2 text-xs font-bold">
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Aventi diritto: {condominiRiparto.length}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Totale millesimi: {totaleMillesimi}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Importo: {formatEuro(importoRipartoNumero)}</span>
+                  </div>
+                  {totaleMillesimi !== 1000 && (
+                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Attenzione: il totale millesimi non è 1000. Verifica i dati prima dell’invio.</p>
+                  )}
+                  <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-slate-100">
+                    {quoteRiparto.length === 0 ? (
+                      <p className="p-3 text-xs text-slate-500">Nessun condomino con millesimi configurati.</p>
+                    ) : quoteRiparto.map((item) => (
+                      <div key={item.email} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-slate-800">{item.nome}</p>
+                          <p className="truncate text-[11px] text-slate-500">{item.email} • {item.millesimi} millesimi</p>
+                        </div>
+                        <p className="shrink-0 text-sm font-black text-amber-700">{formatEuro(item.quota)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="button" disabled={!importoRipartoNumero || !scadenzaRiparto || quoteRiparto.length === 0 || totaleMillesimi <= 0} onClick={() => onInviaRipartoMillesimi(segnalazione, { importo_totale: importoRipartoNumero, scadenza: scadenzaRiparto, rate: Number(rateRiparto || 1), quote: quoteRiparto, totale_millesimi: totaleMillesimi })} className="w-full rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                  Invia riparto ai condomini
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2">
               <p className="font-semibold">Aggiungi nota</p>
               <textarea value={nota} onChange={(e) => setNota(e.target.value)} className="min-h-24 w-full rounded-xl border px-3 py-2" placeholder="Scrivi una nota..." />
@@ -2034,7 +2100,7 @@ export default function App() {
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
-        .select('email, condominio_id');
+        .select('email, condominio_id, millesimi');
 
       if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
       setUtentiCondomini(utentiCondominiData || []);
@@ -2357,6 +2423,46 @@ export default function App() {
     } catch (error) {
       console.error(error);
       alert('Errore registrazione voto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const inviaRipartoMillesimi = async (pratica, riparto) => {
+    try {
+      if (!pratica?.id) return;
+      const conferma = window.confirm('Vuoi inviare il riparto millesimale ai condomini?');
+      if (!conferma) return;
+
+      const { data, error } = await supabase.functions.invoke('notify-riparto-millesimi', {
+        body: {
+          segnalazione_id: pratica.id,
+          titolo: pratica.titolo,
+          condominio_id: pratica.condominio_id,
+          importo_totale: riparto.importo_totale,
+          scadenza: riparto.scadenza,
+          rate: riparto.rate,
+          quote: riparto.quote,
+          totale_millesimi: riparto.totale_millesimi,
+        },
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Invio riparto non riuscito.');
+
+      const notaRiparto = {
+        id: Date.now(),
+        testo: `Riparto millesimale inviato ai condomini. Importo totale: ${formatEuro(riparto.importo_totale)}. Scadenza: ${new Date(riparto.scadenza).toLocaleDateString('it-IT')}. Rate: ${riparto.rate}.`,
+        data: new Date().toLocaleString('it-IT'),
+      };
+
+      const noteAggiornate = [...(pratica.note || []), notaRiparto];
+      await supabase.from('segnalazioni').update({ note: noteAggiornate }).eq('id', pratica.id);
+
+      setStatusMessage(`Riparto inviato a ${data?.emails?.length || 0} condomini.`);
+      await carica();
+      setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, note: noteAggiornate } : prev);
+    } catch (error) {
+      console.error(error);
+      alert('Errore invio riparto: ' + (error.message || 'sconosciuto'));
     }
   };
 
@@ -2771,6 +2877,7 @@ export default function App() {
         onCondividiCondomini={condividiPreventivoCondomini}
         onVotoCondomino={aggiornaVotoCondomino}
         onInviaReminderVoto={inviaReminderVoto}
+        onInviaRipartoMillesimi={inviaRipartoMillesimi}
         onRefreshVoti={aggiornaVotiPratica}
         onDeletePratica={eliminaPratica}
         onRipristinaPratica={ripristinaPratica}
