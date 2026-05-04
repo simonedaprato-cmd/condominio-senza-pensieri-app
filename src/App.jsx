@@ -2681,9 +2681,7 @@ export default function App() {
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
             <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
-            <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi}
-        utentiCondomini={utentiCondomini}
-        utentiSistema={utentiSistema} />
+            <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
         )}
 
@@ -2774,6 +2772,8 @@ export default function App() {
         onDeletePratica={eliminaPratica}
         onRipristinaPratica={ripristinaPratica}
         votiPreventivi={votiPreventivi}
+        utentiCondomini={utentiCondomini}
+        utentiSistema={utentiSistema}
       />
     </div>
   );
