@@ -1390,12 +1390,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
   if (!segnalazione) return null;
 
-  const votiPratica = (votiPreventivi || []).filter((v) => v.segnalazione_id === segnalazione.id);
+  const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazione.id));
   const votiFavorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
   const votiContrari = votiPratica.filter((v) => v.voto === 'contrario').length;
   const votiIndecisi = votiPratica.filter((v) => v.voto === 'indeciso').length;
   const totaleVoti = votiPratica.length;
   const consensoPercentuale = totaleVoti ? Math.round((votiFavorevoli / totaleVoti) * 100) : 0;
+  const partecipazionePercentuale = Math.min(100, totaleVoti * 10);
+  const ultimoVoto = votiPratica
+    .slice()
+    .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime())[0];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-2 md:p-4">
@@ -1587,6 +1591,34 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Consenso</p>
                         <p className="text-lg font-black text-sky-700">{consensoPercentuale}%</p>
                       </div>
+                    </div>
+
+                    <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
+                      <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+                        <span>Partecipazione consultiva</span>
+                        <span>{totaleVoti} voti registrati</span>
+                      </div>
+                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${partecipazionePercentuale}%` }} />
+                      </div>
+                      {ultimoVoto && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          Ultimo voto: {ultimoVoto.voto} • {ultimoVoto.email}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-white/70 bg-white">
+                      {votiPratica.length === 0 ? (
+                        <p className="p-3 text-xs text-slate-500">Nessun voto ancora registrato.</p>
+                      ) : (
+                        votiPratica.map((voto) => (
+                          <div key={`${voto.segnalazione_id}-${voto.email}`} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                            <p className="truncate text-xs font-semibold text-slate-700">{voto.email}</p>
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700">{voto.voto}</span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
@@ -1915,7 +1947,8 @@ export default function App() {
 
       const { data: votiData, error: votiError } = await supabase
         .from('preventivo_voti')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (votiError && votiError.code !== 'PGRST116') throw votiError;
       setVotiPreventivi(votiData || []);
@@ -1988,6 +2021,32 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!utente) return undefined;
+
+    const channel = supabase
+      .channel('preventivo-voti-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'preventivo_voti' },
+        async () => {
+          const { data, error } = await supabase
+            .from('preventivo_voti')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!error) {
+            setVotiPreventivi(data || []);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [utente]);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
@@ -2180,11 +2239,18 @@ export default function App() {
         voto,
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('preventivo_voti')
-        .upsert(votoPayload, { onConflict: 'segnalazione_id,email' });
+        .upsert(votoPayload, { onConflict: 'segnalazione_id,email' })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      setVotiPreventivi((prev) => {
+        const filtrati = prev.filter((item) => !(Number(item.segnalazione_id) === Number(id) && item.email === votoPayload.email));
+        return [data || votoPayload, ...filtrati];
+      });
 
       setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
