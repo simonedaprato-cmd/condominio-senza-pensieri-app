@@ -1381,7 +1381,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -1566,13 +1566,22 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   <div className="rounded-xl bg-sky-100 px-3 py-3 text-sm font-semibold text-sky-700">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p>Preventivo condiviso con i condomini</p>
-                      <button
-                        type="button"
-                        onClick={() => onInviaReminderVoto(segnalazione)}
-                        className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-800"
-                      >
-                        Invia reminder non votanti
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onRefreshVoti(segnalazione.id)}
+                          className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-sky-700 border border-sky-200 hover:bg-sky-50"
+                        >
+                          Aggiorna voti
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onInviaReminderVoto(segnalazione)}
+                          className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-800"
+                        >
+                          Invia reminder non votanti
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                       <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
@@ -2204,6 +2213,28 @@ export default function App() {
     }
   };
 
+  const aggiornaVotiPratica = async (segnalazioneId) => {
+    try {
+      const { data, error } = await supabase
+        .from('preventivo_voti')
+        .select('*')
+        .eq('segnalazione_id', segnalazioneId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setVotiPreventivi((prev) => {
+        const altri = prev.filter((v) => Number(v.segnalazione_id) !== Number(segnalazioneId));
+        return [...(data || []), ...altri];
+      });
+
+      setStatusMessage(`Voti aggiornati: ${(data || []).length} voti registrati.`);
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento voti: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const inviaReminderVoto = async (pratica) => {
     try {
       if (!pratica?.id) return;
@@ -2670,6 +2701,7 @@ export default function App() {
         onCondividiCondomini={condividiPreventivoCondomini}
         onVotoCondomino={aggiornaVotoCondomino}
         onInviaReminderVoto={inviaReminderVoto}
+        onRefreshVoti={aggiornaVotiPratica}
         onDeletePratica={eliminaPratica}
         onRipristinaPratica={ripristinaPratica}
         votiPreventivi={votiPreventivi}
