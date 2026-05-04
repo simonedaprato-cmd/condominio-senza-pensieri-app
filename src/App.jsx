@@ -1381,7 +1381,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi, onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -1400,6 +1400,27 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const ultimoVoto = votiPratica
     .slice()
     .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime())[0];
+
+  const emailCondominiAbilitati = new Set(
+    (utentiSistema || [])
+      .filter((utente) => String(utente.ruolo || '').toLowerCase().trim() === 'condominio')
+      .map((utente) => String(utente.email || '').toLowerCase().trim())
+      .filter(Boolean)
+  );
+
+  const aventiDirittoVoto = [...new Set(
+    (utentiCondomini || [])
+      .filter((item) => Number(item.condominio_id) === Number(segnalazione.condominio_id))
+      .map((item) => String(item.email || '').toLowerCase().trim())
+      .filter((email) => email && emailCondominiAbilitati.has(email))
+  )];
+
+  const emailVotanti = new Set(votiPratica.map((voto) => String(voto.email || '').toLowerCase().trim()).filter(Boolean));
+  const totaleAventiDiritto = aventiDirittoVoto.length;
+  const votiMancanti = Math.max(totaleAventiDiritto - totaleVoti, 0);
+  const nonVotanti = aventiDirittoVoto.filter((email) => !emailVotanti.has(email));
+  const partecipazioneRealePercentuale = totaleAventiDiritto ? Math.round((totaleVoti / totaleAventiDiritto) * 100) : 0;
+  const consultazioneCompletata = totaleAventiDiritto > 0 && votiMancanti === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-2 md:p-4">
@@ -1605,10 +1626,31 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                     <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
                       <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
                         <span>Partecipazione consultiva</span>
-                        <span>{totaleVoti} voti registrati</span>
+                        <span>{totaleVoti}/{totaleAventiDiritto} voti</span>
                       </div>
                       <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-                        <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${partecipazionePercentuale}%` }} />
+                        <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${partecipazioneRealePercentuale}%` }} />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Aventi diritto</p>
+                          <p className="font-black text-slate-800">{totaleAventiDiritto}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Ricevuti</p>
+                          <p className="font-black text-sky-700">{totaleVoti}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Mancanti</p>
+                          <p className="font-black text-amber-600">{votiMancanti}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Partecipazione</p>
+                          <p className="font-black text-emerald-700">{partecipazioneRealePercentuale}%</p>
+                        </div>
+                      </div>
+                      <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-black ${consultazioneCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {consultazioneCompletata ? 'Consultazione completata' : `In attesa di ${votiMancanti} voti`}
                       </div>
                       {ultimoVoto && (
                         <p className="mt-2 text-xs text-slate-500">
@@ -1616,6 +1658,15 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                         </p>
                       )}
                     </div>
+
+                    {ruolo === 'amministratore' && nonVotanti.length > 0 && (
+                      <div className="mt-3 max-h-32 overflow-auto rounded-xl border border-amber-100 bg-amber-50">
+                        <p className="border-b border-amber-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-700">Non votanti</p>
+                        {nonVotanti.map((email) => (
+                          <p key={email} className="border-b border-amber-100 px-3 py-2 text-xs font-semibold text-amber-800 last:border-b-0">{email}</p>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-white/70 bg-white">
                       {votiPratica.length === 0 ? (
@@ -1874,6 +1925,8 @@ export default function App() {
   const [showArchiviate, setShowArchiviate] = useState(false);
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
+  const [utentiCondomini, setUtentiCondomini] = useState([]);
+  const [utentiSistema, setUtentiSistema] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -1976,6 +2029,20 @@ export default function App() {
 
       if (leadError && leadError.code !== 'PGRST116') throw leadError;
       setLeadAmministratori(leadData || []);
+
+      const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
+        .from('utenti_condomini')
+        .select('email, condominio_id');
+
+      if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
+      setUtentiCondomini(utentiCondominiData || []);
+
+      const { data: utentiSistemaData, error: utentiSistemaError } = await supabase
+        .from('utenti')
+        .select('email, ruolo, nome');
+
+      if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
+      setUtentiSistema(utentiSistemaData || []);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -2614,7 +2681,9 @@ export default function App() {
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
             <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
-            <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
+            <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi}
+        utentiCondomini={utentiCondomini}
+        utentiSistema={utentiSistema} />
           </>
         )}
 
