@@ -1381,7 +1381,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
@@ -1391,6 +1391,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   if (!segnalazione) return null;
 
   const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazione.id));
+  const votoUtente = votiPratica.find((v) => String(v.email || '').toLowerCase().trim() === String(utenteEmail || '').toLowerCase().trim());
   const votiFavorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
   const votiContrari = votiPratica.filter((v) => v.voto === 'contrario').length;
   const votiIndecisi = votiPratica.filter((v) => v.voto === 'indeciso').length;
@@ -1526,10 +1527,11 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                             Indeciso
                           </button>
                         </div>
-                        {segnalazione.voto_condomino && (
-                          <p className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-sky-800 border border-sky-100">
-                            Il tuo voto: {segnalazione.voto_condomino}
-                          </p>
+                        {votoUtente && (
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Votato</p>
+                            <p className="mt-1 text-sm font-bold text-emerald-800">Il tuo voto: {votoUtente.voto}</p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -2761,6 +2763,7 @@ export default function App() {
         onUploadFile={uploadFilePratica}
         onUpdateImporto={aggiornaImporto}
         ruolo={ruoloNormalizzato}
+        utenteEmail={utente?.email}
         onConversionePreventivo={aggiornaConversionePreventivo}
         onPianificaLavori={pianificaLavori}
         onGeneraReport={generaReportPratica}
