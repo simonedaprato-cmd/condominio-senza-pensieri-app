@@ -1848,35 +1848,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   );
 }
 
-
-function VotoLiveBadge({ voto, onClose }) {
-  if (!voto) return null;
-
-  return (
-    <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-3xl border border-emerald-200 bg-white p-4 shadow-2xl shadow-emerald-900/20">
-      <div className="flex items-start gap-3">
-        <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-lg font-black text-emerald-700">
-          ✓
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-emerald-800">Nuovo voto ricevuto</p>
-          <p className="mt-1 break-all text-sm text-slate-700">{voto.email}</p>
-          <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-            Voto: {voto.voto}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500 hover:bg-slate-200"
-          title="Chiudi"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const generaPdfVotazioni = (pratica) => {
     if (!pratica) return;
@@ -2028,7 +1999,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
-  const [nuovoVotoLive, setNuovoVotoLive] = useState(null);
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
@@ -2888,20 +2858,6 @@ export default function App() {
             });
           }
 
-          if (votoRealtime?.segnalazione_id && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
-            setNuovoVotoLive({
-              email: votoRealtime.email || 'Condòmino',
-              voto: votoRealtime.voto || 'voto registrato',
-              segnalazione_id: votoRealtime.segnalazione_id,
-              ts: Date.now(),
-            });
-
-            window.clearTimeout(window.__cspVotoLiveTimer);
-            window.__cspVotoLiveTimer = window.setTimeout(() => {
-              setNuovoVotoLive(null);
-            }, 9000);
-          }
-
           ricaricaVotiPreventivi();
         }
       )
@@ -2947,7 +2903,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
-      <VotoLiveBadge voto={nuovoVotoLive} onClose={() => setNuovoVotoLive(null)} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         <Header
           utente={utente}
