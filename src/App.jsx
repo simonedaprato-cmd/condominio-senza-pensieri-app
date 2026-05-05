@@ -226,6 +226,50 @@ function Login() {
     }
   };
 
+  const verificaCodice = async () => {
+    const emailPulita = email.trim().toLowerCase();
+    const token = codiceOtp.trim().replace(/\s+/g, '');
+
+    if (!emailPulita) return setMessaggio('Inserisci prima la tua email.');
+    if (!token) return setMessaggio('Inserisci il codice OTP ricevuto via email.');
+
+    setInvioInCorso(true);
+    setMessaggio('');
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: emailPulita,
+        token,
+        type: 'email',
+      });
+
+      if (error) throw error;
+      setMessaggio('Accesso confermato. Caricamento area riservata...');
+    } catch (error) {
+      console.error(error);
+      setMessaggio('Errore verifica codice: ' + (error.message || 'codice non valido o scaduto'));
+    } finally {
+      setInvioInCorso(false);
+    }
+  };
+
+  const incollaDaClipboard = async () => {
+    try {
+      if (!navigator?.clipboard?.readText) {
+        return setMessaggio('Copia automatica non supportata su questo dispositivo.');
+      }
+
+      const testo = await navigator.clipboard.readText();
+      if (!testo) return setMessaggio('Nessun codice trovato negli appunti.');
+
+      setCodiceOtp(testo.replace(/\s+/g, ''));
+      setMessaggio('Codice incollato automaticamente.');
+    } catch (error) {
+      console.error(error);
+      setMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.');
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
@@ -271,6 +315,33 @@ function Login() {
           </button>
         </div>
 
+        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso con codice OTP</p>
+          <p className="mt-1 text-xs text-slate-500">Se il link Gmail non apre correttamente l’app, copia il codice ricevuto via email.</p>
+          <input
+            value={codiceOtp}
+            onChange={(e) => setCodiceOtp(e.target.value)}
+            placeholder="Codice OTP"
+            className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+          />
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={incollaDaClipboard}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 shadow-sm"
+            >
+              Incolla codice
+            </button>
+            <button
+              type="button"
+              onClick={verificaCodice}
+              disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
+              className="rounded-2xl bg-slate-900 px-4 py-3 font-bold text-white shadow-lg shadow-slate-900/20 disabled:opacity-60"
+            >
+              Entra con OTP
+            </button>
+          </div>
+        </div>
         {messaggio && <p className="mt-4 text-sm text-slate-600">{messaggio}</p>}
       </div>
     </div>
