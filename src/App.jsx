@@ -1219,17 +1219,17 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
         {stati.map((stato) => {
           const items = segnalazioni.filter((s) => s.stato === stato);
           return (
-            <div key={stato} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div key={stato} className="flex h-96 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <span className={'rounded-full border px-3 py-1 text-xs font-black ' + badgeClass(stato)}>{stato}</span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 border border-slate-200">{items.length}</span>
               </div>
 
-              <div className="space-y-2">
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
                 {items.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-400">Nessuna pratica in questo stato.</p>
                 ) : (
-                  items.slice(0, 4).map((s) => (
+                  items.map((s) => (
                     <button key={s.id} onClick={() => onOpen(s)} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
                       <div className="flex items-start justify-between gap-2">
                         <p className="line-clamp-2 text-sm font-bold text-slate-900">{s.titolo}</p>
@@ -1239,9 +1239,7 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
                     </button>
                   ))
                 )}
-                {items.length > 4 && (
-                  <p className="px-1 text-xs font-semibold text-slate-500">+ {items.length - 4} altre pratiche</p>
-                )}
+                
               </div>
             </div>
           );
