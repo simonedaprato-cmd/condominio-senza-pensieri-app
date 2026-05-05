@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'; import { useEffect, useMemo, useState } from 'react';
 
-const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co'; const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU'; const LOGO_SRC = '/logo-condominio-senza-pensieri.png'; const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : ''; const GESTORE_EMAIL = 'info@ammigo.it'; const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'csp-auth-session', }, });
+const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co'; const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU'; const LOGO_SRC = '/logo-condominio-senza-pensieri.png'; const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : ''; const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'csp-auth-session', }, });
 
 const STATI_PRATICA = [ 'Nuova', 'Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa' ]; const PIANI_ABBONAMENTO = { base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false }, plus: { nome: 'Plus', costo: 6.9, app: false, whatsapp: true }, premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true }, };
 
@@ -2411,136 +2411,6 @@ export default function App() {
     }
   };
 
-  const notificaVotazioneCompleta = async (segnalazioneId, votiAggiornati = []) => {
-    try {
-      const pratica = segnalazioni.find((item) => Number(item.id) === Number(segnalazioneId));
-      if (!pratica?.id) {
-        console.warn('Notifica votazione completa: pratica non trovata', segnalazioneId);
-        return;
-      }
-
-      const condominioId = Number(pratica.condominio_id);
-      if (!condominioId) {
-        console.warn('Notifica votazione completa: condominio mancante', pratica);
-        return;
-      }
-
-      const storicoNotifiche = (pratica.note || []).filter((nota) => String(nota?.tipo || nota?.azione || '').includes('Notifica votazione completa'));
-      if (storicoNotifiche.length > 0) {
-        console.log('Notifica votazione completa già presente nelle note pratica.');
-        return;
-      }
-
-      const condominio = condomini.find((item) => Number(item.id) === condominioId) || pratica.condomini || {};
-      const amministratoreEmail = String(pratica.amministratore_email || condominio?.amministratore_email || '').toLowerCase().trim();
-
-      const ruoloByEmail = new Map(
-        (utentiSistema || []).map((u) => [String(u.email || '').toLowerCase().trim(), String(u.ruolo || '').toLowerCase().trim()])
-      );
-
-      const emailAventiDiritto = [...new Set(
-        (utentiCondomini || [])
-          .filter((u) => Number(u.condominio_id) === condominioId)
-          .map((u) => String(u.email || '').toLowerCase().trim())
-          .filter(Boolean)
-          .filter((email) => email !== amministratoreEmail)
-          .filter((email) => !['gestore', 'admin', 'amministratore'].includes(ruoloByEmail.get(email) || ''))
-      )];
-
-      const emailVotanti = [...new Set(
-        (votiAggiornati || [])
-          .filter((v) => Number(v.segnalazione_id) === Number(segnalazioneId))
-          .map((v) => String(v.email || '').toLowerCase().trim())
-          .filter(Boolean)
-      )];
-
-      console.log('Controllo votazione completa', {
-        segnalazioneId,
-        condominioId,
-        aventiDiritto: emailAventiDiritto,
-        votanti: emailVotanti,
-      });
-
-      if (!emailAventiDiritto.length) {
-        setStatusMessage('Voto registrato. Notifica non inviata: non risultano condòmini aventi diritto collegati al condominio.');
-        return;
-      }
-
-      const votazioneCompleta = emailAventiDiritto.every((email) => emailVotanti.includes(email));
-      if (!votazioneCompleta) {
-        const mancanti = emailAventiDiritto.filter((email) => !emailVotanti.includes(email)).length;
-        setStatusMessage(`Voto registrato. Votazione non ancora completa: mancano ${mancanti} voti.`);
-        return;
-      }
-
-      const favorevoli = votiAggiornati.filter((v) => v.voto === 'favorevole').length;
-      const contrari = votiAggiornati.filter((v) => v.voto === 'contrario').length;
-      const astenuti = votiAggiornati.filter((v) => v.voto === 'astenuto').length;
-
-      const destinatari = [amministratoreEmail, GESTORE_EMAIL]
-        .map((email) => String(email || '').toLowerCase().trim())
-        .filter(Boolean);
-
-      if (!destinatari.length) {
-        setStatusMessage('Votazione completa, ma mancano le email di amministratore e gestore.');
-        return;
-      }
-
-      const payload = {
-        to: destinatari,
-        subject: `Votazione completa - ${pratica.titolo}`,
-        pratica: {
-          id: pratica.id,
-          titolo: pratica.titolo,
-          importo_preventivo: pratica.importo_preventivo,
-        },
-        condominio: {
-          nome: condominio?.nome || pratica.condominio || 'Condominio',
-          indirizzo: condominio?.indirizzo || pratica.condomini?.indirizzo || '',
-        },
-        riepilogo: {
-          aventi_diritto: emailAventiDiritto.length,
-          voti_registrati: emailVotanti.length,
-          favorevoli,
-          contrari,
-          astenuti,
-        },
-        voti: votiAggiornati.filter((v) => Number(v.segnalazione_id) === Number(segnalazioneId)),
-      };
-
-      const { data, error } = await supabase.functions.invoke('notifica-votazione-completa', {
-        body: payload,
-      });
-
-      if (error) throw error;
-      if (data && data.ok === false) throw new Error(data.error || 'Invio notifica non riuscito.');
-
-      const nuovaNota = {
-        data: new Date().toISOString(),
-        autore: utente?.email || 'sistema',
-        testo: `Votazione completa. Email inviata a: ${destinatari.join(', ')}`,
-        tipo: 'Notifica votazione completa',
-      };
-
-      const noteAggiornate = [...(pratica.note || []), nuovaNota];
-      const { error: noteError } = await supabase
-        .from('segnalazioni')
-        .update({ note: noteAggiornate })
-        .eq('id', pratica.id);
-
-      if (noteError) throw noteError;
-
-      setSegnalazioni((prev) => prev.map((item) => (
-        item.id === pratica.id ? { ...item, note: noteAggiornate } : item
-      )));
-      setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, note: noteAggiornate } : prev);
-      setStatusMessage('Votazione completa: email inviata ad amministratore e gestore.');
-    } catch (error) {
-      console.error(error);
-      setStatusMessage('Voto registrato, ma notifica email non inviata: ' + (error.message || 'errore sconosciuto'));
-    }
-  };
-
   const aggiornaVotoCondomino = async (id, voto) => {
     try {
       if (!utente?.email) throw new Error('Utente non identificato');
@@ -2559,20 +2429,12 @@ export default function App() {
 
       if (error) throw error;
 
-      const { data: votiAggiornati, error: votiError } = await supabase
-        .from('preventivo_voti')
-        .select('*')
-        .eq('segnalazione_id', id)
-        .order('created_at', { ascending: false });
-
-      if (votiError) throw votiError;
-
       setVotiPreventivi((prev) => {
-        const altri = prev.filter((item) => Number(item.segnalazione_id) !== Number(id));
-        return [...(votiAggiornati || [data || votoPayload]), ...altri];
+        const filtrati = prev.filter((item) => !(Number(item.segnalazione_id) === Number(id) && item.email === votoPayload.email));
+        return [data || votoPayload, ...filtrati];
       });
 
-      await notificaVotazioneCompleta(id, votiAggiornati || [data || votoPayload]);
+      setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
     } catch (error) {
       console.error(error);
@@ -2834,51 +2696,6 @@ export default function App() {
     } catch (error) {
       console.error(error);
       alert('Errore upgrade contratto: ' + (error.message || 'sconosciuto'));
-    }
-  };
-
-
-
-  useEffect(() => {
-    if (!session?.user?.email) return;
-
-    const votiChannel = supabase
-      .channel('realtime-preventivo-voti')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'preventivo_voti' },
-        (payload) => {
-          const votoRealtime = payload.new || payload.old;
-
-          if (votoRealtime?.segnalazione_id) {
-            setVotiPreventivi((prev) => {
-              const altri = prev.filter((v) => Number(v.id) !== Number(votoRealtime.id));
-              if (payload.eventType === 'DELETE') return altri;
-              return [votoRealtime, ...altri];
-            });
-          }
-
-          ricaricaVotiPreventivi();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(votiChannel);
-    };
-  }, [session?.user?.email]);
-
-  const ricaricaVotiPreventivi = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('preventivo_voti')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setVotiPreventivi(data || []);
-    } catch (error) {
-      console.error('Errore realtime voti:', error);
     }
   };
 
