@@ -162,7 +162,12 @@ function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+        <div className="mb-5 flex flex-col items-center rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-5 text-center shadow-inner">
+          <LogoMark />
+          <p className="mt-2 text-xs font-black uppercase tracking-[0.24em] text-amber-300">Condominio Senza Pensieri</p>
+          <p className="mt-1 text-xs text-white/70">Gestione evoluta. Serenità reale.</p>
+        </div>
         <h1 className="text-2xl font-bold text-slate-900">Accesso</h1>
         <p className="mt-2 text-sm text-slate-500">Inserisci la tua email per ricevere il magic link.</p>
         <input
@@ -228,7 +233,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
           <LogoMark />
           <div className="min-w-0 text-white">
             <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
-            <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione intelligente delle segnalazioni</p>
+            <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
             {userProfile?.nome && (
               <div className="mt-3 space-y-3">
                 <p className="text-lg font-black leading-tight tracking-tight text-white drop-shadow md:text-2xl">
