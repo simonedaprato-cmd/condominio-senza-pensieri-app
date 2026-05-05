@@ -1,20 +1,80 @@
-import { createClient } from '@supabase/supabase-js'; import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { useEffect, useMemo, useState } from 'react';
 
-const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co'; const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU'; const LOGO_SRC = '/logo-condominio-senza-pensieri.png'; const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : ''; const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'csp-auth-session', }, });
+const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
+const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
+const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
+const GESTORE_EMAIL = 'info@ammigo.it';
 
-const STATI_PRATICA = [ 'Nuova', 'Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa' ]; const PIANI_ABBONAMENTO = { base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false }, plus: { nome: 'Plus', costo: 6.9, app: false, whatsapp: true }, premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true }, };
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'csp-auth-session',
+  },
+});
 
-function buildPublicUrl(fileName) { if (!fileName) return ''; return SUPABASE_URL + '/storage/v1/object/public/allegati/' + encodeURIComponent(fileName); }
+const STATI_PRATICA = [
+  'Nuova',
+  'Presa in carico',
+  'Sopralluogo effettuato',
+  'Preventivata',
+  'Accettata',
+  'Pianificata',
+  'Chiusa',
+];
 
-function formatEuro(value) { const numero = Math.round(Number(value || 0)); const formattato = numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); return '€ ' + formattato; }
+const PIANI_ABBONAMENTO = {
+  base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false },
+  plus: { nome: 'Plus', costo: 6.9, app: false, whatsapp: true },
+  premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true },
+};
 
-function badgeClass(stato) { if (stato === 'Presa in carico') return 'bg-blue-100 text-blue-700 border-blue-200'; if (stato === 'Sopralluogo effettuato') return 'bg-purple-100 text-purple-700 border-purple-200'; if (stato === 'Preventivata') return 'bg-emerald-100 text-emerald-700 border-emerald-200'; if (stato === 'Accettata') return 'bg-teal-100 text-teal-700 border-teal-200'; if (stato === 'Pianificata') return 'bg-sky-100 text-sky-700 border-sky-200'; if (stato === 'Chiusa') return 'bg-slate-100 text-slate-700 border-slate-200'; if (stato === 'Rifiutata') return 'bg-red-100 text-red-700 border-red-200'; return 'bg-amber-100 text-amber-700 border-amber-200'; }
+function buildPublicUrl(fileName) {
+  if (!fileName) return '';
+  return SUPABASE_URL + '/storage/v1/object/public/allegati/' + encodeURIComponent(fileName);
+}
 
-function statoButtonClass(stato, statoCorrente) { const active = stato === statoCorrente; const base = 'rounded-xl border px-3 py-2 text-sm font-bold transition-all duration-200 '; if (!active) return base + 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'; if (stato === 'Presa in carico') return base + 'scale-[1.03] border-blue-400 bg-blue-600 text-white shadow-lg shadow-blue-500/25 ring-4 ring-blue-100'; if (stato === 'Sopralluogo effettuato') return base + 'scale-[1.03] border-purple-400 bg-purple-600 text-white shadow-lg shadow-purple-500/25 ring-4 ring-purple-100'; if (stato === 'Preventivata') return base + 'scale-[1.03] border-emerald-400 bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-4 ring-emerald-100'; if (stato === 'Accettata') return base + 'scale-[1.03] border-teal-400 bg-teal-600 text-white shadow-lg shadow-teal-500/25 ring-4 ring-teal-100'; if (stato === 'Pianificata') return base + 'scale-[1.03] border-sky-400 bg-sky-600 text-white shadow-lg shadow-sky-500/25 ring-4 ring-sky-100'; if (stato === 'Chiusa') return base + 'scale-[1.03] border-slate-400 bg-slate-800 text-white shadow-lg shadow-slate-500/25 ring-4 ring-slate-100'; if (stato === 'Rifiutata') return base + 'scale-[1.03] border-red-400 bg-red-600 text-white shadow-lg shadow-red-500/25 ring-4 ring-red-100'; return base + 'scale-[1.03] border-amber-400 bg-amber-500 text-white shadow-lg shadow-amber-500/25 ring-4 ring-amber-100'; }
+function formatEuro(value) {
+  const numero = Math.round(Number(value || 0));
+  const formattato = numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return '€ ' + formattato;
+}
 
-function priorityClass(priorita) { if (priorita === 'Alta') return 'text-red-600'; if (priorita === 'Bassa') return 'text-emerald-600'; return 'text-amber-600'; }
+function badgeClass(stato) {
+  if (stato === 'Presa in carico') return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (stato === 'Sopralluogo effettuato') return 'bg-purple-100 text-purple-700 border-purple-200';
+  if (stato === 'Preventivata') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  if (stato === 'Accettata') return 'bg-teal-100 text-teal-700 border-teal-200';
+  if (stato === 'Pianificata') return 'bg-sky-100 text-sky-700 border-sky-200';
+  if (stato === 'Chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (stato === 'Rifiutata') return 'bg-red-100 text-red-700 border-red-200';
+  return 'bg-amber-100 text-amber-700 border-amber-200';
+}
 
-function LogoMark({ className = 'h-20 w-auto md:h-32', alt = 'Condominio Senza Pensieri' }) {
+function statoButtonClass(stato, statoCorrente) {
+  const active = stato === statoCorrente;
+  const base = 'rounded-xl border px-3 py-2 text-sm font-bold transition-all duration-200 ';
+  if (!active) return base + 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700';
+  if (stato === 'Presa in carico') return base + 'scale-[1.03] border-blue-400 bg-blue-600 text-white shadow-lg shadow-blue-500/25 ring-4 ring-blue-100';
+  if (stato === 'Sopralluogo effettuato') return base + 'scale-[1.03] border-purple-400 bg-purple-600 text-white shadow-lg shadow-purple-500/25 ring-4 ring-purple-100';
+  if (stato === 'Preventivata') return base + 'scale-[1.03] border-emerald-400 bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-4 ring-emerald-100';
+  if (stato === 'Accettata') return base + 'scale-[1.03] border-teal-400 bg-teal-600 text-white shadow-lg shadow-teal-500/25 ring-4 ring-teal-100';
+  if (stato === 'Pianificata') return base + 'scale-[1.03] border-sky-400 bg-sky-600 text-white shadow-lg shadow-sky-500/25 ring-4 ring-sky-100';
+  if (stato === 'Chiusa') return base + 'scale-[1.03] border-slate-400 bg-slate-800 text-white shadow-lg shadow-slate-500/25 ring-4 ring-slate-100';
+  if (stato === 'Rifiutata') return base + 'scale-[1.03] border-red-400 bg-red-600 text-white shadow-lg shadow-red-500/25 ring-4 ring-red-100';
+  return base + 'scale-[1.03] border-amber-400 bg-amber-500 text-white shadow-lg shadow-amber-500/25 ring-4 ring-amber-100';
+}
+
+function priorityClass(priorita) {
+  if (priorita === 'Alta') return 'text-red-600';
+  if (priorita === 'Bassa') return 'text-emerald-600';
+  return 'text-amber-600';
+}
+
+function LogoMark({ className = 'h-[4.5rem] w-auto md:h-24', alt = 'Condominio Senza Pensieri' }) {
   return (
     <img
       src={LOGO_SRC}
@@ -2190,7 +2250,7 @@ export default function App() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'preventivo_voti' },
-        async () => {
+        async (payload) => {
           const { data, error } = await supabase
             .from('preventivo_voti')
             .select('*')
@@ -2198,6 +2258,14 @@ export default function App() {
 
           if (!error) {
             setVotiPreventivi(data || []);
+
+            const votoRealtime = payload.new || payload.old;
+            const segnalazioneId = votoRealtime?.segnalazione_id;
+            const segnalazioneVotata = segnalazioni.find((item) => Number(item.id) === Number(segnalazioneId));
+            if (segnalazioneVotata) {
+              const votiPratica = (data || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazioneId));
+              await notificaVotazioneCompleta(segnalazioneVotata, votiPratica);
+            }
           }
         }
       )
@@ -2206,7 +2274,7 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [utente]);
+  }, [utente, segnalazioni]);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
@@ -2411,6 +2479,152 @@ export default function App() {
     }
   };
 
+
+  const notificaVotazioneCompleta = async (segnalazione, votiAggiornati = []) => {
+    try {
+      console.info('Notify check avviato', { segnalazioneId: segnalazione?.id, voti: votiAggiornati?.length || 0 });
+
+      const condominioId = Number(segnalazione?.condominio_id);
+      if (!condominioId) {
+        console.warn('Notify bloccata: condominio_id mancante', segnalazione);
+        return;
+      }
+
+      const { data: storicoNotifiche, error: storicoError } = await supabase
+        .from('storico_pratiche')
+        .select('id')
+        .eq('segnalazione_id', segnalazione.id)
+        .eq('azione', 'Notifica votazione completa')
+        .limit(1);
+
+      if (storicoError) throw storicoError;
+      if ((storicoNotifiche || []).length > 0) {
+        console.info('Notify bloccata: già inviata');
+        return;
+      }
+
+      const { data: condominio, error: condominioError } = await supabase
+        .from('condomini')
+        .select('id, nome, indirizzo, amministratore_email')
+        .eq('id', condominioId)
+        .maybeSingle();
+
+      if (condominioError) throw condominioError;
+
+      const { data: collegamentiCondominio, error: collegamentiError } = await supabase
+        .from('utenti_condomini')
+        .select('email')
+        .eq('condominio_id', condominioId);
+
+      if (collegamentiError) throw collegamentiError;
+
+      const emailCollegati = [...new Set((collegamentiCondominio || [])
+        .map((u) => String(u.email || '').toLowerCase().trim())
+        .filter(Boolean)
+      )];
+
+      const { data: utentiCollegati, error: utentiCollegatiError } = emailCollegati.length
+        ? await supabase
+            .from('utenti')
+            .select('email, ruolo')
+            .in('email', emailCollegati)
+        : { data: [], error: null };
+
+      if (utentiCollegatiError) throw utentiCollegatiError;
+
+      const ruoloByEmail = new Map((utentiCollegati || [])
+        .map((u) => [String(u.email || '').toLowerCase().trim(), String(u.ruolo || '').toLowerCase().trim()])
+      );
+
+      const emailAmministratore = String(condominio?.amministratore_email || '').toLowerCase().trim();
+      const ruoliNonVotanti = ['admin', 'amministratore', 'gestore', 'tecnico'];
+
+      const emailAventiDiritto = [...new Set(emailCollegati
+        .filter((email) => email !== emailAmministratore)
+        .filter((email) => !ruoliNonVotanti.includes(ruoloByEmail.get(email) || ''))
+      )];
+
+      const emailVotanti = [...new Set((votiAggiornati || [])
+        .map((v) => String(v.email || '').toLowerCase().trim())
+        .filter(Boolean)
+      )];
+
+      console.info('Notify controllo votazione', { emailAventiDiritto, emailVotanti });
+
+      if (!emailAventiDiritto.length) {
+        console.warn('Notify bloccata: nessun avente diritto');
+        return;
+      }
+
+      const votazioneCompleta = emailAventiDiritto.every((email) => emailVotanti.includes(email));
+      if (!votazioneCompleta) {
+        console.info('Notify bloccata: votazione incompleta');
+        return;
+      }
+
+      const favorevoli = votiAggiornati.filter((v) => v.voto === 'favorevole').length;
+      const contrari = votiAggiornati.filter((v) => v.voto === 'contrario').length;
+      const astenuti = votiAggiornati.filter((v) => v.voto === 'astenuto' || v.voto === 'indeciso').length;
+
+      const destinatari = [condominio?.amministratore_email, GESTORE_EMAIL]
+        .map((email) => String(email || '').toLowerCase().trim())
+        .filter(Boolean);
+
+      if (!destinatari.length) {
+        console.warn('Notify bloccata: destinatari assenti');
+        return;
+      }
+
+      const payload = {
+        to: destinatari,
+        subject: `Votazione completa - ${segnalazione.titolo}`,
+        pratica: {
+          id: segnalazione.id,
+          titolo: segnalazione.titolo,
+          importo_preventivo: segnalazione.importo_preventivo,
+        },
+        condominio: {
+          nome: condominio?.nome || segnalazione.condomini?.nome || segnalazione.condominio_nome || 'Condominio',
+          indirizzo: condominio?.indirizzo || segnalazione.condomini?.indirizzo || '',
+        },
+        riepilogo: {
+          aventi_diritto: emailAventiDiritto.length,
+          voti_registrati: emailVotanti.length,
+          favorevoli,
+          contrari,
+          astenuti,
+        },
+        voti: votiAggiornati,
+      };
+
+      console.info('Invio Edge Function notify', payload);
+
+      const { data: funzioneData, error: funzioneError } = await supabase.functions.invoke('notifica-votazione-completa', {
+        body: payload,
+      });
+
+      if (funzioneError) {
+        console.error('Errore Edge Function notify:', funzioneError);
+        throw funzioneError;
+      }
+
+      console.info('Risposta Edge Function notify', funzioneData);
+
+      await supabase.from('storico_pratiche').insert({
+        pratica_id: segnalazione.id,
+        segnalazione_id: segnalazione.id,
+        azione: 'Notifica votazione completa',
+        note: `Email inviata a: ${destinatari.join(', ')}`,
+        utente_email: utente?.email || '',
+      });
+
+      setStatusMessage('Votazione completa: email inviata ad amministratore e gestore.');
+    } catch (error) {
+      console.error(error);
+      setStatusMessage('Votazione registrata, ma notifica email non inviata: ' + (error.message || 'errore sconosciuto'));
+    }
+  };
+
   const aggiornaVotoCondomino = async (id, voto) => {
     try {
       if (!utente?.email) throw new Error('Utente non identificato');
@@ -2433,6 +2647,21 @@ export default function App() {
         const filtrati = prev.filter((item) => !(Number(item.segnalazione_id) === Number(id) && item.email === votoPayload.email));
         return [data || votoPayload, ...filtrati];
       });
+
+      const { data: votiAggiornati, error: votiError } = await supabase
+        .from('preventivo_voti')
+        .select('*')
+        .eq('segnalazione_id', id)
+        .order('created_at', { ascending: false });
+
+      if (votiError) throw votiError;
+
+      const segnalazioneVotata = segnalazioni.find((item) => Number(item.id) === Number(id));
+      if (segnalazioneVotata) {
+        await notificaVotazioneCompleta(segnalazioneVotata, votiAggiornati || []);
+      } else {
+        console.warn('Notify non eseguita: segnalazione non trovata in stato locale', id);
+      }
 
       setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
