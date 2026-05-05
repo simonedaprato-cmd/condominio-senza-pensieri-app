@@ -14,7 +14,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-const STATI_PRATICA = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa'];
+const STATI_PRATICA = [
+  'Nuova',
+  'Presa in carico',
+  'Sopralluogo effettuato',
+  'Preventivata',
+  'Accettata',
+  'Pianificata',
+  'Chiusa'
+];
 const PIANI_ABBONAMENTO = {
   base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false },
   plus: { nome: 'Plus', costo: 6.9, app: false, whatsapp: true },
