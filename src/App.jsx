@@ -16,6 +16,43 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+async function recuperaSessioneDaUrl() {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+    const searchParams = url.searchParams;
+
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const code = searchParams.get('code');
+
+    if (accessToken && refreshToken) {
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error) throw error;
+      window.history.replaceState({}, document.title, url.origin + url.pathname);
+      return data.session || null;
+    }
+
+    if (code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+      if (error) throw error;
+      window.history.replaceState({}, document.title, url.origin + url.pathname);
+      return data.session || null;
+    }
+  } catch (error) {
+    console.error('Errore recupero sessione da magic link:', error);
+  }
+
+  return null;
+}
+
 const STATI_PRATICA = [
   'Nuova',
   'Presa in carico',
@@ -2200,13 +2237,7 @@ export default function App() {
 
     const inizializzaAuth = async () => {
       try {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
-
-        if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
+        await recuperaSessioneDaUrl();
 
         if (active) {
           await carica();
