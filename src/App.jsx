@@ -167,6 +167,7 @@ async function loadUserProfile(email) {
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
+  const [codiceOtp, setCodiceOtp] = useState('');
   const [invioInCorso, setInvioInCorso] = useState(false);
 
   const inviaLink = async () => {
@@ -189,6 +190,40 @@ function Login() {
     }
 
     setMessaggio('Link inviato. Controlla la tua email.');
+  };
+
+  const verificaCodice = async () => {
+    const emailPulita = email.trim().toLowerCase();
+    const token = codiceOtp.trim().replace(/\s+/g, '');
+
+    if (!emailPulita) {
+      setMessaggio('Inserisci prima la tua email.');
+      return;
+    }
+
+    if (!token) {
+      setMessaggio('Inserisci il codice OTP ricevuto via email.');
+      return;
+    }
+
+    setInvioInCorso(true);
+    setMessaggio('');
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: emailPulita,
+        token,
+        type: 'email',
+      });
+
+      if (error) throw error;
+      setMessaggio('Accesso confermato. Caricamento area riservata...');
+    } catch (error) {
+      console.error(error);
+      setMessaggio('Errore verifica codice: ' + (error.message || 'codice non valido o scaduto'));
+    } finally {
+      setInvioInCorso(false);
+    }
   };
 
   return (
@@ -215,6 +250,27 @@ function Login() {
         >
           {invioInCorso ? 'Invio...' : 'Ricevi link'}
         </button>
+
+        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso alternativo Gmail</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Se il link si apre ma l’app resta bloccata, copia il codice OTP ricevuto via email e incollalo qui.
+          </p>
+          <input
+            value={codiceOtp}
+            onChange={(e) => setCodiceOtp(e.target.value)}
+            placeholder="Codice OTP"
+            className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+          />
+          <button
+            onClick={verificaCodice}
+            disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
+            className="mt-3 w-full rounded-2xl bg-slate-900 px-4 py-3 font-bold text-white shadow-lg shadow-slate-900/20 disabled:opacity-60"
+          >
+            Entra con codice OTP
+          </button>
+        </div>
+
         {messaggio && <p className="mt-4 text-sm text-slate-600">{messaggio}</p>}
       </div>
     </div>
