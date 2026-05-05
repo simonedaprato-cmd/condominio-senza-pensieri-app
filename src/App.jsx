@@ -2839,8 +2839,8 @@ export default function App() {
             <DashboardMarginalita contratti={contratti} />
             <DashboardTerritorioToscana contratti={contratti} condomini={condomini} />
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
-            <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
+            <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
