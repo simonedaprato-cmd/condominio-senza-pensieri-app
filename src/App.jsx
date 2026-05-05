@@ -71,25 +71,18 @@ function priorityClass(priorita) {
   return 'text-amber-600';
 }
 
-function LogoMark() {
-  const [erroreLogo, setErroreLogo] = useState(false);
+const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 
+function LogoMark({ className = 'h-16 w-auto', alt = 'Condominio Senza Pensieri' }) {
   return (
-    <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-visible md:h-36 md:w-36">
-      <div className="absolute inset-0 rounded-full bg-emerald-200/40 blur-2xl" />
-      {!erroreLogo ? (
-        <img
-          src={LOGO_SRC}
-          alt="Condominio Senza Pensieri"
-          onError={() => setErroreLogo(true)}
-          className="relative z-10 h-48 w-48 object-contain drop-shadow-2xl md:h-64 md:w-64"
-        />
-      ) : (
-        <div className="relative z-10 rounded-2xl bg-white px-4 py-3 text-center text-xs font-bold text-emerald-700 shadow-lg">
-          CSP
-        </div>
-      )}
-    </div>
+    <img
+      src={LOGO_SRC}
+      alt={alt}
+      className={className}
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
+    />
   );
 }
 
