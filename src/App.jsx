@@ -2889,33 +2889,4 @@ export default function App() {
   );
 }
 
-## Upgrade Priorità Alta: Gestione richieste per stato avanzamento
-Per rendere la videata gestore molto più efficiente, è stato integrato un sistema di gestione per stato con box dedicati.
-
-### Box operativi consigliati:
-- 🟡 Nuove richieste
-- 🔵 In valutazione tecnica
-- 🟠 Preventivo inviato
-- 🟣 Approvato / pianificato
-- 🟢 In esecuzione
-- ⚫ Completato
-- 🔴 Urgente / bloccato
-
-### Benefici:
-- Controllo immediato delle tempistiche
-- Maggiore organizzazione del team
-- Priorità più chiare
-- Riduzione ritardi
-- Gestione avanzata clienti Premium / Plus
-- Funnel commerciale più monitorabile
-
-### Extra strategici:
-- Filtri per amministratore
-- Filtri per condominio
-- Scadenziario integrato
-- Alert automatici per pratiche ferme
-- Dashboard KPI per performance operative
-
-### Visione evolutiva:
-Questo upgrade trasforma il gestore in una vera piattaforma operativa professionale, aumentando scalabilità, controllo e valore commerciale del progetto.
-
+}
