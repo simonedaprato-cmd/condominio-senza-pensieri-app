@@ -43,6 +43,20 @@ function badgeClass(stato) {
   return 'bg-amber-100 text-amber-700 border-amber-200';
 }
 
+function statoButtonClass(stato, statoCorrente) {
+  const active = stato === statoCorrente;
+  const base = 'rounded-xl border px-3 py-2 text-sm font-bold transition-all duration-200 ';
+  if (!active) return base + 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700';
+  if (stato === 'Presa in carico') return base + 'scale-[1.03] border-blue-400 bg-blue-600 text-white shadow-lg shadow-blue-500/25 ring-4 ring-blue-100';
+  if (stato === 'Sopralluogo effettuato') return base + 'scale-[1.03] border-purple-400 bg-purple-600 text-white shadow-lg shadow-purple-500/25 ring-4 ring-purple-100';
+  if (stato === 'Preventivata') return base + 'scale-[1.03] border-emerald-400 bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-4 ring-emerald-100';
+  if (stato === 'Accettata') return base + 'scale-[1.03] border-teal-400 bg-teal-600 text-white shadow-lg shadow-teal-500/25 ring-4 ring-teal-100';
+  if (stato === 'Pianificata') return base + 'scale-[1.03] border-sky-400 bg-sky-600 text-white shadow-lg shadow-sky-500/25 ring-4 ring-sky-100';
+  if (stato === 'Chiusa') return base + 'scale-[1.03] border-slate-400 bg-slate-800 text-white shadow-lg shadow-slate-500/25 ring-4 ring-slate-100';
+  if (stato === 'Rifiutata') return base + 'scale-[1.03] border-red-400 bg-red-600 text-white shadow-lg shadow-red-500/25 ring-4 ring-red-100';
+  return base + 'scale-[1.03] border-amber-400 bg-amber-500 text-white shadow-lg shadow-amber-500/25 ring-4 ring-amber-100';
+}
+
 function priorityClass(priorita) {
   if (priorita === 'Alta') return 'text-red-600';
   if (priorita === 'Bassa') return 'text-emerald-600';
@@ -1765,8 +1779,13 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {ruolo === 'gestore' && STATI_PRATICA.map((stato) => (
-                <button key={stato} onClick={() => onChangeStatus(segnalazione.id, stato)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                  {stato}
+                <button
+                  key={stato}
+                  onClick={() => onChangeStatus(segnalazione.id, stato)}
+                  className={statoButtonClass(stato, segnalazione.stato)}
+                  title={stato === segnalazione.stato ? 'Stato attuale' : `Passa a ${stato}`}
+                >
+                  {stato === segnalazione.stato ? '● ' : ''}{stato}
                 </button>
               ))}
             </div>
