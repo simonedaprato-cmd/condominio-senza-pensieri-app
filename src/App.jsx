@@ -71,8 +71,6 @@ function priorityClass(priorita) {
   return 'text-amber-600';
 }
 
-const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
-
 function LogoMark({ className = 'h-16 w-auto', alt = 'Condominio Senza Pensieri' }) {
   return (
     <img
