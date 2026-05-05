@@ -2822,6 +2822,10 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && (
           <>
             <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <DashboardAssemblea segnalazioni={segnalazioniVisualizzate} votiPreventivi={votiPreventivi} />
+              <DashboardEconomica segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} />
+            </div>
 
             <section className="space-y-3 pb-6">
               <div className="flex items-center justify-between gap-4">
@@ -2864,8 +2868,6 @@ export default function App() {
             <DashboardTerritorioToscana contratti={contratti} condomini={condomini} />
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
             <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
-            <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
-            <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
         )}
 
