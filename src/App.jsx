@@ -5,7 +5,6 @@ const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
-const GESTORE_EMAIL = 'info@ammigo.it';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -15,43 +14,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storageKey: 'csp-auth-session',
   },
 });
-
-async function recuperaSessioneDaUrl() {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const url = new URL(window.location.href);
-    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
-    const searchParams = url.searchParams;
-
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
-    const code = searchParams.get('code');
-
-    if (accessToken && refreshToken) {
-      const { data, error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (error) throw error;
-      window.history.replaceState({}, document.title, url.origin + url.pathname);
-      return data.session || null;
-    }
-
-    if (code) {
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-      if (error) throw error;
-      window.history.replaceState({}, document.title, url.origin + url.pathname);
-      return data.session || null;
-    }
-  } catch (error) {
-    console.error('Errore recupero sessione da magic link:', error);
-  }
-
-  return null;
-}
 
 const STATI_PRATICA = [
   'Nuova',
@@ -167,7 +129,6 @@ async function loadUserProfile(email) {
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
-  const [codiceOtp, setCodiceOtp] = useState('');
   const [invioInCorso, setInvioInCorso] = useState(false);
 
   const inviaLink = async () => {
@@ -190,84 +151,6 @@ function Login() {
     }
 
     setMessaggio('Link inviato. Controlla la tua email.');
-  };
-
-  const verificaCodice = async () => {
-    const emailPulita = email.trim().toLowerCase();
-    const token = codiceOtp.trim().replace(/\s+/g, '');
-
-    if (!emailPulita) {
-      setMessaggio('Inserisci prima la tua email.');
-      return;
-    }
-
-    if (!token) {
-      setMessaggio('Inserisci il codice OTP ricevuto via email.');
-      return;
-    }
-
-    setInvioInCorso(true);
-    setMessaggio('');
-
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: emailPulita,
-        token,
-        type: 'email',
-      });
-
-      if (error) throw error;
-      setMessaggio('Accesso confermato. Caricamento area riservata...');
-    } catch (error) {
-      console.error(error);
-      setMessaggio('Errore verifica codice: ' + (error.message || 'codice non valido o scaduto'));
-    } finally {
-      setInvioInCorso(false);
-    }
-  };
-
-  const verificaCodice = async () => {
-    const emailPulita = email.trim().toLowerCase();
-    const token = codiceOtp.trim().replace(/\s+/g, '');
-
-    if (!emailPulita) return setMessaggio('Inserisci prima la tua email.');
-    if (!token) return setMessaggio('Inserisci il codice OTP ricevuto via email.');
-
-    setInvioInCorso(true);
-    setMessaggio('');
-
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: emailPulita,
-        token,
-        type: 'email',
-      });
-
-      if (error) throw error;
-      setMessaggio('Accesso confermato. Caricamento area riservata...');
-    } catch (error) {
-      console.error(error);
-      setMessaggio('Errore verifica codice: ' + (error.message || 'codice non valido o scaduto'));
-    } finally {
-      setInvioInCorso(false);
-    }
-  };
-
-  const incollaDaClipboard = async () => {
-    try {
-      if (!navigator?.clipboard?.readText) {
-        return setMessaggio('Copia automatica non supportata su questo dispositivo.');
-      }
-
-      const testo = await navigator.clipboard.readText();
-      if (!testo) return setMessaggio('Nessun codice trovato negli appunti.');
-
-      setCodiceOtp(testo.replace(/\s+/g, ''));
-      setMessaggio('Codice incollato automaticamente.');
-    } catch (error) {
-      console.error(error);
-      setMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.');
-    }
   };
 
   return (
@@ -294,54 +177,6 @@ function Login() {
         >
           {invioInCorso ? 'Invio...' : 'Ricevi link'}
         </button>
-
-        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso alternativo Gmail</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Se il link si apre ma l’app resta bloccata, copia il codice OTP ricevuto via email e incollalo qui.
-          </p>
-          <input
-            value={codiceOtp}
-            onChange={(e) => setCodiceOtp(e.target.value)}
-            placeholder="Codice OTP"
-            className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-          />
-          <button
-            onClick={verificaCodice}
-            disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
-            className="mt-3 w-full rounded-2xl bg-slate-900 px-4 py-3 font-bold text-white shadow-lg shadow-slate-900/20 disabled:opacity-60"
-          >
-            Entra con codice OTP
-          </button>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso con codice OTP</p>
-          <p className="mt-1 text-xs text-slate-500">Se il link Gmail non apre correttamente l’app, copia il codice ricevuto via email.</p>
-          <input
-            value={codiceOtp}
-            onChange={(e) => setCodiceOtp(e.target.value)}
-            placeholder="Codice OTP"
-            className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-          />
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={incollaDaClipboard}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 shadow-sm"
-            >
-              Incolla codice
-            </button>
-            <button
-              type="button"
-              onClick={verificaCodice}
-              disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
-              className="rounded-2xl bg-slate-900 px-4 py-3 font-bold text-white shadow-lg shadow-slate-900/20 disabled:opacity-60"
-            >
-              Entra con OTP
-            </button>
-          </div>
-        </div>
         {messaggio && <p className="mt-4 text-sm text-slate-600">{messaggio}</p>}
       </div>
     </div>
@@ -1741,6 +1576,12 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             )}
             {segnalazione.allegatoUrl && <img src={segnalazione.allegatoUrl} alt="Allegato" className="w-full rounded-xl border border-slate-200" />}
             {segnalazione.fotosopralluogourl && <img src={segnalazione.fotosopralluogourl} alt="Sopralluogo" className="w-full rounded-xl border border-purple-200" />}
+            {segnalazione.fotolavorifinitiurl && (
+              <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="mb-2 text-sm font-black text-emerald-800">Foto lavoro finito</p>
+                <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
+              </div>
+            )}
             {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
@@ -1971,7 +1812,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruolo === 'gestore' && segnalazione.stato_conversione === 'accettato' && segnalazione.stato !== 'Pianificata' && (
+            {ruolo === 'gestore' && segnalazione.stato === 'Accettata' && (
               <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50 p-4">
                 <p className="font-semibold text-sky-800">Pianificazione lavori</p>
                 <p className="text-sm text-sky-700">Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.</p>
@@ -1988,6 +1829,31 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                 >
                   Pianifica lavori
+                </button>
+              </div>
+            )}
+
+            {ruolo === 'gestore' && segnalazione.stato === 'Chiusa' && (
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <div>
+                  <p className="font-semibold text-emerald-900">Foto lavoro finito</p>
+                  <p className="mt-1 text-sm text-emerald-800">Carica una o più immagini rappresentative del lavoro concluso.</p>
+                </div>
+                {segnalazione.fotolavorifinitiurl && (
+                  <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
+                )}
+                <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <button
+                  disabled={!file || uploading}
+                  onClick={async () => {
+                    setUploading(true);
+                    await onUploadFile(segnalazione.id, file, 'fotolavorifinitinome', 'lavoro-finito');
+                    setFile(null);
+                    setUploading(false);
+                  }}
+                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  Carica foto lavoro finito
                 </button>
               </div>
             )}
@@ -2281,6 +2147,7 @@ export default function App() {
     condominio: item.condomini?.nome || item.condominio || '',
     allegatoUrl: item.allegatonome ? buildPublicUrl(item.allegatonome) : '',
     fotosopralluogourl: item.fotosopralluogonome ? buildPublicUrl(item.fotosopralluogonome) : '',
+    fotolavorifinitiurl: item.fotolavorifinitinome ? buildPublicUrl(item.fotolavorifinitinome) : '',
     preventivourl: item.preventivonome ? buildPublicUrl(item.preventivonome) : '',
     note: Array.isArray(item.note) ? item.note : [],
   };
@@ -2364,7 +2231,13 @@ export default function App() {
 
     const inizializzaAuth = async () => {
       try {
-        await recuperaSessioneDaUrl();
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
         if (active) {
           await carica();
@@ -2408,7 +2281,7 @@ export default function App() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'preventivo_voti' },
-        async (payload) => {
+        async () => {
           const { data, error } = await supabase
             .from('preventivo_voti')
             .select('*')
@@ -2416,14 +2289,6 @@ export default function App() {
 
           if (!error) {
             setVotiPreventivi(data || []);
-
-            const votoRealtime = payload.new || payload.old;
-            const segnalazioneId = votoRealtime?.segnalazione_id;
-            const segnalazioneVotata = segnalazioni.find((item) => Number(item.id) === Number(segnalazioneId));
-            if (segnalazioneVotata) {
-              const votiPratica = (data || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazioneId));
-              await notificaVotazioneCompleta(segnalazioneVotata, votiPratica);
-            }
           }
         }
       )
@@ -2432,7 +2297,7 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [utente, segnalazioni]);
+  }, [utente]);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
@@ -2524,6 +2389,7 @@ export default function App() {
       ...updatePayload,
       [columnName]: fileName,
       fotosopralluogourl: columnName === 'fotosopralluogonome' ? buildPublicUrl(fileName) : prev.fotosopralluogourl,
+      fotolavorifinitiurl: columnName === 'fotolavorifinitinome' ? buildPublicUrl(fileName) : prev.fotolavorifinitiurl,
       preventivourl: columnName === 'preventivonome' ? buildPublicUrl(fileName) : prev.preventivourl,
     } : prev);
   };
@@ -2637,152 +2503,6 @@ export default function App() {
     }
   };
 
-
-  const notificaVotazioneCompleta = async (segnalazione, votiAggiornati = []) => {
-    try {
-      console.info('Notify check avviato', { segnalazioneId: segnalazione?.id, voti: votiAggiornati?.length || 0 });
-
-      const condominioId = Number(segnalazione?.condominio_id);
-      if (!condominioId) {
-        console.warn('Notify bloccata: condominio_id mancante', segnalazione);
-        return;
-      }
-
-      const { data: storicoNotifiche, error: storicoError } = await supabase
-        .from('storico_pratiche')
-        .select('id')
-        .eq('segnalazione_id', segnalazione.id)
-        .eq('azione', 'Notifica votazione completa')
-        .limit(1);
-
-      if (storicoError) throw storicoError;
-      if ((storicoNotifiche || []).length > 0) {
-        console.info('Notify bloccata: già inviata');
-        return;
-      }
-
-      const { data: condominio, error: condominioError } = await supabase
-        .from('condomini')
-        .select('id, nome, indirizzo, amministratore_email')
-        .eq('id', condominioId)
-        .maybeSingle();
-
-      if (condominioError) throw condominioError;
-
-      const { data: collegamentiCondominio, error: collegamentiError } = await supabase
-        .from('utenti_condomini')
-        .select('email')
-        .eq('condominio_id', condominioId);
-
-      if (collegamentiError) throw collegamentiError;
-
-      const emailCollegati = [...new Set((collegamentiCondominio || [])
-        .map((u) => String(u.email || '').toLowerCase().trim())
-        .filter(Boolean)
-      )];
-
-      const { data: utentiCollegati, error: utentiCollegatiError } = emailCollegati.length
-        ? await supabase
-            .from('utenti')
-            .select('email, ruolo')
-            .in('email', emailCollegati)
-        : { data: [], error: null };
-
-      if (utentiCollegatiError) throw utentiCollegatiError;
-
-      const ruoloByEmail = new Map((utentiCollegati || [])
-        .map((u) => [String(u.email || '').toLowerCase().trim(), String(u.ruolo || '').toLowerCase().trim()])
-      );
-
-      const emailAmministratore = String(condominio?.amministratore_email || '').toLowerCase().trim();
-      const ruoliNonVotanti = ['admin', 'amministratore', 'gestore', 'tecnico'];
-
-      const emailAventiDiritto = [...new Set(emailCollegati
-        .filter((email) => email !== emailAmministratore)
-        .filter((email) => !ruoliNonVotanti.includes(ruoloByEmail.get(email) || ''))
-      )];
-
-      const emailVotanti = [...new Set((votiAggiornati || [])
-        .map((v) => String(v.email || '').toLowerCase().trim())
-        .filter(Boolean)
-      )];
-
-      console.info('Notify controllo votazione', { emailAventiDiritto, emailVotanti });
-
-      if (!emailAventiDiritto.length) {
-        console.warn('Notify bloccata: nessun avente diritto');
-        return;
-      }
-
-      const votazioneCompleta = emailAventiDiritto.every((email) => emailVotanti.includes(email));
-      if (!votazioneCompleta) {
-        console.info('Notify bloccata: votazione incompleta');
-        return;
-      }
-
-      const favorevoli = votiAggiornati.filter((v) => v.voto === 'favorevole').length;
-      const contrari = votiAggiornati.filter((v) => v.voto === 'contrario').length;
-      const astenuti = votiAggiornati.filter((v) => v.voto === 'astenuto' || v.voto === 'indeciso').length;
-
-      const destinatari = [condominio?.amministratore_email, GESTORE_EMAIL]
-        .map((email) => String(email || '').toLowerCase().trim())
-        .filter(Boolean);
-
-      if (!destinatari.length) {
-        console.warn('Notify bloccata: destinatari assenti');
-        return;
-      }
-
-      const payload = {
-        to: destinatari,
-        subject: `Votazione completa - ${segnalazione.titolo}`,
-        pratica: {
-          id: segnalazione.id,
-          titolo: segnalazione.titolo,
-          importo_preventivo: segnalazione.importo_preventivo,
-        },
-        condominio: {
-          nome: condominio?.nome || segnalazione.condomini?.nome || segnalazione.condominio_nome || 'Condominio',
-          indirizzo: condominio?.indirizzo || segnalazione.condomini?.indirizzo || '',
-        },
-        riepilogo: {
-          aventi_diritto: emailAventiDiritto.length,
-          voti_registrati: emailVotanti.length,
-          favorevoli,
-          contrari,
-          astenuti,
-        },
-        voti: votiAggiornati,
-      };
-
-      console.info('Invio Edge Function notify', payload);
-
-      const { data: funzioneData, error: funzioneError } = await supabase.functions.invoke('notifica-votazione-completa', {
-        body: payload,
-      });
-
-      if (funzioneError) {
-        console.error('Errore Edge Function notify:', funzioneError);
-        throw funzioneError;
-      }
-
-      console.info('Risposta Edge Function notify', funzioneData);
-
-      await supabase.from('storico_pratiche').insert({
-        pratica_id: segnalazione.id,
-        segnalazione_id: segnalazione.id,
-        azione: 'Notifica votazione completa',
-        note: `Email inviata a: ${destinatari.join(', ')}`,
-        utente_email: utente?.email || '',
-      });
-
-      setStatusMessage('Votazione completa: email inviata ad amministratore e gestore.');
-    } catch (error) {
-      console.error(error);
-      setStatusMessage('Votazione registrata, ma notifica email non inviata: ' + (error.message || 'errore sconosciuto'));
-    }
-  };
-
   const aggiornaVotoCondomino = async (id, voto) => {
     try {
       if (!utente?.email) throw new Error('Utente non identificato');
@@ -2805,21 +2525,6 @@ export default function App() {
         const filtrati = prev.filter((item) => !(Number(item.segnalazione_id) === Number(id) && item.email === votoPayload.email));
         return [data || votoPayload, ...filtrati];
       });
-
-      const { data: votiAggiornati, error: votiError } = await supabase
-        .from('preventivo_voti')
-        .select('*')
-        .eq('segnalazione_id', id)
-        .order('created_at', { ascending: false });
-
-      if (votiError) throw votiError;
-
-      const segnalazioneVotata = segnalazioni.find((item) => Number(item.id) === Number(id));
-      if (segnalazioneVotata) {
-        await notificaVotazioneCompleta(segnalazioneVotata, votiAggiornati || []);
-      } else {
-        console.warn('Notify non eseguita: segnalazione non trovata in stato locale', id);
-      }
 
       setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
