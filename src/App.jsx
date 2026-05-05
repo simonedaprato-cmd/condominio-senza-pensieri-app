@@ -2821,6 +2821,30 @@ export default function App() {
         )}
         {ruoloNormalizzato === 'gestore' && (
           <>
+            <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
+
+            <section className="space-y-3 pb-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Segnalazioni operative</h2>
+                  <p className="text-sm text-slate-500">Elenco pratiche filtrate, sempre in evidenza prima dei moduli commerciali.</p>
+                </div>
+                <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
+                  {loading ? 'Live...' : 'Aggiorna live'}
+                </button>
+              </div>
+              {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
+              {loading ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
+              ) : segnalazioniVisualizzate.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
+              ) : (
+                <div className="space-y-3">
+                  {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+                </div>
+              )}
+            </section>
+
             <GestioneLeadAmministratori onCreateLead={creaLeadAmministratore} />
             <DashboardLeadAmministratori leadAmministratori={leadAmministratori} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
@@ -2839,14 +2863,13 @@ export default function App() {
             <DashboardMarginalita contratti={contratti} />
             <DashboardTerritorioToscana contratti={contratti} condomini={condomini} />
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
-            <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
             <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardEconomica segnalazioni={segnalazioni} condomini={condomini} />
             <DashboardAssemblea segnalazioni={segnalazioni} votiPreventivi={votiPreventivi} />
           </>
         )}
 
-        {(ruoloNormalizzato === 'gestore' || ruoloNormalizzato === 'condominio') && (
+        {ruoloNormalizzato === 'condominio' && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
