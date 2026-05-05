@@ -2822,6 +2822,8 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && (
           <>
             <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
+            <DashboardAssemblee condomini={condomini} segnalazioni={segnalazioniVisualizzate} />
+            <DashboardEconomica condomini={condomini} contratti={contratti} segnalazioni={segnalazioniVisualizzate} />
 
             <section className="space-y-3 pb-6">
               <div className="flex items-center justify-between gap-4">
