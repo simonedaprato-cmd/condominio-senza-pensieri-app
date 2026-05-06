@@ -2087,6 +2087,7 @@ export default function App() {
   const [condomini, setCondomini] = useState([]);
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
@@ -2225,6 +2226,14 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShowSplash(false);
+    }, 1300);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -2809,6 +2818,27 @@ export default function App() {
     );
   }
   if (!utente) return <Login />;
+
+  if (showSplash) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-700 p-6 text-white">
+        <div className="flex flex-col items-center text-center">
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl">
+            <LogoMark className="h-28 w-auto md:h-40" />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
+            Condominio Senza Pensieri
+          </p>
+          <p className="mt-2 text-sm text-emerald-50/80">
+            Gestione evoluta. Serenità reale.
+          </p>
+          <div className="mt-6 h-1.5 w-36 overflow-hidden rounded-full bg-white/15">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-emerald-300" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
