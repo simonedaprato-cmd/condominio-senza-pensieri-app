@@ -182,6 +182,29 @@ function AppMotionStyles() {
         transition: transform 240ms ease, box-shadow 240ms ease;
       }
 
+
+      .csp-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+      }
+
+      .csp-scroll::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .csp-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .csp-scroll::-webkit-scrollbar-thumb {
+        background: rgba(15, 23, 42, 0.22);
+        border-radius: 999px;
+      }
+
+      .csp-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(15, 23, 42, 0.36);
+      }
+
       .csp-touch-card:active {
         transform: scale(0.985);
         box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.45);
@@ -518,7 +541,7 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
       <h2 className="mt-1 text-xl font-bold">Contratti in scadenza / upgrade</h2>
       <p className="mt-1 text-sm text-slate-500">Monitoraggio rinnovi e crescita commerciale.</p>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
         {inScadenza.length === 0 ? (
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
             <EmptyState icon="⏳" title="Nessuna scadenza vicina" text="Non risultano contratti in scadenza nei prossimi 30 giorni." action="Agenda libera" tone="emerald" />
@@ -677,7 +700,7 @@ function DashboardProvinceOpportunita({ contratti, condomini }) {
       <h2 className="mt-1 text-xl font-bold">Province a maggior potenziale</h2>
       <p className="mt-1 text-sm text-slate-500">Dove concentrare acquisizione amministratori e campagne locali.</p>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
         {opportunita.length === 0 ? (
           <EmptyState icon="✨" title="Nessun dato disponibile" text="Quando ci saranno informazioni da mostrare, compariranno qui in una vista ordinata e facile da leggere." action="Tutto pronto" tone="slate" />
         ) : (
@@ -752,7 +775,7 @@ function DashboardLeadCommercialeToscana({ contratti, condomini }) {
       <h2 className="mt-1 text-xl font-bold">Pipeline commerciale territoriale</h2>
       <p className="mt-1 text-sm text-slate-500">Province prioritarie per acquisizione amministratori e campagne locali.</p>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
         {ranking.length === 0 ? (
           <EmptyState icon="✨" title="Nessun dato disponibile" text="Quando ci saranno informazioni da mostrare, compariranno qui in una vista ordinata e facile da leggere." action="Tutto pronto" tone="slate" />
         ) : (
@@ -906,7 +929,7 @@ function DashboardRanking({ contratti, condomini }) {
       <h2 className="mt-1 text-xl font-bold">Top amministratori / condomini</h2>
       <p className="mt-1 text-sm text-slate-500">Classifica clienti per redditività annuale.</p>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
         {ranking.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
             <EmptyState icon="📑" title="Nessun contratto disponibile" text="I contratti saranno visualizzati qui appena disponibili." action="Archivio pronto" tone="slate" />
@@ -1217,7 +1240,7 @@ function DashboardAssemblea({ segnalazioni, votiPreventivi }) {
       <h2 className="mt-1 text-xl font-bold">Quorum digitale preventivi</h2>
       <p className="mt-1 text-sm text-slate-500">Monitoraggio consenso condomini pre-assemblea.</p>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
         {dati.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
             <EmptyState icon="💬" title="Nessun preventivo condiviso" text="Quando un preventivo sarà condiviso con i condòmini, lo vedrai in questa sezione." action="In attesa di condivisione" tone="blue" />
@@ -1433,7 +1456,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-bold">Situazione per condominio</h3>
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
             {condomini.map((c) => {
               const items = segnalazioni.filter((s) => s.condominio_id === c.id);
               return (
@@ -1454,7 +1477,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-bold">Da monitorare</h3>
           <p className="mb-4 text-sm text-slate-500">Pratiche prioritarie in evidenza.</p>
-          <div className="space-y-3">
+          <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
             {critiche.length === 0 ? (
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">Situazione sotto controllo.</div>
             ) : (
@@ -1777,7 +1800,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
         </div>
 
         <div className="grid flex-1 grid-cols-1 gap-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5">
-          <div className="space-y-3">
+          <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
@@ -1985,7 +2008,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       </div>
                     )}
 
-                    <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-white/70 bg-white">
+                    <div className="mt-3 max-h-40 overflow-y-auto csp-scroll rounded-xl border border-white/70 bg-white">
                       {votiPratica.length === 0 ? (
                         <EmptyState icon="🗳️" title="Nessun voto ancora registrato" text="Quando i condòmini voteranno, il riepilogo apparirà qui in tempo reale." action="Votazione in attesa" tone="blue" />
                       ) : (
@@ -2109,7 +2132,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   {totaleMillesimi !== 1000 && (
                     <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Attenzione: il totale millesimi non è 1000. Verifica i dati prima dell’invio.</p>
                   )}
-                  <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-slate-100">
+                  <div className="mt-3 max-h-40 overflow-y-auto csp-scroll rounded-xl border border-slate-100">
                     {quoteRiparto.length === 0 ? (
                       <EmptyState icon="📐" title="Millesimi non configurati" text="Configura i millesimi dei condòmini per ottenere un riparto chiaro e pronto da condividere." action="Configurazione richiesta" tone="amber" />
                     ) : quoteRiparto.map((item) => (
@@ -2168,7 +2191,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
 
           {mostraCronologia && (
-            <div className="mt-3 max-h-36 space-y-2 overflow-auto border-t border-slate-100 pt-3">
+            <div className="mt-3 max-h-40 space-y-2 overflow-y-auto csp-scroll border-t border-slate-100 pt-3">
               {(segnalazione.note || []).length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
                   Nessuna nota presente.
@@ -3132,7 +3155,7 @@ export default function App() {
             ) : segnalazioniVisualizzate.length === 0 ? (
               <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
             ) : (
-              <div className="space-y-3">
+              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
                 {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
               </div>
             )}
@@ -3180,7 +3203,7 @@ export default function App() {
               ) : segnalazioniVisualizzate.length === 0 ? (
                 <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
               ) : (
-                <div className="space-y-3">
+                <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
                   {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
                 </div>
               )}
@@ -3222,7 +3245,7 @@ export default function App() {
             ) : segnalazioniVisualizzate.length === 0 ? (
               <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
             ) : (
-              <div className="space-y-3">
+              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
                 {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
               </div>
             )}
