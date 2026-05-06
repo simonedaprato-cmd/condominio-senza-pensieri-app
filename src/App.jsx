@@ -131,6 +131,65 @@ async function loadUserProfile(email) {
   };
 }
 
+
+function AppMotionStyles() {
+  return (
+    <style>{`
+      @keyframes cspFadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes cspSoftPulse {
+        0%, 100% {
+          transform: scale(1);
+          box-shadow: 0 18px 45px -30px rgba(15, 23, 42, 0.35);
+        }
+        50% {
+          transform: scale(1.01);
+          box-shadow: 0 24px 60px -34px rgba(5, 150, 105, 0.45);
+        }
+      }
+
+      .csp-enter {
+        animation: cspFadeUp 520ms ease-out both;
+      }
+
+      .csp-enter-slow {
+        animation: cspFadeUp 720ms ease-out both;
+      }
+
+      .csp-premium-pulse {
+        animation: cspSoftPulse 3.8s ease-in-out infinite;
+      }
+
+      .csp-tap {
+        transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+      }
+
+      .csp-tap:active {
+        transform: scale(0.97);
+        filter: brightness(0.96);
+      }
+
+      .csp-touch-card {
+        transition: transform 240ms ease, box-shadow 240ms ease;
+      }
+
+      .csp-touch-card:active {
+        transform: scale(0.985);
+        box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.45);
+      }
+    `}</style>
+  );
+}
+
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
@@ -160,7 +219,7 @@ function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-sm csp-enter csp-touch-card">
         <div className="mb-5 flex flex-col items-center rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-5 text-center shadow-inner">
           <LogoMark />
           <p className="mt-2 text-xs font-black uppercase tracking-[0.24em] text-amber-300">Condominio Senza Pensieri</p>
@@ -1435,7 +1494,7 @@ function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio,
       </div>
       <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
       {errore && <p className="text-sm text-red-600">{errore}</p>}
-      <button disabled={saving} className={`rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white disabled:opacity-60 ${MOTION_BUTTON}`}>
+      <button disabled={saving} className={`rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white disabled:opacity-60 ${MOTION_BUTTON} csp-tap csp-tap`}>
         {saving ? 'Salvataggio...' : 'Salva segnalazione'}
       </button>
     </form>
@@ -2828,10 +2887,10 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-700 p-6 text-white">
         <div className="flex flex-col items-center text-center">
-          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl transition-all duration-700 ease-out hover:scale-[1.02]">
+          <div className="csp-enter csp-premium-pulse rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl transition-all duration-700 ease-out hover:scale-[1.02]">
             <LogoMark className="h-28 w-auto md:h-40" />
           </div>
-          <p className="mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
+          <p className="csp-enter-slow mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
             Condominio Senza Pensieri
           </p>
           <p className="mt-2 text-sm text-emerald-50/80">
