@@ -1587,6 +1587,84 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
   );
 }
 
+
+function TimelinePratica({ stato }) {
+  const steps = [
+    { key: 'Nuova', match: ['nuova', 'aperta'], icon: '1' },
+    { key: 'In carico', match: ['presa in carico', 'in corso', 'sopralluogo', 'preventivata', 'accettata'], icon: '2' },
+    { key: 'Programmata', match: ['pianificata', 'programmata'], icon: '3' },
+    { key: 'Chiusa', match: ['chiusa'], icon: '4' },
+  ];
+
+  const statoNorm = String(stato || '').toLowerCase();
+
+  let activeIndex = steps.findIndex((step) =>
+    step.match.some((term) => statoNorm.includes(term))
+  );
+
+  if (statoNorm.includes('rifiutata')) activeIndex = -1;
+  if (activeIndex < 0 && !statoNorm.includes('rifiutata')) activeIndex = 0;
+
+  return (
+    <div className="csp-enter rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/60 to-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Avanzamento pratica</p>
+          <p className="mt-1 text-xs text-slate-500">Segui il percorso operativo dalla segnalazione alla chiusura.</p>
+        </div>
+        <StatoBadge stato={stato} />
+      </div>
+
+      {statoNorm.includes('rifiutata') ? (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
+          Pratica rifiutata o archiviata.
+        </div>
+      ) : (
+        <div className="grid grid-cols-[auto_1fr_auto_1fr_auto_1fr_auto] items-start gap-2">
+          {steps.map((step, index) => {
+            const isCompleted = index < activeIndex;
+            const isActive = index === activeIndex;
+            const isDoneOrActive = isCompleted || isActive;
+
+            return (
+              <div key={step.key} className="contents">
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-2xl text-xs font-black shadow-sm transition-all duration-300 ${
+                      isActive
+                        ? 'scale-110 bg-emerald-600 text-white shadow-emerald-900/20'
+                        : isCompleted
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {isCompleted ? '✓' : step.icon}
+                  </div>
+                  <span
+                    className={`mt-2 max-w-[72px] text-[10px] font-black uppercase leading-tight ${
+                      isDoneOrActive ? 'text-emerald-800' : 'text-slate-400'
+                    }`}
+                  >
+                    {step.key}
+                  </span>
+                </div>
+
+                {index < steps.length - 1 && (
+                  <div className="pt-4">
+                    <div className={`h-1 rounded-full transition-all duration-500 ${
+                      index < activeIndex ? 'bg-emerald-500' : 'bg-slate-200'
+                    }`} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
@@ -1926,6 +2004,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
 
           <div className="space-y-4">
+            <TimelinePratica stato={segnalazione.stato} />
             <div className="flex flex-wrap gap-2">
               {ruolo === 'gestore' && STATI_PRATICA.map((stato) => (
                 <button
