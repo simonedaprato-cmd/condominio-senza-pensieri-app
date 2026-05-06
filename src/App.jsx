@@ -2230,7 +2230,7 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setShowSplash(false);
-    }, 1300);
+    }, 4000);
 
     return () => window.clearTimeout(timer);
   }, []);
