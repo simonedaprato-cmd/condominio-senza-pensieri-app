@@ -222,6 +222,46 @@ function EmptyState({
   );
 }
 
+
+function StatoBadge({ stato }) {
+  const base = "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-wide";
+
+  if (!stato) return null;
+
+  if (stato.toLowerCase().includes("aperta")) {
+    return (
+      <span className={`${base} bg-emerald-100 text-emerald-800 csp-premium-pulse`}>
+        <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+        Aperta
+      </span>
+    );
+  }
+
+  if (stato.toLowerCase().includes("corso")) {
+    return (
+      <span className={`${base} bg-amber-100 text-amber-800 animate-pulse`}>
+        <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+        In corso
+      </span>
+    );
+  }
+
+  if (stato.toLowerCase().includes("chiusa")) {
+    return (
+      <span className={`${base} bg-slate-200 text-slate-700`}>
+        <span className="h-2 w-2 rounded-full bg-slate-500"></span>
+        Chiusa
+      </span>
+    );
+  }
+
+  return (
+    <span className={`${base} bg-slate-100 text-slate-600`}>
+      {stato}
+    </span>
+  );
+}
+
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
@@ -1541,7 +1581,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
           <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
           <p className="break-words text-sm text-slate-500">{segnalazione.condominio}</p>
         </div>
-        <span className={'shrink-0 rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}>{segnalazione.stato}</span>
+        <span className={'shrink-0 rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
       </div>
     </button>
   );
