@@ -377,33 +377,28 @@ function NotifichePushBox({ utenteEmail }) {
 
   const attive = permesso === 'granted';
 
+  if (attive) {
+    return null;
+  }
+
   return (
-    <div className={`csp-enter rounded-3xl border p-4 shadow-sm ${
-      attive
-        ? 'border-emerald-100 bg-emerald-50'
-        : 'border-amber-100 bg-amber-50'
-    }`}>
+    <div className="csp-enter rounded-3xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className={`text-sm font-black ${attive ? 'text-emerald-900' : 'text-amber-900'}`}>
-            {attive ? 'Notifiche push attive' : 'Attiva notifiche push'}
+          <p className="text-sm font-black text-amber-900">
+            Attiva notifiche push
           </p>
-          <p className={`mt-1 text-xs ${attive ? 'text-emerald-700' : 'text-amber-700'}`}>
-            {attive
-              ? 'Questo dispositivo può ricevere aggiornamenti importanti dall’app.'
-              : 'Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.'}
+          <p className="mt-1 text-xs text-amber-700">
+            Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.
           </p>
         </div>
 
         <button
           type="button"
           onClick={attivaNotifiche}
-          disabled={attive}
-          className={`rounded-2xl px-4 py-2 text-sm font-black text-white shadow-sm ${MOTION_BUTTON} ${
-            attive ? 'bg-emerald-700 opacity-80' : 'bg-slate-900'
-          }`}
+          className={`rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm ${MOTION_BUTTON}`}
         >
-          {attive ? 'Attive' : 'Attiva'}
+          Attiva
         </button>
       </div>
 
