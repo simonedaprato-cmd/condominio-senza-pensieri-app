@@ -340,6 +340,41 @@ function NotifichePushBox({ utenteEmail }) {
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
 
+  const salvaSubscriptionId = async (subId) => {
+    if (!emailPulita || !subId) return;
+
+    const payload = {
+      onesignal_subscription_id: subId,
+      onesignal_updated_at: new Date().toISOString(),
+    };
+
+    try {
+      const { error } = await supabase
+        .from('utenti')
+        .update(payload)
+        .ilike('email', emailPulita);
+
+      if (error) {
+        console.warn('Salvataggio subscription su utenti non completato:', error.message || error);
+      }
+    } catch (error) {
+      console.warn('Errore salvataggio subscription su utenti:', error);
+    }
+
+    try {
+      const { error } = await supabase
+        .from('utenti_condomini')
+        .update(payload)
+        .ilike('email', emailPulita);
+
+      if (error) {
+        console.warn('Salvataggio subscription su utenti_condomini non completato:', error.message || error);
+      }
+    } catch (error) {
+      console.warn('Errore salvataggio subscription su utenti_condomini:', error);
+    }
+  };
+
   const collegaUtenteOneSignal = async (origine = 'auto') => {
     if (!emailPulita) {
       console.warn('OneSignal: email utente assente, collegamento saltato');
@@ -374,7 +409,10 @@ function NotifichePushBox({ utenteEmail }) {
       });
 
       setCollegatoEmail(true);
-      if (subId) setSubscriptionId(subId);
+      if (subId) {
+        setSubscriptionId(subId);
+        await salvaSubscriptionId(subId);
+      }
 
       return subId;
     } catch (error) {
@@ -2839,14 +2877,14 @@ export default function App() {
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
-        .select('email, condominio_id, millesimi');
+        .select('email, condominio_id, millesimi, onesignal_subscription_id');
 
       if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
       setUtentiCondomini(utentiCondominiData || []);
 
       const { data: utentiSistemaData, error: utentiSistemaError } = await supabase
         .from('utenti')
-        .select('email, ruolo, nome');
+        .select('email, ruolo, nome, onesignal_subscription_id');
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
