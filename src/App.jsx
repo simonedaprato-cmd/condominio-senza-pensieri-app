@@ -358,7 +358,10 @@ function NotifichePushBox({ utenteEmail }) {
       let subId = '';
 
       try {
-        subId = await OneSignal.User.PushSubscription.getIdAsync();
+        subId =
+          OneSignal.User?.PushSubscription?.id ||
+          OneSignal.User?.PushSubscription?.subscriptionId ||
+          '';
       } catch (subError) {
         console.warn('OneSignal subscription id non recuperato:', subError);
       }
