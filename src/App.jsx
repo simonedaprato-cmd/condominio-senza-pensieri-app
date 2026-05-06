@@ -335,9 +335,52 @@ function NotifichePushBox({ utenteEmail }) {
   const [inizializzato, setInizializzato] = useState(false);
   const [permesso, setPermesso] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
   const [collegatoEmail, setCollegatoEmail] = useState(false);
+  const [subscriptionId, setSubscriptionId] = useState('');
   const [messaggio, setMessaggio] = useState('');
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
+
+  const collegaUtenteOneSignal = async (origine = 'auto') => {
+    if (!emailPulita) {
+      console.warn('OneSignal: email utente assente, collegamento saltato');
+      return null;
+    }
+
+    try {
+      await OneSignal.login(emailPulita);
+
+      try {
+        await OneSignal.User.addEmail(emailPulita);
+      } catch (emailError) {
+        console.warn('OneSignal addEmail non completato:', emailError);
+      }
+
+      let subId = '';
+
+      try {
+        subId = await OneSignal.User.PushSubscription.getIdAsync();
+      } catch (subError) {
+        console.warn('OneSignal subscription id non recuperato:', subError);
+      }
+
+      console.info('OneSignal utente collegato:', {
+        origine,
+        email: emailPulita,
+        subscriptionId: subId || 'non disponibile',
+        permission: typeof Notification !== 'undefined' ? Notification.permission : 'n/a',
+      });
+
+      setCollegatoEmail(true);
+      if (subId) setSubscriptionId(subId);
+
+      return subId;
+    } catch (error) {
+      console.error('Errore collegamento utente OneSignal:', error);
+      setCollegatoEmail(false);
+      setMessaggio('Notifiche attive, ma utente non collegato. Riprova ad attivarle.');
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -384,20 +427,16 @@ function NotifichePushBox({ utenteEmail }) {
 
     let active = true;
 
-    const collegaUtente = async () => {
-      try {
-        await OneSignal.login(emailPulita);
-        console.info('OneSignal utente collegato:', emailPulita);
+    const collega = async () => {
+      const subId = await collegaUtenteOneSignal('login-effect');
+      if (!active) return;
 
-        if (!active) return;
+      if (Notification.permission === 'granted' && subId) {
         setCollegatoEmail(true);
-      } catch (error) {
-        console.error('Errore collegamento utente OneSignal:', error);
-        if (active) setMessaggio('Notifiche attive, ma utente non collegato. Riprova ad attivarle.');
       }
     };
 
-    collegaUtente();
+    collega();
 
     return () => {
       active = false;
@@ -419,9 +458,7 @@ function NotifichePushBox({ utenteEmail }) {
       }
 
       if (emailPulita) {
-        await OneSignal.login(emailPulita);
-        setCollegatoEmail(true);
-        console.info('OneSignal utente collegato da pulsante:', emailPulita);
+        await collegaUtenteOneSignal('prima-del-permesso');
       }
 
       await OneSignal.Notifications.requestPermission();
@@ -430,10 +467,12 @@ function NotifichePushBox({ utenteEmail }) {
       setPermesso(nuovoPermesso);
 
       if (nuovoPermesso === 'granted') {
-        if (emailPulita) {
-          await OneSignal.login(emailPulita);
+        const subId = await collegaUtenteOneSignal('dopo-permesso');
+
+        if (subId || emailPulita) {
           setCollegatoEmail(true);
         }
+
         setMessaggio('Notifiche attivate e collegate al tuo utente.');
       } else if (nuovoPermesso === 'denied') {
         setMessaggio('Notifiche bloccate dal browser. Puoi riattivarle dalle impostazioni del sito.');
@@ -467,6 +506,11 @@ function NotifichePushBox({ utenteEmail }) {
           {emailPulita && (
             <p className="mt-1 text-[11px] font-semibold text-amber-800">
               Collegamento utente: {emailPulita}
+            </p>
+          )}
+          {subscriptionId && (
+            <p className="mt-1 text-[10px] font-semibold text-amber-700">
+              Dispositivo: {subscriptionId}
             </p>
           )}
         </div>
