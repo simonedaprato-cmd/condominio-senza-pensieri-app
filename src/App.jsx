@@ -2059,45 +2059,48 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-50/80 p-3 md:p-4">
+        <div className="border-t border-slate-200 bg-white px-4 py-2 md:px-5">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h4 className="text-sm font-black text-slate-800">Cronologia note</h4>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {(segnalazione.note || []).length} aggiornamenti registrati
-              </p>
-            </div>
             <button
               type="button"
               onClick={() => setMostraCronologia((prev) => !prev)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm"
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm">📝</span>
+              <span className="min-w-0">
+                <span className="block text-xs font-black uppercase tracking-wide text-slate-700">Cronologia note</span>
+                <span className="block truncate text-[11px] text-slate-500">
+                  {(segnalazione.note || []).length === 0
+                    ? 'Nessuna nota presente'
+                    : mostraCronologia
+                      ? `${(segnalazione.note || []).length} aggiornamenti registrati`
+                      : `Ultima: ${(segnalazione.note || [])[0]?.testo || 'nota disponibile'}`}
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMostraCronologia((prev) => !prev)}
+              className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600"
             >
               {mostraCronologia ? 'Nascondi' : 'Mostra'}
             </button>
           </div>
 
-          {(segnalazione.note || []).length === 0 ? (
-            <div className="mt-3">
-              <EmptyState icon="📝" title="Nessuna nota presente" text="Le note operative e gli aggiornamenti della pratica compariranno qui." action="Diario pratica pronto" tone="slate" />
-            </div>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {!mostraCronologia && (
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <p className="line-clamp-2 text-xs text-slate-700">{(segnalazione.note || [])[0]?.testo}</p>
-                  <p className="mt-1 text-[11px] font-semibold text-slate-400">{(segnalazione.note || [])[0]?.data}</p>
-                </div>
-              )}
-
-              {mostraCronologia && (
-                <div className="max-h-40 space-y-2 overflow-auto pr-1">
-                  {(segnalazione.note || []).map((n) => (
-                    <div key={n.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className="text-xs text-slate-700">{n.testo}</p>
-                      <p className="mt-1 text-[11px] font-semibold text-slate-400">{n.data}</p>
-                    </div>
-                  ))}
-                </div>
+          {mostraCronologia && (
+            <div className="mt-3 max-h-36 space-y-2 overflow-auto border-t border-slate-100 pt-3">
+              {(segnalazione.note || []).length === 0 ? (
+                <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  Nessuna nota presente.
+                </p>
+              ) : (
+                (segnalazione.note || []).map((n) => (
+                  <div key={n.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-xs text-slate-700">{n.testo}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">{n.data}</p>
+                  </div>
+                ))
               )}
             </div>
           )}
