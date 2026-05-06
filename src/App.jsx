@@ -190,6 +190,38 @@ function AppMotionStyles() {
   );
 }
 
+
+function EmptyState({
+  icon = '✨',
+  title = 'Nessun dato disponibile',
+  text = 'Quando ci saranno nuovi contenuti, li vedrai comparire qui.',
+  action,
+  tone = 'emerald',
+}) {
+  const tones = {
+    emerald: 'border-emerald-200 from-emerald-50 via-white to-slate-50 text-emerald-800',
+    amber: 'border-amber-200 from-amber-50 via-white to-slate-50 text-amber-800',
+    blue: 'border-blue-200 from-blue-50 via-white to-slate-50 text-blue-800',
+    slate: 'border-slate-200 from-slate-50 via-white to-white text-slate-800',
+    rose: 'border-rose-200 from-rose-50 via-white to-slate-50 text-rose-800',
+  };
+
+  return (
+    <div className={`csp-enter rounded-3xl border border-dashed bg-gradient-to-br p-7 text-center shadow-sm ${tones[tone] || tones.emerald}`}>
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-3xl shadow-lg shadow-slate-900/10">
+        {icon}
+      </div>
+      <h3 className="mt-4 text-lg font-black text-slate-900">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">{text}</p>
+      {action && (
+        <p className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wide shadow-sm">
+          {action}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
@@ -449,7 +481,7 @@ function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeCont
       <div className="mt-4 space-y-3">
         {inScadenza.length === 0 ? (
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
-            Nessun contratto in scadenza nei prossimi 30 giorni.
+            <EmptyState icon="⏳" title="Nessuna scadenza vicina" text="Non risultano contratti in scadenza nei prossimi 30 giorni." action="Agenda libera" tone="emerald" />
           </div>
         ) : (
           inScadenza.map((contratto) => (
@@ -539,7 +571,7 @@ function DashboardTerritorioToscana({ contratti, condomini }) {
         <p className="text-sm font-bold text-orange-800">Priorità provinciali</p>
         <div className="mt-3 space-y-2">
           {ranking.length === 0 ? (
-            <p className="text-sm text-orange-700">Nessun dato disponibile.</p>
+            <EmptyState icon="📈" title="Nessun dato disponibile" text="Appena saranno presenti dati utili, questa sezione mostrerà indicatori e andamento in modo chiaro." action="Dashboard pronta" tone="amber" />
           ) : (
             ranking.slice(0, 7).map((provincia) => (
               <div key={provincia.nome} className="flex items-center justify-between rounded-xl border border-orange-100 bg-white px-3 py-2">
@@ -607,7 +639,7 @@ function DashboardProvinceOpportunita({ contratti, condomini }) {
 
       <div className="mt-4 space-y-3">
         {opportunita.length === 0 ? (
-          <p className="text-sm text-slate-500">Nessun dato disponibile.</p>
+          <EmptyState icon="✨" title="Nessun dato disponibile" text="Quando ci saranno informazioni da mostrare, compariranno qui in una vista ordinata e facile da leggere." action="Tutto pronto" tone="slate" />
         ) : (
           opportunita.slice(0, 7).map((provincia) => (
             <div key={provincia.nome} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -682,7 +714,7 @@ function DashboardLeadCommercialeToscana({ contratti, condomini }) {
 
       <div className="mt-4 space-y-3">
         {ranking.length === 0 ? (
-          <p className="text-sm text-slate-500">Nessun dato disponibile.</p>
+          <EmptyState icon="✨" title="Nessun dato disponibile" text="Quando ci saranno informazioni da mostrare, compariranno qui in una vista ordinata e facile da leggere." action="Tutto pronto" tone="slate" />
         ) : (
           ranking.slice(0, 8).map((provincia) => (
             <div key={provincia.nome} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -764,7 +796,7 @@ function DashboardLeadPipeline({ contratti, condomini }) {
         <p className="text-sm font-bold text-cyan-800">Top prospect prioritari</p>
         <div className="mt-3 space-y-2">
           {leadCaldi.length === 0 ? (
-            <p className="text-sm text-cyan-700">Nessun prospect disponibile.</p>
+            <EmptyState icon="🎯" title="Nessun prospect disponibile" text="Quando inserirai nuovi contatti o opportunità commerciali, li vedrai qui con stato e priorità." action="Pipeline pronta" tone="blue" />
           ) : (
             leadCaldi.slice(0, 5).map((lead) => (
               <div key={lead.id} className="flex items-center justify-between rounded-xl border border-cyan-100 bg-white px-3 py-2">
@@ -837,7 +869,7 @@ function DashboardRanking({ contratti, condomini }) {
       <div className="mt-4 space-y-3">
         {ranking.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-            Nessun contratto disponibile.
+            <EmptyState icon="📑" title="Nessun contratto disponibile" text="I contratti saranno visualizzati qui appena disponibili." action="Archivio pronto" tone="slate" />
           </div>
         ) : (
           ranking.slice(0, 10).map((cliente, index) => (
@@ -988,7 +1020,7 @@ function DashboardLeadAmministratori({ leadAmministratori }) {
       </div>
       <div className="mt-5 space-y-2">
         {leadAmministratori.length === 0 ? (
-          <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Nessun lead inserito.</p>
+          <EmptyState icon="🚀" title="Nessun lead inserito" text="Aggiungi il primo lead per iniziare a costruire una pipeline commerciale ordinata e misurabile." action="Crea il primo lead" tone="emerald" />
         ) : (
           leadAmministratori.slice(0, 6).map((lead) => (
             <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -1036,7 +1068,7 @@ function DashboardCRM({ contratti, condomini }) {
         <p className="text-sm font-bold text-slate-700">Top clienti per valore annuale</p>
         <div className="mt-3 space-y-2">
           {clientiTop.length === 0 ? (
-            <p className="text-sm text-slate-500">Nessun contratto disponibile.</p>
+            <EmptyState icon="📑" title="Nessun contratto disponibile" text="I contratti attivi, in scadenza o da rinnovare saranno raccolti qui in modo chiaro." action="Archivio contratti pronto" tone="slate" />
           ) : (
             clientiTop.map((cliente) => (
               <div key={cliente.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
@@ -1148,7 +1180,7 @@ function DashboardAssemblea({ segnalazioni, votiPreventivi }) {
       <div className="mt-4 space-y-3">
         {dati.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-            Nessun preventivo condiviso disponibile.
+            <EmptyState icon="💬" title="Nessun preventivo condiviso" text="Quando un preventivo sarà condiviso con i condòmini, lo vedrai in questa sezione." action="In attesa di condivisione" tone="blue" />
           </div>
         ) : (
           dati.map((item) => (
@@ -1199,7 +1231,7 @@ function DashboardEconomica({ segnalazioni, condomini }) {
         <p className="text-sm font-bold text-slate-700">Top condomini per valore</p>
         <div className="mt-3 space-y-2">
           {perCondominio.length === 0 ? (
-            <p className="text-sm text-slate-500">Nessun dato disponibile.</p>
+            <EmptyState icon="✨" title="Nessun dato disponibile" text="Quando ci saranno informazioni da mostrare, compariranno qui in una vista ordinata e facile da leggere." action="Tutto pronto" tone="slate" />
           ) : (
             perCondominio.map((item) => (
               <div key={item.nome} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 border border-slate-200">
@@ -1269,7 +1301,7 @@ function DashboardStorico({ segnalazioni }) {
         <p className="text-sm font-bold text-slate-700">Distribuzione per anno</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {Object.keys(perAnno).length === 0 ? (
-            <span className="text-sm text-slate-500">Nessuna pratica archiviata.</span>
+            <EmptyState icon="🗂️" title="Nessuna pratica archiviata" text="Le pratiche concluse o archiviate verranno raccolte qui per mantenere memoria storica e ordine operativo." action="Archivio pulito" tone="slate" />
           ) : (
             Object.entries(perAnno).map(([anno, totale]) => (
               <span key={anno} className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-700 border border-slate-200">
@@ -1311,7 +1343,7 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
 
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
                 {items.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-400">Nessuna pratica in questo stato.</p>
+                  <EmptyState icon="✅" title="Nessuna pratica in questo stato" text="Questo stato è libero. Le pratiche compariranno automaticamente quando avanzeranno nel flusso operativo." action="Stato libero" tone="emerald" />
                 ) : (
                   items.map((s) => (
                     <button key={s.id} onClick={() => onOpen(s)} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
@@ -1836,7 +1868,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
                     <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-white/70 bg-white">
                       {votiPratica.length === 0 ? (
-                        <p className="p-3 text-xs text-slate-500">Nessun voto ancora registrato.</p>
+                        <EmptyState icon="🗳️" title="Nessun voto ancora registrato" text="Quando i condòmini voteranno, il riepilogo apparirà qui in tempo reale." action="Votazione in attesa" tone="blue" />
                       ) : (
                         votiPratica.map((voto) => (
                           <div key={`${voto.segnalazione_id}-${voto.email}`} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
@@ -1959,7 +1991,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   )}
                   <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-slate-100">
                     {quoteRiparto.length === 0 ? (
-                      <p className="p-3 text-xs text-slate-500">Nessun condomino con millesimi configurati.</p>
+                      <EmptyState icon="📐" title="Millesimi non configurati" text="Configura i millesimi dei condòmini per ottenere un riparto chiaro e pronto da condividere." action="Configurazione richiesta" tone="amber" />
                     ) : quoteRiparto.map((item) => (
                       <div key={item.email} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
                         <div className="min-w-0">
@@ -1989,7 +2021,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
         <div className="border-t border-slate-200 bg-slate-50/80 p-4 md:p-5">
           <h4 className="mb-3 font-semibold">Cronologia note</h4>
           <div className="max-h-52 space-y-2 overflow-auto">
-            {(segnalazione.note || []).length === 0 ? <p className="text-sm text-slate-500">Nessuna nota presente.</p> : (segnalazione.note || []).map((n) => (
+            {(segnalazione.note || []).length === 0 ? <EmptyState icon="📝" title="Nessuna nota presente" text="Le note operative e gli aggiornamenti della pratica compariranno qui." action="Diario pratica pronto" tone="slate" /> : (segnalazione.note || []).map((n) => (
               <div key={n.id} className="rounded-xl border border-slate-200 bg-white p-3">
                 <p className="text-sm text-slate-700">{n.testo}</p>
                 <p className="mt-1 text-xs text-slate-500">{n.data}</p>
@@ -2943,7 +2975,7 @@ export default function App() {
             {loading ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
             ) : segnalazioniVisualizzate.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
+              <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
             ) : (
               <div className="space-y-3">
                 {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
@@ -2991,7 +3023,7 @@ export default function App() {
               {loading ? (
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
               ) : segnalazioniVisualizzate.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
+                <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
               ) : (
                 <div className="space-y-3">
                   {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
@@ -3033,7 +3065,7 @@ export default function App() {
             {loading ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
             ) : segnalazioniVisualizzate.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Nessuna segnalazione presente.</div>
+              <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
             ) : (
               <div className="space-y-3">
                 {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
