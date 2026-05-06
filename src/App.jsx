@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
+import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
+const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
 
 const MOTION_CARD = 'transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl';
 const MOTION_SOFT = 'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md';
@@ -282,6 +284,135 @@ function StatoBadge({ stato }) {
     <span className={`${base} bg-slate-100 text-slate-600`}>
       {stato}
     </span>
+  );
+}
+
+
+function NotifichePushBox({ utenteEmail }) {
+  const [supportate, setSupportate] = useState(false);
+  const [inizializzato, setInizializzato] = useState(false);
+  const [permesso, setPermesso] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const [messaggio, setMessaggio] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const browserSupportato = 'Notification' in window && 'serviceWorker' in navigator;
+    setSupportate(browserSupportato);
+
+    if (!browserSupportato || inizializzato) return;
+
+    let active = true;
+
+    const inizializza = async () => {
+      try {
+        await OneSignal.init({
+          appId: ONESIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          serviceWorkerPath: '/OneSignalSDKWorker.js',
+          serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js',
+          notifyButton: {
+            enable: false,
+          },
+        });
+
+        if (!active) return;
+
+        setInizializzato(true);
+        setPermesso(Notification.permission);
+
+        if (utenteEmail) {
+          await OneSignal.login(String(utenteEmail).toLowerCase().trim());
+        }
+      } catch (error) {
+        console.error('Errore inizializzazione OneSignal:', error);
+        if (active) setMessaggio('Notifiche non inizializzate. Verifica configurazione OneSignal.');
+      }
+    };
+
+    inizializza();
+
+    return () => {
+      active = false;
+    };
+  }, [utenteEmail, inizializzato]);
+
+  const attivaNotifiche = async () => {
+    try {
+      setMessaggio('');
+
+      if (!supportate) {
+        setMessaggio('Le notifiche push non sono supportate da questo browser.');
+        return;
+      }
+
+      if (!inizializzato) {
+        setMessaggio('Notifiche in preparazione. Riprova tra pochi secondi.');
+        return;
+      }
+
+      if (utenteEmail) {
+        await OneSignal.login(String(utenteEmail).toLowerCase().trim());
+      }
+
+      await OneSignal.Notifications.requestPermission();
+
+      const nuovoPermesso = Notification.permission;
+      setPermesso(nuovoPermesso);
+
+      if (nuovoPermesso === 'granted') {
+        setMessaggio('Notifiche attivate correttamente su questo dispositivo.');
+      } else if (nuovoPermesso === 'denied') {
+        setMessaggio('Notifiche bloccate dal browser. Puoi riattivarle dalle impostazioni del sito.');
+      } else {
+        setMessaggio('Permesso notifiche non ancora concesso.');
+      }
+    } catch (error) {
+      console.error('Errore richiesta permesso notifiche:', error);
+      setMessaggio('Errore attivazione notifiche: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  if (!supportate) return null;
+
+  const attive = permesso === 'granted';
+
+  return (
+    <div className={`csp-enter rounded-3xl border p-4 shadow-sm ${
+      attive
+        ? 'border-emerald-100 bg-emerald-50'
+        : 'border-amber-100 bg-amber-50'
+    }`}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className={`text-sm font-black ${attive ? 'text-emerald-900' : 'text-amber-900'}`}>
+            {attive ? 'Notifiche push attive' : 'Attiva notifiche push'}
+          </p>
+          <p className={`mt-1 text-xs ${attive ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {attive
+              ? 'Questo dispositivo può ricevere aggiornamenti importanti dall’app.'
+              : 'Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={attivaNotifiche}
+          disabled={attive}
+          className={`rounded-2xl px-4 py-2 text-sm font-black text-white shadow-sm ${MOTION_BUTTON} ${
+            attive ? 'bg-emerald-700 opacity-80' : 'bg-slate-900'
+          }`}
+        >
+          {attive ? 'Attive' : 'Attiva'}
+        </button>
+      </div>
+
+      {messaggio && (
+        <p className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600">
+          {messaggio}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -3136,6 +3267,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
+      <NotifichePushBox utenteEmail={utente?.email} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         <Header
           utente={utente}
