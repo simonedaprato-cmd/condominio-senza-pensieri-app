@@ -343,35 +343,31 @@ function NotifichePushBox({ utenteEmail }) {
   const salvaSubscriptionId = async (subId) => {
     if (!emailPulita || !subId) return;
 
-    const payload = {
-      onesignal_subscription_id: subId,
-      onesignal_updated_at: new Date().toISOString(),
-    };
-
     try {
-      const { error } = await supabase
-        .from('utenti')
-        .update(payload)
-        .ilike('email', emailPulita);
+      const { data, error } = await supabase.functions.invoke('save-subscription', {
+        body: {
+          email: emailPulita,
+          subscriptionId: subId,
+        },
+      });
 
       if (error) {
-        console.warn('Salvataggio subscription su utenti non completato:', error.message || error);
+        console.warn('Salvataggio subscription tramite funzione non completato:', error.message || error);
+        setMessaggio('Notifiche attive, ma salvataggio dispositivo non completato.');
+        return;
+      }
+
+      console.info('Subscription salvata tramite funzione:', data);
+
+      if (data?.utenti_updated || data?.utenti_condomini_updated) {
+        setMessaggio('');
+      } else {
+        console.warn('Subscription inviata ma nessun record aggiornato:', data);
+        setMessaggio('Dispositivo rilevato, ma email non trovata nelle tabelle utenti.');
       }
     } catch (error) {
-      console.warn('Errore salvataggio subscription su utenti:', error);
-    }
-
-    try {
-      const { error } = await supabase
-        .from('utenti_condomini')
-        .update(payload)
-        .ilike('email', emailPulita);
-
-      if (error) {
-        console.warn('Salvataggio subscription su utenti_condomini non completato:', error.message || error);
-      }
-    } catch (error) {
-      console.warn('Errore salvataggio subscription su utenti_condomini:', error);
+      console.warn('Errore chiamata save-subscription:', error);
+      setMessaggio('Notifiche attive, ma salvataggio dispositivo non riuscito.');
     }
   };
 
