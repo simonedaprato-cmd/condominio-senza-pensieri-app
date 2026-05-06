@@ -288,6 +288,48 @@ function StatoBadge({ stato }) {
 }
 
 
+
+function ToastInterno({ toast, onClose }) {
+  if (!toast) return null;
+
+  const toneClass = {
+    success: 'border-emerald-100 bg-emerald-50 text-emerald-900',
+    warning: 'border-amber-100 bg-amber-50 text-amber-900',
+    info: 'border-sky-100 bg-sky-50 text-sky-900',
+    error: 'border-red-100 bg-red-50 text-red-900',
+  }[toast.tone || 'info'] || 'border-sky-100 bg-sky-50 text-sky-900';
+
+  const icon = {
+    success: '✅',
+    warning: '⚠️',
+    info: '🔔',
+    error: '❌',
+  }[toast.tone || 'info'] || '🔔';
+
+  return (
+    <div className="fixed left-3 right-3 top-4 z-[80] md:left-auto md:right-6 md:w-[420px]">
+      <div className={`csp-enter rounded-3xl border p-4 shadow-2xl shadow-slate-900/20 backdrop-blur-xl ${toneClass}`}>
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black">{toast.title || 'Aggiornamento'}</p>
+            {toast.message && <p className="mt-1 text-xs leading-relaxed opacity-80">{toast.message}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl bg-white/70 px-2.5 py-1 text-xs font-black opacity-80 shadow-sm"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NotifichePushBox({ utenteEmail }) {
   const [supportate, setSupportate] = useState(false);
   const [inizializzato, setInizializzato] = useState(false);
@@ -2618,6 +2660,7 @@ export default function App() {
   const [condomini, setCondomini] = useState([]);
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toastInterno, setToastInterno] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -2636,6 +2679,16 @@ export default function App() {
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
+
+
+  const mostraToast = (title, message = '', tone = 'info') => {
+    setToastInterno({ title, message, tone, createdAt: Date.now() });
+
+    window.clearTimeout(window.__cspToastTimer);
+    window.__cspToastTimer = window.setTimeout(() => {
+      setToastInterno(null);
+    }, 4200);
+  };
 
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
@@ -3012,6 +3065,7 @@ export default function App() {
       });
 
       setStatusMessage(`Voti aggiornati: ${(data || []).length} voti registrati.`);
+      mostraToast('Voti aggiornati', `${(data || []).length} voti registrati per questa pratica.`, 'info');
     } catch (error) {
       console.error(error);
       alert('Errore aggiornamento voti: ' + (error.message || 'sconosciuto'));
@@ -3373,6 +3427,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
+      <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
       <NotifichePushBox utenteEmail={utente?.email} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         <Header
