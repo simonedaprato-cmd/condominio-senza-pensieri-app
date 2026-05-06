@@ -292,7 +292,10 @@ function NotifichePushBox({ utenteEmail }) {
   const [supportate, setSupportate] = useState(false);
   const [inizializzato, setInizializzato] = useState(false);
   const [permesso, setPermesso] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const [collegatoEmail, setCollegatoEmail] = useState(false);
   const [messaggio, setMessaggio] = useState('');
+
+  const emailPulita = String(utenteEmail || '').toLowerCase().trim();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -320,10 +323,7 @@ function NotifichePushBox({ utenteEmail }) {
 
         setInizializzato(true);
         setPermesso(Notification.permission);
-
-        if (utenteEmail) {
-          await OneSignal.login(String(utenteEmail).toLowerCase().trim());
-        }
+        console.info('OneSignal inizializzato');
       } catch (error) {
         console.error('Errore inizializzazione OneSignal:', error);
         if (active) setMessaggio('Notifiche non inizializzate. Verifica configurazione OneSignal.');
@@ -335,7 +335,32 @@ function NotifichePushBox({ utenteEmail }) {
     return () => {
       active = false;
     };
-  }, [utenteEmail, inizializzato]);
+  }, [inizializzato]);
+
+  useEffect(() => {
+    if (!inizializzato || !emailPulita) return;
+
+    let active = true;
+
+    const collegaUtente = async () => {
+      try {
+        await OneSignal.login(emailPulita);
+        console.info('OneSignal utente collegato:', emailPulita);
+
+        if (!active) return;
+        setCollegatoEmail(true);
+      } catch (error) {
+        console.error('Errore collegamento utente OneSignal:', error);
+        if (active) setMessaggio('Notifiche attive, ma utente non collegato. Riprova ad attivarle.');
+      }
+    };
+
+    collegaUtente();
+
+    return () => {
+      active = false;
+    };
+  }, [inizializzato, emailPulita]);
 
   const attivaNotifiche = async () => {
     try {
@@ -351,8 +376,10 @@ function NotifichePushBox({ utenteEmail }) {
         return;
       }
 
-      if (utenteEmail) {
-        await OneSignal.login(String(utenteEmail).toLowerCase().trim());
+      if (emailPulita) {
+        await OneSignal.login(emailPulita);
+        setCollegatoEmail(true);
+        console.info('OneSignal utente collegato da pulsante:', emailPulita);
       }
 
       await OneSignal.Notifications.requestPermission();
@@ -361,7 +388,11 @@ function NotifichePushBox({ utenteEmail }) {
       setPermesso(nuovoPermesso);
 
       if (nuovoPermesso === 'granted') {
-        setMessaggio('Notifiche attivate correttamente su questo dispositivo.');
+        if (emailPulita) {
+          await OneSignal.login(emailPulita);
+          setCollegatoEmail(true);
+        }
+        setMessaggio('Notifiche attivate e collegate al tuo utente.');
       } else if (nuovoPermesso === 'denied') {
         setMessaggio('Notifiche bloccate dal browser. Puoi riattivarle dalle impostazioni del sito.');
       } else {
@@ -375,7 +406,7 @@ function NotifichePushBox({ utenteEmail }) {
 
   if (!supportate) return null;
 
-  const attive = permesso === 'granted';
+  const attive = permesso === 'granted' && collegatoEmail;
 
   if (attive) {
     return null;
@@ -391,6 +422,11 @@ function NotifichePushBox({ utenteEmail }) {
           <p className="mt-1 text-xs text-amber-700">
             Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.
           </p>
+          {emailPulita && (
+            <p className="mt-1 text-[11px] font-semibold text-amber-800">
+              Collegamento utente: {emailPulita}
+            </p>
+          )}
         </div>
 
         <button
@@ -411,9 +447,11 @@ function NotifichePushBox({ utenteEmail }) {
   );
 }
 
+
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
+  const [codiceOtp, setCodiceOtp] = useState('');
   const [invioInCorso, setInvioInCorso] = useState(false);
 
   const inviaLink = async () => {
@@ -436,6 +474,50 @@ function Login() {
     }
 
     setMessaggio('Link inviato. Controlla la tua email.');
+  };
+
+  const verificaCodice = async () => {
+    const emailPulita = email.trim().toLowerCase();
+    const token = codiceOtp.trim().replace(/\s+/g, '');
+
+    if (!emailPulita) return setMessaggio('Inserisci prima la tua email.');
+    if (!token) return setMessaggio('Inserisci il codice OTP ricevuto via email.');
+
+    setInvioInCorso(true);
+    setMessaggio('');
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: emailPulita,
+        token,
+        type: 'email',
+      });
+
+      if (error) throw error;
+      setMessaggio('Accesso confermato. Caricamento area riservata...');
+    } catch (error) {
+      console.error(error);
+      setMessaggio('Errore verifica codice: ' + (error.message || 'codice non valido o scaduto'));
+    } finally {
+      setInvioInCorso(false);
+    }
+  };
+
+  const incollaDaClipboard = async () => {
+    try {
+      if (!navigator?.clipboard?.readText) {
+        return setMessaggio('Copia automatica non supportata su questo dispositivo.');
+      }
+
+      const testo = await navigator.clipboard.readText();
+      if (!testo) return setMessaggio('Nessun codice trovato negli appunti.');
+
+      setCodiceOtp(testo.replace(/\s+/g, ''));
+      setMessaggio('Codice incollato automaticamente.');
+    } catch (error) {
+      console.error(error);
+      setMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.');
+    }
   };
 
   return (
@@ -462,6 +544,35 @@ function Login() {
         >
           {invioInCorso ? 'Invio...' : 'Ricevi link'}
         </button>
+        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso con codice OTP</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Se il link Gmail non apre correttamente l’app, copia il codice ricevuto via email.
+          </p>
+          <input
+            value={codiceOtp}
+            onChange={(e) => setCodiceOtp(e.target.value)}
+            placeholder="Codice OTP"
+            className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+          />
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={incollaDaClipboard}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 shadow-sm"
+            >
+              Incolla codice
+            </button>
+            <button
+              type="button"
+              onClick={verificaCodice}
+              disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
+              className="rounded-2xl bg-slate-900 px-4 py-3 font-bold text-white shadow-lg shadow-slate-900/20 disabled:opacity-60"
+            >
+              Entra con OTP
+            </button>
+          </div>
+        </div>
         {messaggio && <p className="mt-4 text-sm text-slate-600">{messaggio}</p>}
       </div>
     </div>
