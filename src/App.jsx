@@ -6,6 +6,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
+const MOTION_CARD = 'transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl';
+const MOTION_SOFT = 'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md';
+const MOTION_BUTTON = 'transition-all duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]';
+
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
@@ -216,7 +221,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + (userProfile?.condominio || 'non specificato') + '. Ho bisogno di supporto.';
 
   return (
-    <header className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 px-2 pb-6 pt-6 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl md:px-6 md:pb-8 md:pt-12">
+    <header className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 px-2 pb-6 pt-6 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl transition-all duration-500 ease-out hover:shadow-[0_45px_140px_-35px_rgba(5,150,105,0.95)] md:px-6 md:pb-8 md:pt-12">
       <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
       <div className="absolute right-1/3 top-0 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl" />
       <div className="absolute -bottom-20 left-0 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
@@ -1430,7 +1435,7 @@ function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio,
       </div>
       <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
       {errore && <p className="text-sm text-red-600">{errore}</p>}
-      <button disabled={saving} className="rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white disabled:opacity-60">
+      <button disabled={saving} className={`rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white disabled:opacity-60 ${MOTION_BUTTON}`}>
         {saving ? 'Salvataggio...' : 'Salva segnalazione'}
       </button>
     </form>
@@ -2230,7 +2235,7 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setShowSplash(false);
-    }, 3000);
+    }, 1300);
 
     return () => window.clearTimeout(timer);
   }, []);
@@ -2823,7 +2828,7 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-700 p-6 text-white">
         <div className="flex flex-col items-center text-center">
-          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl">
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl transition-all duration-700 ease-out hover:scale-[1.02]">
             <LogoMark className="h-28 w-auto md:h-40" />
           </div>
           <p className="mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
