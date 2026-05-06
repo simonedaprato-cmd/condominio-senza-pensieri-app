@@ -1589,6 +1589,7 @@ function SegnalazioneCard({ segnalazione, onOpen }) {
 
 function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
+  const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
   const [importo, setImporto] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -2058,16 +2059,48 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-50/80 p-4 md:p-5">
-          <h4 className="mb-3 font-semibold">Cronologia note</h4>
-          <div className="max-h-52 space-y-2 overflow-auto">
-            {(segnalazione.note || []).length === 0 ? <EmptyState icon="📝" title="Nessuna nota presente" text="Le note operative e gli aggiornamenti della pratica compariranno qui." action="Diario pratica pronto" tone="slate" /> : (segnalazione.note || []).map((n) => (
-              <div key={n.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-sm text-slate-700">{n.testo}</p>
-                <p className="mt-1 text-xs text-slate-500">{n.data}</p>
-              </div>
-            ))}
+        <div className="border-t border-slate-200 bg-slate-50/80 p-3 md:p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-black text-slate-800">Cronologia note</h4>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {(segnalazione.note || []).length} aggiornamenti registrati
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMostraCronologia((prev) => !prev)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm"
+            >
+              {mostraCronologia ? 'Nascondi' : 'Mostra'}
+            </button>
           </div>
+
+          {(segnalazione.note || []).length === 0 ? (
+            <div className="mt-3">
+              <EmptyState icon="📝" title="Nessuna nota presente" text="Le note operative e gli aggiornamenti della pratica compariranno qui." action="Diario pratica pronto" tone="slate" />
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {!mostraCronologia && (
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <p className="line-clamp-2 text-xs text-slate-700">{(segnalazione.note || [])[0]?.testo}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-slate-400">{(segnalazione.note || [])[0]?.data}</p>
+                </div>
+              )}
+
+              {mostraCronologia && (
+                <div className="max-h-40 space-y-2 overflow-auto pr-1">
+                  {(segnalazione.note || []).map((n) => (
+                    <div key={n.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-xs text-slate-700">{n.testo}</p>
+                      <p className="mt-1 text-[11px] font-semibold text-slate-400">{n.data}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
