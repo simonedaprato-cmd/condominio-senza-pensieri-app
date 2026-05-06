@@ -435,6 +435,29 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   );
 }
 
+
+function DashboardEconomicStat({ label, value, tone = 'slate' }) {
+  const toneClass = {
+    slate: 'bg-slate-900 text-white shadow-slate-900/20',
+    red: 'bg-red-600 text-white shadow-red-900/20',
+    amber: 'bg-amber-500 text-white shadow-amber-900/20',
+    emerald: 'bg-emerald-600 text-white shadow-emerald-900/20',
+    sky: 'bg-sky-500 text-white shadow-sky-900/20',
+  }[tone] || 'bg-slate-900 text-white shadow-slate-900/20';
+
+  return (
+    <div className="flex min-h-[86px] items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm csp-touch-card">
+      <div className="min-w-0">
+        <p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p>
+        <p className="mt-1 text-[11px] font-semibold text-slate-400">Indicatore economico</p>
+      </div>
+      <div className={`flex min-w-[150px] max-w-[240px] shrink-0 justify-end rounded-2xl px-4 py-3 text-right text-lg font-black tracking-tight shadow-lg md:min-w-[190px] md:text-xl ${toneClass}`}>
+        <span className="block w-full truncate">{value}</span>
+      </div>
+    </div>
+  );
+}
+
 function DashboardStat({ label, value, tone = 'slate' }) {
   const toneClass = {
     slate: 'bg-slate-900 text-white',
@@ -1284,11 +1307,11 @@ function DashboardEconomica({ segnalazioni, condomini }) {
       <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Economica</p>
       <h2 className="mt-1 text-xl font-bold">Dashboard economica premium</h2>
       <p className="mt-1 text-sm text-slate-500">Analisi fatturato, ticket medio e condomini a maggior valore.</p>
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <DashboardStat label="Valore totale" value={formatEuro(totaleStorico)} tone="sky" />
-        <DashboardStat label="Fatturato accettato" value={formatEuro(fatturatoAccettato)} tone="emerald" />
-        <DashboardStat label="Ticket medio" value={formatEuro(ticketMedio)} tone="amber" />
-        <DashboardStat label="Pratiche accettate" value={accettate.length} />
+      <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <DashboardEconomicStat label="Valore totale" value={formatEuro(totaleStorico)} tone="sky" />
+        <DashboardEconomicStat label="Fatturato accettato" value={formatEuro(fatturatoAccettato)} tone="emerald" />
+        <DashboardEconomicStat label="Ticket medio" value={formatEuro(ticketMedio)} tone="amber" />
+        <DashboardEconomicStat label="Pratiche accettate" value={accettate.length} />
       </div>
       <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <p className="text-sm font-bold text-slate-700">Top condomini per valore</p>
