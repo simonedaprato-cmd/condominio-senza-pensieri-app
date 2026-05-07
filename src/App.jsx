@@ -338,6 +338,7 @@ function NotifichePushBox({ utenteEmail }) {
   const [subscriptionId, setSubscriptionId] = useState('');
   const [dispositivoSalvato, setDispositivoSalvato] = useState(false);
   const [messaggio, setMessaggio] = useState('');
+  const [debugSalvataggio, setDebugSalvataggio] = useState('');
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
 
@@ -388,11 +389,13 @@ function NotifichePushBox({ utenteEmail }) {
 
       if (error) {
         console.warn('Salvataggio subscription tramite funzione non completato:', error.message || error);
+        setDebugSalvataggio('Errore funzione: ' + (error.message || JSON.stringify(error)));
         setMessaggio('Notifiche attive, ma registrazione dispositivo non completata.');
         return false;
       }
 
       console.info('Subscription salvata nella tabella multi-dispositivo:', data);
+      setDebugSalvataggio('Risposta save-subscription: ' + JSON.stringify(data));
 
       if (data?.success && Number(data?.records_updated || 0) > 0) {
         setDispositivoSalvato(true);
@@ -401,10 +404,11 @@ function NotifichePushBox({ utenteEmail }) {
       }
 
       console.warn('Subscription inviata ma nessun record salvato:', data);
-      setMessaggio('Dispositivo rilevato, ma non salvato nella tabella push.');
+      setMessaggio('Dispositivo rilevato, ma non salvato nella tabella push. Controlla la risposta sotto.');
       return false;
     } catch (error) {
       console.warn('Errore chiamata save-subscription:', error);
+      setDebugSalvataggio('Errore chiamata: ' + (error.message || JSON.stringify(error)));
       setMessaggio('Notifiche attive, ma registrazione dispositivo non riuscita.');
       return false;
     }
@@ -438,7 +442,8 @@ function NotifichePushBox({ utenteEmail }) {
 
       if (subId) {
         setSubscriptionId(subId);
-        await salvaSubscriptionId(subId);
+        const salvato = await salvaSubscriptionId(subId);
+        if (!salvato) return null;
       } else if (Notification.permission === 'granted') {
         setMessaggio('Notifiche consentite, ma dispositivo non ancora registrato. Riprova tra qualche secondo.');
       }
@@ -539,11 +544,13 @@ function NotifichePushBox({ utenteEmail }) {
       if (nuovoPermesso === 'granted') {
         const subId = await collegaUtenteOneSignal('dopo-permesso');
 
-        if (subId || emailPulita) {
+        if (subId) {
           setCollegatoEmail(true);
+          setDispositivoSalvato(true);
+          setMessaggio('');
+        } else {
+          setMessaggio('Notifiche consentite, ma registrazione dispositivo non completata.');
         }
-
-        setMessaggio(subId ? 'Notifiche attivate e dispositivo registrato.' : 'Notifiche consentite. Registrazione dispositivo in corso.');
       } else if (nuovoPermesso === 'denied') {
         setMessaggio('Notifiche bloccate dal browser. Puoi riattivarle dalle impostazioni del sito.');
       } else {
@@ -600,6 +607,12 @@ function NotifichePushBox({ utenteEmail }) {
         <p className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600">
           {messaggio}
         </p>
+      )}
+
+      {debugSalvataggio && (
+        <pre className="mt-3 max-h-32 overflow-auto rounded-2xl bg-white/80 px-3 py-2 text-[10px] leading-relaxed text-slate-600">
+          {debugSalvataggio}
+        </pre>
       )}
     </div>
   );
