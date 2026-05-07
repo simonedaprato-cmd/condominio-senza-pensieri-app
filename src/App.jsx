@@ -336,12 +336,39 @@ function NotifichePushBox({ utenteEmail }) {
   const [permesso, setPermesso] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
   const [collegatoEmail, setCollegatoEmail] = useState(false);
   const [subscriptionId, setSubscriptionId] = useState('');
+  const [dispositivoSalvato, setDispositivoSalvato] = useState(false);
   const [messaggio, setMessaggio] = useState('');
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
 
+  const leggiSubscriptionId = async () => {
+    for (let tentativo = 1; tentativo <= 12; tentativo += 1) {
+      let subId = '';
+
+      try {
+        subId =
+          OneSignal.User?.PushSubscription?.id ||
+          OneSignal.User?.PushSubscription?.subscriptionId ||
+          OneSignal.User?.PushSubscription?.token ||
+          '';
+      } catch (error) {
+        console.warn('Lettura subscription OneSignal non riuscita:', error);
+      }
+
+      if (subId) {
+        console.info('Subscription ID rilevato:', subId);
+        return subId;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+    }
+
+    console.warn('Subscription ID non disponibile dopo attesa.');
+    return '';
+  };
+
   const salvaSubscriptionId = async (subId) => {
-    if (!emailPulita || !subId) return;
+    if (!emailPulita || !subId) return false;
 
     try {
       const { data, error } = await supabase.functions.invoke('save-subscription', {
@@ -362,20 +389,24 @@ function NotifichePushBox({ utenteEmail }) {
       if (error) {
         console.warn('Salvataggio subscription tramite funzione non completato:', error.message || error);
         setMessaggio('Notifiche attive, ma registrazione dispositivo non completata.');
-        return;
+        return false;
       }
 
       console.info('Subscription salvata nella tabella multi-dispositivo:', data);
 
-      if (data?.utenti_updated || data?.utenti_condomini_updated) {
+      if (data?.success && Number(data?.records_updated || 0) > 0) {
+        setDispositivoSalvato(true);
         setMessaggio('');
-      } else {
-        console.warn('Subscription inviata ma nessun record aggiornato:', data);
-        setMessaggio('Dispositivo rilevato, ma email non collegata correttamente.');
+        return true;
       }
+
+      console.warn('Subscription inviata ma nessun record salvato:', data);
+      setMessaggio('Dispositivo rilevato, ma non salvato nella tabella push.');
+      return false;
     } catch (error) {
       console.warn('Errore chiamata save-subscription:', error);
       setMessaggio('Notifiche attive, ma registrazione dispositivo non riuscita.');
+      return false;
     }
   };
 
@@ -394,16 +425,7 @@ function NotifichePushBox({ utenteEmail }) {
         console.warn('OneSignal addEmail non completato:', emailError);
       }
 
-      let subId = '';
-
-      try {
-        subId =
-          OneSignal.User?.PushSubscription?.id ||
-          OneSignal.User?.PushSubscription?.subscriptionId ||
-          '';
-      } catch (subError) {
-        console.warn('OneSignal subscription id non recuperato:', subError);
-      }
+      const subId = await leggiSubscriptionId();
 
       console.info('OneSignal utente collegato:', {
         origine,
@@ -413,9 +435,12 @@ function NotifichePushBox({ utenteEmail }) {
       });
 
       setCollegatoEmail(true);
+
       if (subId) {
         setSubscriptionId(subId);
         await salvaSubscriptionId(subId);
+      } else if (Notification.permission === 'granted') {
+        setMessaggio('Notifiche consentite, ma dispositivo non ancora registrato. Riprova tra qualche secondo.');
       }
 
       return subId;
@@ -518,7 +543,7 @@ function NotifichePushBox({ utenteEmail }) {
           setCollegatoEmail(true);
         }
 
-        setMessaggio('Notifiche attivate e collegate al tuo utente.');
+        setMessaggio(subId ? 'Notifiche attivate e dispositivo registrato.' : 'Notifiche consentite. Registrazione dispositivo in corso.');
       } else if (nuovoPermesso === 'denied') {
         setMessaggio('Notifiche bloccate dal browser. Puoi riattivarle dalle impostazioni del sito.');
       } else {
@@ -532,7 +557,7 @@ function NotifichePushBox({ utenteEmail }) {
 
   if (!supportate) return null;
 
-  const attive = permesso === 'granted' && collegatoEmail;
+  const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
 
   if (attive) {
     return null;
@@ -543,10 +568,12 @@ function NotifichePushBox({ utenteEmail }) {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-black text-amber-900">
-            Attiva notifiche push
+            {permesso === 'granted' ? 'Registra questo dispositivo' : 'Attiva notifiche push'}
           </p>
           <p className="mt-1 text-xs text-amber-700">
-            Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.
+            {permesso === 'granted'
+              ? 'Le notifiche sono consentite. Completa la registrazione del dispositivo per riceverle.'
+              : 'Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.'}
           </p>
           {emailPulita && (
             <p className="mt-1 text-[11px] font-semibold text-amber-800">
@@ -565,7 +592,7 @@ function NotifichePushBox({ utenteEmail }) {
           onClick={attivaNotifiche}
           className={`rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm ${MOTION_BUTTON}`}
         >
-          Attiva
+          {permesso === 'granted' ? 'Registra' : 'Attiva'}
         </button>
       </div>
 
