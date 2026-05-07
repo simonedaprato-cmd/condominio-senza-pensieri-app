@@ -3034,6 +3034,7 @@ export default function App() {
     setSaving(true);
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
+      const condominioId = Number(form.condominioId);
       const { error } = await supabase.from('segnalazioni').insert({
         titolo: form.titolo.trim(),
         descrizione: form.descrizione.trim(),
@@ -3042,7 +3043,7 @@ export default function App() {
         luogo: form.luogo.trim(),
         referente: form.referente.trim(),
         telefono: form.telefono.trim(),
-        condominio_id: Number(form.condominioId),
+        condominio_id: condominioId,
         stato: 'Presa in carico',
         allegatonome,
         amministratore_email: utente?.email || '',
@@ -3050,9 +3051,30 @@ export default function App() {
         note: [],
       });
       if (error) throw error;
+
+      try {
+        const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+          body: {
+            condominioId,
+            title: 'Nuova segnalazione',
+            message: `È stata inserita una nuova segnalazione per ${nomeCondominio}. Apri l’app per i dettagli.`,
+          },
+        });
+
+        if (notifyError) {
+          console.warn('Notifica push nuova segnalazione non inviata:', notifyError.message || notifyError);
+        } else {
+          console.info('Notifica push nuova segnalazione inviata:', notifyData);
+        }
+      } catch (notifyCatchError) {
+        console.warn('Errore chiamata notify-condominio:', notifyCatchError);
+      }
+
       setShowNuovaSegnalazione(false);
       await carica();
       setStatusMessage('Segnalazione salvata correttamente.');
+      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
     } finally {
       setSaving(false);
     }
