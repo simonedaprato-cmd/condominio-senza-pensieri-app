@@ -348,26 +348,34 @@ function NotifichePushBox({ utenteEmail }) {
         body: {
           email: emailPulita,
           subscriptionId: subId,
+          deviceLabel: /Android/i.test(navigator.userAgent)
+            ? 'Android'
+            : /iPhone|iPad/i.test(navigator.userAgent)
+              ? 'iOS'
+              : /Windows/i.test(navigator.userAgent)
+                ? 'Windows'
+                : 'Web',
+          userAgent: navigator.userAgent,
         },
       });
 
       if (error) {
         console.warn('Salvataggio subscription tramite funzione non completato:', error.message || error);
-        setMessaggio('Notifiche attive, ma salvataggio dispositivo non completato.');
+        setMessaggio('Notifiche attive, ma registrazione dispositivo non completata.');
         return;
       }
 
-      console.info('Subscription salvata tramite funzione:', data);
+      console.info('Subscription salvata nella tabella multi-dispositivo:', data);
 
       if (data?.utenti_updated || data?.utenti_condomini_updated) {
         setMessaggio('');
       } else {
         console.warn('Subscription inviata ma nessun record aggiornato:', data);
-        setMessaggio('Dispositivo rilevato, ma email non trovata nelle tabelle utenti.');
+        setMessaggio('Dispositivo rilevato, ma email non collegata correttamente.');
       }
     } catch (error) {
       console.warn('Errore chiamata save-subscription:', error);
-      setMessaggio('Notifiche attive, ma salvataggio dispositivo non riuscito.');
+      setMessaggio('Notifiche attive, ma registrazione dispositivo non riuscita.');
     }
   };
 
