@@ -295,20 +295,6 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette })
 
   return (
     <>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="fixed right-5 top-5 z-[70] flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-xl text-white shadow-2xl shadow-slate-900/25 transition-all duration-200 active:scale-95"
-        aria-label="Centro notifiche"
-      >
-        🔔
-        {nonLette > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white ring-2 ring-white">
-            {nonLette > 99 ? '99+' : nonLette}
-          </span>
-        )}
-      </button>
-
       {aperto && (
         <div className="fixed inset-0 z-[75] bg-slate-950/35 p-3 backdrop-blur-sm md:flex md:justify-end">
           <div className="ml-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/50 bg-white shadow-2xl">
@@ -368,9 +354,11 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette })
                           {notifica.created_at ? new Date(notifica.created_at).toLocaleString('it-IT') : ''}
                         </p>
                       </div>
-                      {!notifica.letto && (
-                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
-                      )}
+                      <span className={`mt-1 shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
+                        notifica.letto ? 'bg-slate-200 text-slate-500' : 'bg-emerald-500 text-white'
+                      }`}>
+                        {notifica.letto ? 'Letta' : 'Nuova'}
+                      </span>
                     </div>
                   </div>
                 ))
@@ -844,7 +832,7 @@ function Login() {
   );
 }
 
-function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout }) {
+function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout, notificheNonLette = 0, onOpenNotifiche }) {
   const ora = new Date().getHours();
   let saluto = 'Ciao';
   if (ora >= 5 && ora < 12) saluto = 'Buongiorno';
@@ -917,6 +905,24 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">
+          <button
+            type="button"
+            onClick={onOpenNotifiche}
+            className="group flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-transparent shadow-lg backdrop-blur-xl transition duration-300 hover:scale-110 hover:bg-white/10"
+            title={notificheNonLette > 0 ? `${notificheNonLette} notifiche non lette` : 'Nessuna nuova notifica'}
+            aria-label="Centro notifiche"
+          >
+            <span className={`relative h-3.5 w-3.5 rounded-full ${
+              notificheNonLette > 0 ? 'bg-red-500' : 'bg-emerald-300'
+            }`}>
+              <span className={`absolute inset-0 rounded-full ${
+                notificheNonLette > 0 ? 'bg-red-400' : 'bg-emerald-300'
+              } animate-ping opacity-60`} />
+              <span className={`absolute inset-0 rounded-full ring-2 ring-white/70 ${
+                notificheNonLette > 0 ? 'bg-red-500' : 'bg-emerald-400'
+              }`} />
+            </span>
+          </button>
           <a
             href={'https://wa.me/393477921965?text=' + encodeURIComponent(whatsappText)}
             target="_blank"
@@ -3766,6 +3772,8 @@ export default function App() {
           condominiVisibili={condominiVisibili}
           segnalazioni={segnalazioniVisualizzate}
           onLogout={logout}
+          notificheNonLette={notificheUtente.filter((n) => !n.letto).length}
+          onOpenNotifiche={() => setCentroNotificheAperto(true)}
         />
 
         <ActionBar
