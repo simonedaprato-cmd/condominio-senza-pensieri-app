@@ -3302,6 +3302,35 @@ export default function App() {
 
     const { error: updateError } = await supabase.from('segnalazioni').update(updatePayload).eq('id', id);
     if (updateError) throw updateError;
+
+    if (columnName === 'preventivonome') {
+      try {
+        const pratica = segnalazioni.find((s) => Number(s.id) === Number(id)) || dettaglioAperto;
+        const condominioId = Number(pratica?.condominio_id || 0);
+
+        if (condominioId) {
+          const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+            body: {
+              condominioId,
+              destinatari: 'amministrazione',
+              title: 'Preventivo caricato',
+              message: `È stato caricato un preventivo per la pratica “${pratica?.titolo || 'Pratica'}”.`,
+              tipo: 'preventivo_caricato',
+              riferimentoId: Number(id),
+            },
+          });
+
+          if (notifyError) {
+            console.warn('Notifica preventivo caricato non inviata:', notifyError.message || notifyError);
+          } else {
+            console.info('Notifica preventivo caricato inviata:', notifyData);
+          }
+        }
+      } catch (notifyCatchError) {
+        console.warn('Errore chiamata notify-condominio preventivo caricato:', notifyCatchError);
+      }
+    }
+
     await carica();
     setDettaglioAperto((prev) => prev && prev.id === id ? {
       ...prev,
@@ -3367,7 +3396,30 @@ export default function App() {
       )));
 
       setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, ...updatePayload } : prev);
+
+      try {
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+          body: {
+            condominioId: Number(pratica.condominio_id),
+            destinatari: 'condomini',
+            title: 'Preventivo da consultare',
+            message: `È disponibile un preventivo per la pratica “${pratica.titolo}”. Apri l’app per consultarlo e votare.`,
+            tipo: 'preventivo_votazione',
+            riferimentoId: Number(pratica.id),
+          },
+        });
+
+        if (notifyError) {
+          console.warn('Notifica preventivo condiviso non inviata:', notifyError.message || notifyError);
+        } else {
+          console.info('Notifica preventivo condiviso inviata:', notifyData);
+        }
+      } catch (notifyCatchError) {
+        console.warn('Errore chiamata notify-condominio preventivo condiviso:', notifyCatchError);
+      }
+
       setStatusMessage('Preventivo condiviso con i condomini.');
+      mostraToast('Preventivo condiviso', 'I condomini collegati hanno ricevuto la notifica per consultare e votare.', 'success');
       await carica();
     } catch (error) {
       console.error(error);
