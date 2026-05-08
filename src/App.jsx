@@ -3061,7 +3061,7 @@ export default function App() {
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
-        .select('email, condominio_id, millesimi, onesignal_subscription_id');
+        .select('email, condominio_id, millesimi, ruolo, onesignal_subscription_id');
 
       if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
       setUtentiCondomini(utentiCondominiData || []);
@@ -3073,7 +3073,7 @@ export default function App() {
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
 
-      await caricaNotificheUtente(session?.user?.email || utente?.email);
+      await caricaNotificheUtente(currentUser?.email || utente?.email);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
