@@ -3257,6 +3257,8 @@ export default function App() {
 
   const cambiaStato = async (id, nuovoStato) => {
     try {
+      const pratica = segnalazioni.find((s) => Number(s.id) === Number(id)) || dettaglioAperto;
+
       const updatePayload = {
         stato: nuovoStato,
         ...(nuovoStato === 'Chiusa' || nuovoStato === 'Pianificata' ? { stato_conversione: 'accettato' } : {}),
@@ -3268,14 +3270,100 @@ export default function App() {
         .eq('id', id)
         .select()
         .single();
+
       if (error) throw error;
       if (!data) throw new Error('Aggiornamento stato non applicato.');
+
+      const mappaNotificheStato = {
+        'Presa in carico': {
+          amministrazione: true,
+          condomini: false,
+          titolo: 'Pratica presa in carico',
+          messaggio: `La pratica “${pratica?.titolo || 'Pratica'}” è stata presa in carico.`,
+          tipo: 'stato_presa_in_carico',
+        },
+        'Sopralluogo programmato': {
+          amministrazione: true,
+          condomini: true,
+          titolo: 'Sopralluogo programmato',
+          messaggio: `È stato programmato un sopralluogo per la pratica “${pratica?.titolo || 'Pratica'}”.`,
+          tipo: 'stato_sopralluogo_programmato',
+        },
+        'Sopralluogo effettuato': {
+          amministrazione: true,
+          condomini: true,
+          titolo: 'Sopralluogo effettuato',
+          messaggio: `Il sopralluogo della pratica “${pratica?.titolo || 'Pratica'}” è stato completato. Foto disponibili in app.`,
+          tipo: 'stato_sopralluogo_effettuato',
+        },
+        'Preventivata': {
+          amministrazione: true,
+          condomini: false,
+          titolo: 'Pratica preventivata',
+          messaggio: `La pratica “${pratica?.titolo || 'Pratica'}” è ora in fase preventivo.`,
+          tipo: 'stato_preventivata',
+        },
+        'Pianificata': {
+          amministrazione: true,
+          condomini: true,
+          titolo: 'Lavori pianificati',
+          messaggio: `I lavori per la pratica “${pratica?.titolo || 'Pratica'}” sono stati pianificati.`,
+          tipo: 'stato_lavori_pianificati',
+        },
+        'Chiusa': {
+          amministrazione: true,
+          condomini: true,
+          titolo: 'Lavori completati',
+          messaggio: `La pratica “${pratica?.titolo || 'Pratica'}” è stata completata.`,
+          tipo: 'stato_completata',
+        },
+      };
+
+      const config = mappaNotificheStato[nuovoStato];
+
+      if (config && pratica?.condominio_id) {
+        if (config.amministrazione) {
+          try {
+            await supabase.functions.invoke('notify-condominio', {
+              body: {
+                condominioId: Number(pratica.condominio_id),
+                destinatari: 'amministrazione',
+                title: config.titolo,
+                message: config.messaggio,
+                tipo: config.tipo,
+                riferimentoId: Number(id),
+              },
+            });
+          } catch (notifyError) {
+            console.warn('Errore notifica amministrazione cambio stato:', notifyError);
+          }
+        }
+
+        if (config.condomini) {
+          try {
+            await supabase.functions.invoke('notify-condominio', {
+              body: {
+                condominioId: Number(pratica.condominio_id),
+                destinatari: 'condomini',
+                title: config.titolo,
+                message: config.messaggio,
+                tipo: config.tipo,
+                riferimentoId: Number(id),
+              },
+            });
+          } catch (notifyError) {
+            console.warn('Errore notifica condomini cambio stato:', notifyError);
+          }
+        }
+      }
 
       setSegnalazioni((prev) => prev.map((item) => (
         item.id === id ? { ...item, ...updatePayload, stato: nuovoStato } : item
       )));
 
       setDettaglioAperto((prev) => prev && prev.id === id ? { ...prev, ...updatePayload, stato: nuovoStato } : prev);
+
+      mostraToast('Stato aggiornato', `La pratica è passata a: ${nuovoStato}`, 'success');
       await carica();
     } catch (error) {
       console.error(error);
