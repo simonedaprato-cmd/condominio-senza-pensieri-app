@@ -818,7 +818,7 @@ function Login() {
       return;
     }
 
-    setMessaggio('Link inviato. Controlla la tua email.');
+    setMessaggio('Email inviata. Da iPhone non aprire il link: copia il codice OTP e inseriscilo qui nell’app.');
   };
 
   const verificaCodice = async () => {
@@ -874,7 +874,7 @@ function Login() {
           <p className="mt-1 text-xs text-white/70">Gestione evoluta. Serenità reale.</p>
         </div>
         <h1 className="text-2xl font-bold text-slate-900">Accesso</h1>
-        <p className="mt-2 text-sm text-slate-500">Inserisci la tua email per ricevere il magic link.</p>
+        <p className="mt-2 text-sm text-slate-500">Inserisci la tua email per ricevere il link di accesso. Da iPhone usa il codice OTP: il link può aprire Safari e non l’app installata.</p>
         <input
           type="email"
           value={email}
@@ -887,12 +887,15 @@ function Login() {
           disabled={invioInCorso || !email.trim()}
           className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-3 font-bold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
         >
-          {invioInCorso ? 'Invio...' : 'Ricevi link'}
+          {invioInCorso ? 'Invio...' : 'Ricevi link / codice'}
         </button>
+        <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+          <strong>Accesso iPhone:</strong> apri l’app dalla Home, richiedi l’email, poi copia il codice OTP dalla mail e rientra qui. Non usare il link della mail su iPhone.
+        </div>
         <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso con codice OTP</p>
           <p className="mt-1 text-xs text-slate-500">
-            Se il link Gmail non apre correttamente l’app, copia il codice ricevuto via email.
+            Su iPhone usa sempre questo metodo: non aprire il link, copia il codice ricevuto via email e inseriscilo qui.
           </p>
           <input
             value={codiceOtp}
@@ -2426,7 +2429,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
-            {ruolo === 'gestore' && (
+            {(ruolo === 'gestore' || ruolo === 'amministratore') && (
               <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
             )}
             {segnalazione.data_inizio_lavori_presunta && (
