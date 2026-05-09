@@ -290,7 +290,7 @@ function StatoBadge({ stato }) {
 
 
 
-function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette }) {
+function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette, onRefresh }) {
   const nonLette = (notifiche || []).filter((n) => !n.letto).length;
 
   return (
@@ -315,6 +315,13 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette })
                     Segna lette
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={onRefresh}
+                  className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
+                >
+                  Aggiorna
+                </button>
                 <button
                   type="button"
                   onClick={onClose}
@@ -3113,20 +3120,31 @@ export default function App() {
 
   const caricaNotificheUtente = async (emailOverride = null) => {
     const email = String(emailOverride || utente?.email || '').toLowerCase().trim();
-    if (!email) return;
+
+    if (!email) {
+      setNotificheUtente([]);
+      return [];
+    }
 
     try {
       const { data, error } = await supabase
         .from('notifiche_utenti')
         .select('*')
-        .ilike('email', email)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(200);
 
       if (error) throw error;
-      setNotificheUtente(data || []);
+
+      const notificheFiltrate = (data || []).filter((notifica) => (
+        String(notifica.email || '').toLowerCase().trim() === email
+      ));
+
+      setNotificheUtente(notificheFiltrate);
+      return notificheFiltrate;
     } catch (error) {
       console.warn('Errore caricamento notifiche utente:', error);
+      mostraToast('Notifiche', 'Non sono riuscito a caricare lo storico notifiche.', 'warning');
+      return [];
     }
   };
 
@@ -3135,19 +3153,33 @@ export default function App() {
     if (!email) return;
 
     try {
-      const { error } = await supabase
-        .from('notifiche_utenti')
-        .update({ letto: true })
-        .ilike('email', email)
-        .eq('letto', false);
+      const idsNonLetti = notificheUtente
+        .filter((n) => !n.letto)
+        .map((n) => n.id)
+        .filter(Boolean);
 
-      if (error) throw error;
+      if (idsNonLetti.length > 0) {
+        const { error } = await supabase
+          .from('notifiche_utenti')
+          .update({ letto: true })
+          .in('id', idsNonLetti);
+
+        if (error) throw error;
+      }
+
       setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
+      await caricaNotificheUtente(email);
     } catch (error) {
       console.warn('Errore aggiornamento notifiche lette:', error);
       mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
     }
   };
+
+  const apriCentroNotifiche = async () => {
+    setCentroNotificheAperto(true);
+    await caricaNotificheUtente();
+  };
+
 
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
@@ -4171,6 +4203,7 @@ export default function App() {
         onToggle={() => setCentroNotificheAperto((prev) => !prev)}
         onClose={() => setCentroNotificheAperto(false)}
         onSegnaLette={segnaNotificheLette}
+        onRefresh={() => caricaNotificheUtente()}
       />
       <NotifichePushBox utenteEmail={utente?.email} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
@@ -4184,7 +4217,7 @@ export default function App() {
           segnalazioni={segnalazioniVisualizzate}
           onLogout={logout}
           notificheNonLette={notificheUtente.filter((n) => !n.letto).length}
-          onOpenNotifiche={() => setCentroNotificheAperto(true)}
+          onOpenNotifiche={apriCentroNotifiche}
         />
 
         <ActionBar
