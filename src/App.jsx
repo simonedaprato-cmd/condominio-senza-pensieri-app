@@ -3013,6 +3013,46 @@ export default function App() {
     }, 4200);
   };
 
+  const inviaNotificaCondominio = async ({
+    condominioId,
+    destinatari = 'tutti',
+    title,
+    message,
+    tipo = 'generica',
+    riferimentoId = null,
+  }) => {
+    try {
+      if (!condominioId) return null;
+
+      const { data, error } = await supabase.functions.invoke('notify-condominio', {
+        body: {
+          condominioId: Number(condominioId),
+          destinatari,
+          title,
+          message,
+          tipo,
+          riferimentoId,
+        },
+      });
+
+      if (error) {
+        console.warn('Notifica condominio non inviata:', error.message || error);
+        return null;
+      }
+
+      if (data && data.success === false) {
+        console.warn('Notifica condominio non completata:', data);
+        return null;
+      }
+
+      console.info('Notifica condominio inviata:', data);
+      return data;
+    } catch (error) {
+      console.warn('Errore invio notifica condominio:', error);
+      return null;
+    }
+  };
+
   const caricaNotificheUtente = async (emailOverride = null) => {
     const email = String(emailOverride || utente?.email || '').toLowerCase().trim();
     if (!email) return;
@@ -3648,6 +3688,15 @@ export default function App() {
       if (error) throw error;
       if (data && data.success === false) throw new Error(data.error || 'Reminder non riuscito.');
 
+      await inviaNotificaCondominio({
+        condominioId: pratica.condominio_id,
+        destinatari: 'condomini',
+        title: 'Reminder votazione preventivo',
+        message: `Ricorda di votare il preventivo della pratica “${pratica.titolo || 'Pratica'}”.`,
+        tipo: 'reminder_votazione',
+        riferimentoId: Number(pratica.id),
+      });
+
       setStatusMessage(`Reminder inviato a ${data?.emails?.length || 0} condomini non votanti.`);
     } catch (error) {
       console.error(error);
@@ -3678,6 +3727,40 @@ export default function App() {
         return [data || votoPayload, ...filtrati];
       });
 
+      try {
+        const pratica = segnalazioni.find((s) => Number(s.id) === Number(id)) || dettaglioAperto;
+        const condominioId = Number(pratica?.condominio_id || 0);
+
+        if (condominioId) {
+          const { data: votiAggiornati } = await supabase
+            .from('preventivo_voti')
+            .select('email')
+            .eq('segnalazione_id', id);
+
+          const { data: condominiVotanti } = await supabase
+            .from('utenti_condomini')
+            .select('email')
+            .eq('condominio_id', condominioId)
+            .eq('ruolo', 'condominio');
+
+          const emailVoti = new Set((votiAggiornati || []).map((v) => String(v.email || '').toLowerCase().trim()));
+          const emailCondomini = (condominiVotanti || []).map((u) => String(u.email || '').toLowerCase().trim()).filter(Boolean);
+
+          if (emailCondomini.length > 0 && emailCondomini.every((email) => emailVoti.has(email))) {
+            await inviaNotificaCondominio({
+              condominioId,
+              destinatari: 'amministrazione',
+              title: 'Votazione completata',
+              message: `La votazione del preventivo per la pratica “${pratica?.titolo || 'Pratica'}” è completa.`,
+              tipo: 'votazione_completata',
+              riferimentoId: Number(id),
+            });
+          }
+        }
+      } catch (notifyError) {
+        console.warn('Errore controllo votazione completata:', notifyError);
+      }
+
       setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
     } catch (error) {
@@ -3707,6 +3790,15 @@ export default function App() {
 
       if (error) throw error;
       if (data && data.success === false) throw new Error(data.error || 'Invio riparto non riuscito.');
+
+      await inviaNotificaCondominio({
+        condominioId: pratica.condominio_id,
+        destinatari: 'condomini',
+        title: 'Riparto millesimale disponibile',
+        message: `È disponibile il riparto millesimale per la pratica “${pratica.titolo || 'Pratica'}”.`,
+        tipo: 'riparto_millesimale',
+        riferimentoId: Number(pratica.id),
+      });
 
       const notaRiparto = {
         id: Date.now(),
@@ -3744,6 +3836,17 @@ export default function App() {
       if (error) throw error;
       if (!data) throw new Error('Pianificazione non applicata.');
 
+      const pratica = segnalazioni.find((s) => Number(s.id) === Number(id)) || dettaglioAperto || data;
+
+      await inviaNotificaCondominio({
+        condominioId: pratica?.condominio_id || data?.condominio_id,
+        destinatari: 'tutti',
+        title: 'Lavori pianificati',
+        message: `I lavori per la pratica “${pratica?.titolo || 'Pratica'}” sono stati pianificati.`,
+        tipo: 'lavori_pianificati',
+        riferimentoId: Number(id),
+      });
+
       setSegnalazioni((prev) => prev.map((item) => (
         item.id === id ? { ...item, ...updatePayload } : item
       )));
@@ -3765,12 +3868,29 @@ export default function App() {
           ? 'Accettata'
           : 'Preventivata';
 
+      const pratica = segnalazioni.find((s) => Number(s.id) === Number(id)) || dettaglioAperto;
+
       const { error } = await supabase
         .from('segnalazioni')
         .update({ stato_conversione, stato: statoVisuale })
         .eq('id', id);
 
       if (error) throw error;
+
+      if (pratica?.condominio_id) {
+        const approvato = stato_conversione === 'accettato';
+
+        await inviaNotificaCondominio({
+          condominioId: pratica.condominio_id,
+          destinatari: 'tutti',
+          title: approvato ? 'Preventivo approvato' : 'Preventivo rifiutato',
+          message: approvato
+            ? `Il preventivo della pratica “${pratica.titolo || 'Pratica'}” è stato approvato.`
+            : `Il preventivo della pratica “${pratica.titolo || 'Pratica'}” è stato rifiutato.`,
+          tipo: approvato ? 'preventivo_approvato' : 'preventivo_rifiutato',
+          riferimentoId: Number(id),
+        });
+      }
 
       setSegnalazioni((prev) => prev.map((item) => (
         item.id === id ? { ...item, stato_conversione, stato: statoVisuale } : item
