@@ -2125,7 +2125,106 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   );
 }
 
-function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate }) {
+
+function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
+  const [condominioId, setCondominioId] = useState(condomini?.[0]?.id ? String(condomini[0].id) : '');
+  const [periodo, setPeriodo] = useState('');
+  const [titolo, setTitolo] = useState('Report semestrale Premium');
+  const [file, setFile] = useState(null);
+  const [errore, setErrore] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+
+    if (!condominioId || !periodo.trim() || !titolo.trim() || !file) {
+      setErrore('Seleziona condominio, periodo, titolo e PDF del report.');
+      return;
+    }
+
+    await onInvia({
+      condominioId: Number(condominioId),
+      periodo: periodo.trim(),
+      titolo: titolo.trim(),
+      file,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[72] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Premium</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Invia report semestrale</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Carica il PDF e invialo via email e push ad amministratore e condòmini.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+            Chiudi
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <select
+            value={condominioId}
+            onChange={(e) => setCondominioId(e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+          >
+            <option value="">Seleziona condominio</option>
+            {(condomini || []).map((condominio) => (
+              <option key={condominio.id} value={condominio.id}>
+                {condominio.nome}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            placeholder="Periodo es. Primo semestre 2026"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <input
+            value={titolo}
+            onChange={(e) => setTitolo(e.target.value)}
+            placeholder="Titolo report"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <label className="block rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <span className="font-black">PDF report</span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-3 block w-full text-sm"
+            />
+            {file && <span className="mt-2 block text-xs font-semibold">{file.name}</span>}
+          </label>
+
+          {errore && (
+            <p className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {errore}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
+          >
+            {saving ? 'Invio in corso...' : 'Invia report Premium'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -2145,6 +2244,15 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, se
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        {(ruolo === 'gestore' || ruolo === 'amministratore') && (
+          <button
+            type="button"
+            onClick={onOpenReportPremium}
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-black text-emerald-700"
+          >
+            Report Premium
+          </button>
+        )}
         {ruolo === 'gestore' && (
           <button
             type="button"
@@ -3064,6 +3172,8 @@ export default function App() {
   const [leadAmministratori, setLeadAmministratori] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
+  const [showReportSemestrale, setShowReportSemestrale] = useState(false);
+  const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -3115,6 +3225,78 @@ export default function App() {
     } catch (error) {
       console.warn('Errore invio notifica condominio:', error);
       return null;
+    }
+  };
+
+  const inviaReportSemestrale = async ({ condominioId, periodo, titolo, file }) => {
+    if (!condominioId || !file) return;
+
+    setSendingReportSemestrale(true);
+
+    try {
+      const safeName = file.name.split(' ').join('-');
+      const fileName = `report-semestrale-${condominioId}-${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('allegati')
+        .upload(fileName, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const reportUrl = buildPublicUrl(fileName);
+      let reportId = null;
+
+      try {
+        const { data: reportData, error: reportError } = await supabase
+          .from('report_condominio')
+          .insert({
+            condominio_id: condominioId,
+            titolo,
+            periodo,
+            file_nome: fileName,
+            file_url: reportUrl,
+            creato_da: utente?.email || '',
+          })
+          .select()
+          .single();
+
+        if (reportError) throw reportError;
+        reportId = reportData?.id || null;
+      } catch (reportError) {
+        console.warn('Report caricato ma non salvato in report_condominio:', reportError);
+      }
+
+      await inviaNotificaCondominio({
+        condominioId,
+        destinatari: 'tutti',
+        title: 'Report semestrale disponibile',
+        message: `È disponibile il report semestrale Premium: ${periodo}. Apri l’app o consulta la mail per visualizzarlo.`,
+        tipo: 'report_semestrale',
+        riferimentoId: reportId,
+      });
+
+      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-report-condominio', {
+        body: {
+          condominioId,
+          titolo,
+          periodo,
+          reportUrl,
+          fileName,
+        },
+      });
+
+      if (emailError) throw emailError;
+      if (emailData && emailData.success === false) throw new Error(emailData.error || 'Invio email non completato.');
+
+      mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
+      setStatusMessage('Report semestrale Premium inviato correttamente.');
+      setShowReportSemestrale(false);
+      await caricaNotificheUtente();
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore report', error.message || 'Invio report non riuscito.', 'error');
+    } finally {
+      setSendingReportSemestrale(false);
     }
   };
 
@@ -4206,6 +4388,14 @@ export default function App() {
         onRefresh={() => caricaNotificheUtente()}
       />
       <NotifichePushBox utenteEmail={utente?.email} />
+      {showReportSemestrale && (
+        <ReportSemestraleModal
+          condomini={condominiVisibili}
+          onClose={() => setShowReportSemestrale(false)}
+          onInvia={inviaReportSemestrale}
+          saving={sendingReportSemestrale}
+        />
+      )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         <Header
           utente={utente}
@@ -4231,6 +4421,7 @@ export default function App() {
           ruolo={ruoloNormalizzato}
           showArchiviate={showArchiviate}
           onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
+          onOpenReportPremium={() => setShowReportSemestrale(true)}
         />
 
         {ruoloNormalizzato === 'amministratore' && (
