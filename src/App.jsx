@@ -415,6 +415,7 @@ function ToastInterno({ toast, onClose }) {
 function NotifichePushBox({ utenteEmail }) {
   const [supportate, setSupportate] = useState(false);
   const [inizializzato, setInizializzato] = useState(false);
+  const [inizializzazioneInCorso, setInizializzazioneInCorso] = useState(false);
   const [permesso, setPermesso] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
   const [collegatoEmail, setCollegatoEmail] = useState(false);
   const [subscriptionId, setSubscriptionId] = useState('');
@@ -442,7 +443,54 @@ function NotifichePushBox({ utenteEmail }) {
     const isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(userAgent);
 
     setIosInfo({ isIOS, isStandalone, isSafari });
+
+    const browserSupportato = 'serviceWorker' in navigator && (
+      'Notification' in window || isIOS
+    );
+
+    setSupportate(browserSupportato);
+
+    if (typeof Notification !== 'undefined') {
+      setPermesso(Notification.permission);
+    }
   }, []);
+
+  const inizializzaOneSignal = async (origine = 'auto') => {
+    if (inizializzato) return true;
+    if (inizializzazioneInCorso) return false;
+
+    if (iosInfo.isIOS && !iosInfo.isStandalone) {
+      setMessaggio('Su iPhone apri l’app dalla schermata Home, non da Safari, per attivare le notifiche.');
+      return false;
+    }
+
+    try {
+      setInizializzazioneInCorso(true);
+      setMessaggio('Preparo le notifiche...');
+
+      await OneSignal.init({
+        appId: ONESIGNAL_APP_ID,
+        allowLocalhostAsSecureOrigin: true,
+        serviceWorkerPath: '/OneSignalSDKWorker.js',
+        serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js',
+        notifyButton: {
+          enable: false,
+        },
+      });
+
+      setInizializzato(true);
+      setPermesso(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+      setMessaggio('');
+      console.info('OneSignal inizializzato:', origine);
+      return true;
+    } catch (error) {
+      console.error('Errore inizializzazione OneSignal:', error);
+      setMessaggio('Notifiche non inizializzate. Chiudi e riapri l’app, poi riprova.');
+      return false;
+    } finally {
+      setInizializzazioneInCorso(false);
+    }
+  };
 
   const leggiSubscriptionId = async () => {
     for (let tentativo = 1; tentativo <= 30; tentativo += 1) {
@@ -530,6 +578,9 @@ function NotifichePushBox({ utenteEmail }) {
       return null;
     }
 
+    const okInit = await inizializzaOneSignal(origine + '-init');
+    if (!okInit) return null;
+
     try {
       await OneSignal.login(emailPulita);
 
@@ -537,6 +588,14 @@ function NotifichePushBox({ utenteEmail }) {
         await OneSignal.User.addEmail(emailPulita);
       } catch (emailError) {
         console.warn('OneSignal addEmail non completato:', emailError);
+      }
+
+      try {
+        if (typeof OneSignal.User?.PushSubscription?.optIn === 'function') {
+          await OneSignal.User.PushSubscription.optIn();
+        }
+      } catch (optInError) {
+        console.warn('OneSignal optIn non completato:', optInError);
       }
 
       const subId = await leggiSubscriptionId();
@@ -555,7 +614,7 @@ function NotifichePushBox({ utenteEmail }) {
         const salvato = await salvaSubscriptionId(subId);
         if (!salvato) return null;
       } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        setMessaggio('Notifiche consentite. Attendo la registrazione del dispositivo iOS...');
+        setMessaggio('Notifiche consentite. Attendo la registrazione del dispositivo...');
         window.setTimeout(async () => {
           const subIdRitardato = await leggiSubscriptionId();
           if (subIdRitardato) {
@@ -580,52 +639,15 @@ function NotifichePushBox({ utenteEmail }) {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const browserSupportato = 'serviceWorker' in navigator && (
-      'Notification' in window || iosInfo.isIOS
-    );
-
-    setSupportate(browserSupportato);
-
-    if (!browserSupportato || inizializzato) return;
+    if (!supportate || inizializzato) return;
 
     if (iosInfo.isIOS && !iosInfo.isStandalone) {
       setMessaggio('Su iPhone installa prima l’app nella schermata Home, poi aprila dall’icona per attivare le notifiche.');
       return;
     }
 
-    let active = true;
-
-    const inizializza = async () => {
-      try {
-        await OneSignal.init({
-          appId: ONESIGNAL_APP_ID,
-          allowLocalhostAsSecureOrigin: true,
-          serviceWorkerPath: '/OneSignalSDKWorker.js',
-          serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js',
-          notifyButton: {
-            enable: false,
-          },
-        });
-
-        if (!active) return;
-
-        setInizializzato(true);
-        setPermesso(typeof Notification !== 'undefined' ? Notification.permission : 'default');
-        console.info('OneSignal inizializzato');
-      } catch (error) {
-        console.error('Errore inizializzazione OneSignal:', error);
-        if (active) setMessaggio('Notifiche non inizializzate. Verifica configurazione OneSignal.');
-      }
-    };
-
-    inizializza();
-
-    return () => {
-      active = false;
-    };
-  }, [inizializzato, iosInfo.isIOS, iosInfo.isStandalone]);
+    inizializzaOneSignal('auto');
+  }, [supportate, iosInfo.isIOS, iosInfo.isStandalone, inizializzato]);
 
   useEffect(() => {
     if (!inizializzato || !emailPulita) return;
@@ -662,10 +684,8 @@ function NotifichePushBox({ utenteEmail }) {
         return;
       }
 
-      if (!inizializzato) {
-        setMessaggio('Notifiche in preparazione. Riprova tra pochi secondi.');
-        return;
-      }
+      const okInit = await inizializzaOneSignal('click');
+      if (!okInit) return;
 
       if (emailPulita) {
         await collegaUtenteOneSignal('prima-del-permesso');
@@ -750,9 +770,10 @@ function NotifichePushBox({ utenteEmail }) {
         <button
           type="button"
           onClick={attivaNotifiche}
-          className={`rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm ${MOTION_BUTTON}`}
+          disabled={inizializzazioneInCorso}
+          className={`rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm disabled:opacity-60 ${MOTION_BUTTON}`}
         >
-          {iosInfo.isIOS && !iosInfo.isStandalone ? 'Istruzioni' : permesso === 'granted' ? 'Registra' : 'Attiva'}
+          {inizializzazioneInCorso ? 'Preparo...' : iosInfo.isIOS && !iosInfo.isStandalone ? 'Istruzioni' : permesso === 'granted' ? 'Registra' : 'Attiva'}
         </button>
       </div>
 
