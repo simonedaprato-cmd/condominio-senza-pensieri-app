@@ -2321,6 +2321,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const [importoRiparto, setImportoRiparto] = useState('');
   const [scadenzaRiparto, setScadenzaRiparto] = useState('');
   const [rateRiparto, setRateRiparto] = useState('1');
+  const [scadenzeRateRiparto, setScadenzeRateRiparto] = useState(['']);
 
   if (!segnalazione) return null;
 
@@ -2373,9 +2374,36 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
   const totaleMillesimi = condominiRiparto.reduce((sum, item) => sum + Number(item.millesimi || 0), 0);
   const importoRipartoNumero = Number(importoRiparto || segnalazione.importo_preventivo || 0);
+  const numeroRateRiparto = Math.max(1, Number(rateRiparto || 1));
+  const scadenzeRateComplete = scadenzeRateRiparto.slice(0, numeroRateRiparto).every(Boolean);
+
+  const aggiornaNumeroRateRiparto = (value) => {
+    const numero = Math.max(1, Number(value || 1));
+    setRateRiparto(String(numero));
+    setScadenzeRateRiparto((prev) => {
+      const prossime = [...prev];
+      while (prossime.length < numero) prossime.push('');
+      return prossime.slice(0, numero);
+    });
+  };
+
+  const aggiornaScadenzaRata = (index, value) => {
+    setScadenzeRateRiparto((prev) => {
+      const prossime = [...prev];
+      prossime[index] = value;
+      return prossime;
+    });
+
+    if (index === 0) {
+      setScadenzaRiparto(value);
+    }
+  };
+
+  const quotePerRata = numeroRateRiparto > 0 ? importoRipartoNumero / numeroRateRiparto : importoRipartoNumero;
   const quoteRiparto = condominiRiparto.map((item) => ({
     ...item,
     quota: importoRipartoNumero * Number(item.millesimi || 0) / 1000,
+    quota_rata: quotePerRata * Number(item.millesimi || 0) / 1000,
   }));
 
   return (
@@ -2745,10 +2773,27 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   <p className="font-semibold text-amber-900">Riparto costi per millesimi</p>
                   <p className="mt-1 text-sm text-amber-800">Calcola e invia ai soli condomini la quota individuale della pratica deliberata.</p>
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input type="number" min="0" step="0.01" value={importoRiparto} onChange={(e) => setImportoRiparto(e.target.value)} placeholder={`Importo totale ${formatEuro(segnalazione.importo_preventivo || 0)}`} className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
-                  <input type="date" value={scadenzaRiparto} onChange={(e) => setScadenzaRiparto(e.target.value)} className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
-                  <input type="number" min="1" value={rateRiparto} onChange={(e) => setRateRiparto(e.target.value)} placeholder="Numero rate" className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                  <input type="number" min="1" value={rateRiparto} onChange={(e) => aggiornaNumeroRateRiparto(e.target.value)} placeholder="Numero rate" className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 bg-white/70 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-700">Scadenze rate</p>
+                  <p className="mt-1 text-xs text-amber-700">Inserisci una data per ogni rata prevista.</p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {Array.from({ length: numeroRateRiparto }).map((_, index) => (
+                      <label key={index} className="text-xs font-bold text-slate-600">
+                        Rata {index + 1}
+                        <input
+                          type="date"
+                          value={scadenzeRateRiparto[index] || ''}
+                          onChange={(e) => aggiornaScadenzaRata(index, e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-amber-200 px-3 py-2 text-sm"
+                        />
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-white p-3 text-sm">
@@ -2756,6 +2801,8 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Aventi diritto: {condominiRiparto.length}</span>
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Totale millesimi: {totaleMillesimi}</span>
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Importo: {formatEuro(importoRipartoNumero)}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Rate: {numeroRateRiparto}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Importo rata: {formatEuro(quotePerRata)}</span>
                   </div>
                   {totaleMillesimi !== 1000 && (
                     <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Attenzione: il totale millesimi non è 1000. Verifica i dati prima dell’invio.</p>
@@ -2769,13 +2816,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                           <p className="truncate text-xs font-bold text-slate-800">{item.nome}</p>
                           <p className="truncate text-[11px] text-slate-500">{item.email} • {item.millesimi} millesimi</p>
                         </div>
-                        <p className="shrink-0 text-sm font-black text-amber-700">{formatEuro(item.quota)}</p>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-black text-amber-700">{formatEuro(item.quota)}</p>
+                          {numeroRateRiparto > 1 && <p className="text-[11px] font-semibold text-amber-600">{formatEuro(item.quota_rata)} / rata</p>}
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <button type="button" disabled={!importoRipartoNumero || !scadenzaRiparto || quoteRiparto.length === 0 || totaleMillesimi <= 0} onClick={() => onInviaRipartoMillesimi(segnalazione, { importo_totale: importoRipartoNumero, scadenza: scadenzaRiparto, rate: Number(rateRiparto || 1), quote: quoteRiparto, totale_millesimi: totaleMillesimi })} className="w-full rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                <button type="button" disabled={!importoRipartoNumero || !scadenzeRateComplete || quoteRiparto.length === 0 || totaleMillesimi <= 0} onClick={() => onInviaRipartoMillesimi(segnalazione, { importo_totale: importoRipartoNumero, scadenza: scadenzeRateRiparto[0] || '', scadenze_rate: scadenzeRateRiparto.slice(0, numeroRateRiparto), rate: numeroRateRiparto, quote: quoteRiparto, totale_millesimi: totaleMillesimi })} className="w-full rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
                   Invia riparto ai condomini
                 </button>
               </div>
@@ -3790,6 +3840,7 @@ export default function App() {
           condominio_id: pratica.condominio_id,
           importo_totale: riparto.importo_totale,
           scadenza: riparto.scadenza,
+          scadenze_rate: riparto.scadenze_rate || [],
           rate: riparto.rate,
           quote: riparto.quote,
           totale_millesimi: riparto.totale_millesimi,
@@ -3810,7 +3861,7 @@ export default function App() {
 
       const notaRiparto = {
         id: Date.now(),
-        testo: `Riparto millesimale inviato ai condomini. Importo totale: ${formatEuro(riparto.importo_totale)}. Scadenza: ${new Date(riparto.scadenza).toLocaleDateString('it-IT')}. Rate: ${riparto.rate}.`,
+        testo: `Riparto millesimale inviato ai condomini. Importo totale: ${formatEuro(riparto.importo_totale)}. Rate: ${riparto.rate}. Scadenze: ${(riparto.scadenze_rate || [riparto.scadenza]).filter(Boolean).map((data) => new Date(data).toLocaleDateString('it-IT')).join(', ')}.`,
         data: new Date().toLocaleString('it-IT'),
       };
 
