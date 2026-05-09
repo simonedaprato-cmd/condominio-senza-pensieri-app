@@ -445,15 +445,23 @@ function NotifichePushBox({ utenteEmail }) {
   }, []);
 
   const leggiSubscriptionId = async () => {
-    for (let tentativo = 1; tentativo <= 12; tentativo += 1) {
+    for (let tentativo = 1; tentativo <= 30; tentativo += 1) {
       let subId = '';
 
       try {
+        const pushSub = OneSignal.User?.PushSubscription;
+
         subId =
-          OneSignal.User?.PushSubscription?.id ||
-          OneSignal.User?.PushSubscription?.subscriptionId ||
-          OneSignal.User?.PushSubscription?.token ||
+          pushSub?.id ||
+          pushSub?.subscriptionId ||
+          pushSub?.token ||
+          pushSub?.current?.id ||
+          pushSub?.current?.subscriptionId ||
           '';
+
+        if (!subId && typeof pushSub?.getIdAsync === 'function') {
+          subId = await pushSub.getIdAsync();
+        }
       } catch (error) {
         console.warn('Lettura subscription OneSignal non riuscita:', error);
       }
@@ -463,10 +471,10 @@ function NotifichePushBox({ utenteEmail }) {
         return subId;
       }
 
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
     }
 
-    console.warn('Subscription ID non disponibile dopo attesa.');
+    console.warn('Subscription ID non disponibile dopo attesa prolungata.');
     return '';
   };
 
@@ -547,7 +555,19 @@ function NotifichePushBox({ utenteEmail }) {
         const salvato = await salvaSubscriptionId(subId);
         if (!salvato) return null;
       } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        setMessaggio('Notifiche consentite, ma dispositivo non ancora registrato. Riprova tra qualche secondo.');
+        setMessaggio('Notifiche consentite. Attendo la registrazione del dispositivo iOS...');
+        window.setTimeout(async () => {
+          const subIdRitardato = await leggiSubscriptionId();
+          if (subIdRitardato) {
+            setSubscriptionId(subIdRitardato);
+            const salvato = await salvaSubscriptionId(subIdRitardato);
+            if (salvato) {
+              setCollegatoEmail(true);
+              setDispositivoSalvato(true);
+              setMessaggio('');
+            }
+          }
+        }, 2500);
       }
 
       return subId;
@@ -653,6 +673,14 @@ function NotifichePushBox({ utenteEmail }) {
 
       await OneSignal.Notifications.requestPermission();
 
+      try {
+        if (typeof OneSignal.User?.PushSubscription?.optIn === 'function') {
+          await OneSignal.User.PushSubscription.optIn();
+        }
+      } catch (optInError) {
+        console.warn('OneSignal optIn non completato:', optInError);
+      }
+
       const nuovoPermesso = typeof Notification !== 'undefined' ? Notification.permission : 'default';
       setPermesso(nuovoPermesso);
 
@@ -664,7 +692,7 @@ function NotifichePushBox({ utenteEmail }) {
           setDispositivoSalvato(true);
           setMessaggio('');
         } else {
-          setMessaggio('Notifiche consentite, ma registrazione dispositivo non completata.');
+          setMessaggio('Notifiche consentite. Premi Registra tra qualche secondo se il box resta visibile.');
         }
       } else if (nuovoPermesso === 'denied') {
         setMessaggio('Notifiche bloccate dal browser. Puoi riattivarle dalle impostazioni del sito.');
