@@ -2097,7 +2097,7 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-bold">Da monitorare</h3>
           <p className="mb-4 text-sm text-slate-500">Pratiche prioritarie in evidenza.</p>
-          <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
+          <div className="space-y-3 md:max-h-[520px] md:overflow-y-auto md:pr-1 md:csp-scroll">
             {critiche.length === 0 ? (
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">Situazione sotto controllo.</div>
             ) : (
@@ -2376,8 +2376,8 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-2 md:p-4">
-      <div className="flex h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/60 bg-white shadow-2xl md:h-[90vh] md:rounded-3xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
+      <div className="min-h-full w-full max-w-4xl rounded-2xl border border-white/60 bg-white shadow-2xl md:flex md:h-[90vh] md:min-h-0 md:flex-col md:overflow-hidden md:rounded-3xl">
         <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur-xl md:p-5">
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
           <div>
@@ -2419,7 +2419,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5">
+        <div className="grid grid-cols-1 gap-5 p-4 md:flex-1 md:grid-cols-2 md:overflow-y-auto md:p-5">
           <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
@@ -2620,7 +2620,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                     </div>
 
                     {ruolo === 'amministratore' && nonVotanti.length > 0 && (
-                      <div className="mt-3 max-h-32 overflow-auto rounded-xl border border-amber-100 bg-amber-50">
+                      <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 md:max-h-32 md:overflow-auto">
                         <p className="border-b border-amber-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-700">Non votanti</p>
                         {nonVotanti.map((email) => (
                           <p key={email} className="border-b border-amber-100 px-3 py-2 text-xs font-semibold text-amber-800 last:border-b-0">{email}</p>
@@ -2628,7 +2628,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       </div>
                     )}
 
-                    <div className="mt-3 max-h-40 overflow-y-auto csp-scroll rounded-xl border border-white/70 bg-white">
+                    <div className="mt-3 rounded-xl border border-white/70 bg-white md:max-h-40 md:overflow-y-auto md:csp-scroll">
                       {votiPratica.length === 0 ? (
                         <EmptyState icon="🗳️" title="Nessun voto ancora registrato" text="Quando i condòmini voteranno, il riepilogo apparirà qui in tempo reale." action="Votazione in attesa" tone="blue" />
                       ) : (
@@ -2647,7 +2647,12 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
 
           <div className="space-y-4">
-            <TimelinePratica stato={segnalazione.stato} />
+            <div className="md:hidden">
+              <TimelinePratica stato={segnalazione.stato} />
+            </div>
+            <div className="hidden md:block">
+              <TimelinePratica stato={segnalazione.stato} />
+            </div>
             <div className="flex flex-wrap gap-2">
               {ruolo === 'gestore' && STATI_PRATICA.map((stato) => (
                 <button
@@ -2752,7 +2757,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   {totaleMillesimi !== 1000 && (
                     <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Attenzione: il totale millesimi non è 1000. Verifica i dati prima dell’invio.</p>
                   )}
-                  <div className="mt-3 max-h-40 overflow-y-auto csp-scroll rounded-xl border border-slate-100">
+                  <div className="mt-3 rounded-xl border border-slate-100 md:max-h-40 md:overflow-y-auto md:csp-scroll">
                     {quoteRiparto.length === 0 ? (
                       <EmptyState icon="📐" title="Millesimi non configurati" text="Configura i millesimi dei condòmini per ottenere un riparto chiaro e pronto da condividere." action="Configurazione richiesta" tone="amber" />
                     ) : quoteRiparto.map((item) => (
@@ -2811,7 +2816,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
           </div>
 
           {mostraCronologia && (
-            <div className="mt-3 max-h-40 space-y-2 overflow-y-auto csp-scroll border-t border-slate-100 pt-3">
+            <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 md:max-h-40 md:overflow-y-auto md:csp-scroll">
               {(segnalazione.note || []).length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
                   Nessuna nota presente.
