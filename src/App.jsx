@@ -421,8 +421,28 @@ function NotifichePushBox({ utenteEmail }) {
   const [dispositivoSalvato, setDispositivoSalvato] = useState(false);
   const [messaggio, setMessaggio] = useState('');
   const [debugSalvataggio, setDebugSalvataggio] = useState('');
+  const [iosInfo, setIosInfo] = useState({
+    isIOS: false,
+    isStandalone: false,
+    isSafari: false,
+  });
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const userAgent = window.navigator.userAgent || '';
+    const isIOS = /iphone|ipad|ipod/i.test(userAgent) || (
+      /macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1
+    );
+    const isStandalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    const isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(userAgent);
+
+    setIosInfo({ isIOS, isStandalone, isSafari });
+  }, []);
 
   const leggiSubscriptionId = async () => {
     for (let tentativo = 1; tentativo <= 12; tentativo += 1) {
@@ -460,7 +480,7 @@ function NotifichePushBox({ utenteEmail }) {
           subscriptionId: subId,
           deviceLabel: /Android/i.test(navigator.userAgent)
             ? 'Android'
-            : /iPhone|iPad/i.test(navigator.userAgent)
+            : /iPhone|iPad|iPod/i.test(navigator.userAgent)
               ? 'iOS'
               : /Windows/i.test(navigator.userAgent)
                 ? 'Windows'
@@ -526,7 +546,7 @@ function NotifichePushBox({ utenteEmail }) {
         setSubscriptionId(subId);
         const salvato = await salvaSubscriptionId(subId);
         if (!salvato) return null;
-      } else if (Notification.permission === 'granted') {
+      } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         setMessaggio('Notifiche consentite, ma dispositivo non ancora registrato. Riprova tra qualche secondo.');
       }
 
@@ -542,10 +562,18 @@ function NotifichePushBox({ utenteEmail }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const browserSupportato = 'Notification' in window && 'serviceWorker' in navigator;
+    const browserSupportato = 'serviceWorker' in navigator && (
+      'Notification' in window || iosInfo.isIOS
+    );
+
     setSupportate(browserSupportato);
 
     if (!browserSupportato || inizializzato) return;
+
+    if (iosInfo.isIOS && !iosInfo.isStandalone) {
+      setMessaggio('Su iPhone installa prima l’app nella schermata Home, poi aprila dall’icona per attivare le notifiche.');
+      return;
+    }
 
     let active = true;
 
@@ -564,7 +592,7 @@ function NotifichePushBox({ utenteEmail }) {
         if (!active) return;
 
         setInizializzato(true);
-        setPermesso(Notification.permission);
+        setPermesso(typeof Notification !== 'undefined' ? Notification.permission : 'default');
         console.info('OneSignal inizializzato');
       } catch (error) {
         console.error('Errore inizializzazione OneSignal:', error);
@@ -577,7 +605,7 @@ function NotifichePushBox({ utenteEmail }) {
     return () => {
       active = false;
     };
-  }, [inizializzato]);
+  }, [inizializzato, iosInfo.isIOS, iosInfo.isStandalone]);
 
   useEffect(() => {
     if (!inizializzato || !emailPulita) return;
@@ -588,7 +616,7 @@ function NotifichePushBox({ utenteEmail }) {
       const subId = await collegaUtenteOneSignal('login-effect');
       if (!active) return;
 
-      if (Notification.permission === 'granted' && subId) {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && subId) {
         setCollegatoEmail(true);
       }
     };
@@ -609,6 +637,11 @@ function NotifichePushBox({ utenteEmail }) {
         return;
       }
 
+      if (iosInfo.isIOS && !iosInfo.isStandalone) {
+        setMessaggio('Apri l’app dall’icona sulla schermata Home dell’iPhone, non da Safari, poi premi di nuovo Attiva.');
+        return;
+      }
+
       if (!inizializzato) {
         setMessaggio('Notifiche in preparazione. Riprova tra pochi secondi.');
         return;
@@ -620,7 +653,7 @@ function NotifichePushBox({ utenteEmail }) {
 
       await OneSignal.Notifications.requestPermission();
 
-      const nuovoPermesso = Notification.permission;
+      const nuovoPermesso = typeof Notification !== 'undefined' ? Notification.permission : 'default';
       setPermesso(nuovoPermesso);
 
       if (nuovoPermesso === 'granted') {
@@ -644,7 +677,7 @@ function NotifichePushBox({ utenteEmail }) {
     }
   };
 
-  if (!supportate) return null;
+  if (!supportate && !iosInfo.isIOS) return null;
 
   const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
 
@@ -652,17 +685,27 @@ function NotifichePushBox({ utenteEmail }) {
     return null;
   }
 
+  const titoloBox = iosInfo.isIOS && !iosInfo.isStandalone
+    ? 'Installa l’app su iPhone'
+    : permesso === 'granted'
+      ? 'Registra questo dispositivo'
+      : 'Attiva notifiche push';
+
+  const testoBox = iosInfo.isIOS && !iosInfo.isStandalone
+    ? 'Per ricevere notifiche su iPhone: Safari → Condividi → Aggiungi a Home. Poi apri l’app dalla nuova icona.'
+    : permesso === 'granted'
+      ? 'Le notifiche sono consentite. Completa la registrazione del dispositivo per riceverle.'
+      : 'Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.';
+
   return (
     <div className="csp-enter rounded-3xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-black text-amber-900">
-            {permesso === 'granted' ? 'Registra questo dispositivo' : 'Attiva notifiche push'}
+            {titoloBox}
           </p>
           <p className="mt-1 text-xs text-amber-700">
-            {permesso === 'granted'
-              ? 'Le notifiche sono consentite. Completa la registrazione del dispositivo per riceverle.'
-              : 'Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.'}
+            {testoBox}
           </p>
           {emailPulita && (
             <p className="mt-1 text-[11px] font-semibold text-amber-800">
@@ -681,7 +724,7 @@ function NotifichePushBox({ utenteEmail }) {
           onClick={attivaNotifiche}
           className={`rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm ${MOTION_BUTTON}`}
         >
-          {permesso === 'granted' ? 'Registra' : 'Attiva'}
+          {iosInfo.isIOS && !iosInfo.isStandalone ? 'Istruzioni' : permesso === 'granted' ? 'Registra' : 'Attiva'}
         </button>
       </div>
 
