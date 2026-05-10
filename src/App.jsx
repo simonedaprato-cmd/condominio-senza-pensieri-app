@@ -2118,6 +2118,45 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   );
 }
 
+function ArchivioReportPremium({ reports }) {
+  if (!reports || reports.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+      <div className="mb-3">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Premium</p>
+        <h2 className="text-xl font-black text-slate-900">Report condominio</h2>
+        <p className="mt-1 text-sm text-slate-500">Archivio dei report semestrali disponibili.</p>
+      </div>
+
+      <div className="space-y-2">
+        {reports.map((report) => (
+          <div key={report.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-black text-slate-900">{report.titolo}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  {report.periodo} • {report.created_at ? new Date(report.created_at).toLocaleDateString('it-IT') : ''}
+                </p>
+              </div>
+              <a
+                href={report.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-sm font-black text-white"
+              >
+                Apri report
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
   const [condominioId, setCondominioId] = useState(condomini?.[0]?.id ? String(condomini[0].id) : '');
   const [periodo, setPeriodo] = useState('');
@@ -3269,6 +3308,7 @@ export default function App() {
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
   const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
+  const [reportCondominio, setReportCondominio] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -3370,7 +3410,7 @@ export default function App() {
         condominioId,
         destinatari: 'tutti',
         title: 'Report semestrale disponibile',
-        message: `È disponibile il report semestrale Premium: ${periodo}. Apri l’app o consulta la mail per visualizzarlo.`,
+        message: `È disponibile il report semestrale Premium: ${periodo}. Puoi consultarlo nell’app nella sezione Report condominio oppure dalla mail.`,
         tipo: 'report_semestrale',
         riferimentoId: reportId,
       });
@@ -3460,6 +3500,15 @@ export default function App() {
     });
   }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
 
+  const reportVisibili = useMemo(() => {
+    const ids = ruoloNormalizzato === 'gestore'
+      ? condomini.map((c) => Number(c.id))
+      : (userProfile?.condominiIds || []).map(Number);
+
+    return (reportCondominio || []).filter((report) => ids.includes(Number(report.condominio_id)));
+  }, [reportCondominio, ruoloNormalizzato, condomini, userProfile]);
+
+
   const hasPreventiviBanner = ruoloNormalizzato !== 'condominio' && segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
 
   const normalizzaSegnalazioni = (data) => (data || []).map((item) => {
@@ -3529,6 +3578,14 @@ export default function App() {
 
       if (contrattiError && contrattiError.code !== 'PGRST116') throw contrattiError;
       setContratti(contrattiData || []);
+
+      const { data: reportData, error: reportError } = await supabase
+        .from('report_condominio')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (reportError && reportError.code !== 'PGRST116') throw reportError;
+      setReportCondominio(reportData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -4513,6 +4570,8 @@ export default function App() {
           onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
           onOpenReportPremium={() => setShowReportSemestrale(true)}
         />
+
+        <ArchivioReportPremium reports={reportVisibili} />
 
         {ruoloNormalizzato === 'amministratore' && (
           <section className="space-y-3 pb-36 md:pb-6">
