@@ -290,7 +290,7 @@ function StatoBadge({ stato }) {
 
 
 
-function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette }) {
+function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette, onRefresh, onOpenRiferimento }) {
   const nonLette = (notifiche || []).filter((n) => !n.letto).length;
 
   return (
@@ -317,6 +317,13 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette })
                 )}
                 <button
                   type="button"
+                  onClick={onRefresh}
+                  className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
+                >
+                  Aggiorna
+                </button>
+                <button
+                  type="button"
                   onClick={onClose}
                   className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white"
                 >
@@ -336,9 +343,11 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette })
                 />
               ) : (
                 notifiche.map((notifica) => (
-                  <div
+                  <button
+                    type="button"
                     key={notifica.id}
-                    className={`rounded-2xl border p-4 shadow-sm ${
+                    onClick={() => onOpenRiferimento(notifica)}
+                    className={`w-full rounded-2xl border p-4 text-left shadow-sm transition hover:scale-[1.01] ${
                       notifica.letto
                         ? 'border-slate-100 bg-slate-50'
                         : 'border-emerald-100 bg-emerald-50'
@@ -360,7 +369,7 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette })
                         {notifica.letto ? 'Letta' : 'Nuova'}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -3442,41 +3451,139 @@ export default function App() {
 
   const caricaNotificheUtente = async (emailOverride = null) => {
     const email = String(emailOverride || utente?.email || '').toLowerCase().trim();
-    if (!email) return;
+
+    if (!email) {
+      setNotificheUtente([]);
+      return [];
+    }
 
     try {
-      const { data, error } = await supabase
+      let data = [];
+      let error = null;
+
+      const rispostaDiretta = await supabase
         .from('notifiche_utenti')
         .select('*')
-        .ilike('email', email)
+        .eq('email', email)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
+
+      data = rispostaDiretta.data || [];
+      error = rispostaDiretta.error;
 
       if (error) throw error;
+
+      if ((data || []).length === 0) {
+        const rispostaFallback = await supabase
+          .from('notifiche_utenti')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (rispostaFallback.error) throw rispostaFallback.error;
+
+        data = (rispostaFallback.data || []).filter((notifica) =>
+          String(notifica.email || '').toLowerCase().trim() === email
+        );
+      }
+
       setNotificheUtente(data || []);
+      return data || [];
     } catch (error) {
       console.warn('Errore caricamento notifiche utente:', error);
+      return [];
     }
   };
 
-  const segnaNotificheLette = async () => {
-    const email = String(utente?.email || '').toLowerCase().trim();
-    if (!email) return;
+  const segnaNotificaLetta = async (notificaId) => {
+    if (!notificaId) return;
 
     try {
       const { error } = await supabase
         .from('notifiche_utenti')
         .update({ letto: true })
-        .ilike('email', email)
-        .eq('letto', false);
+        .eq('id', notificaId);
 
       if (error) throw error;
+
+      setNotificheUtente((prev) => prev.map((n) => (
+        n.id === notificaId ? { ...n, letto: true } : n
+      )));
+    } catch (error) {
+      console.warn('Errore aggiornamento singola notifica:', error);
+    }
+  };
+
+  const segnaNotificheLette = async () => {
+    const idsNonLetti = notificheUtente
+      .filter((n) => !n.letto)
+      .map((n) => n.id)
+      .filter(Boolean);
+
+    if (idsNonLetti.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifiche_utenti')
+        .update({ letto: true })
+        .in('id', idsNonLetti);
+
+      if (error) throw error;
+
       setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
     } catch (error) {
       console.warn('Errore aggiornamento notifiche lette:', error);
       mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
     }
   };
+
+  const apriNotificaInterna = async (notifica) => {
+    if (!notifica) return;
+
+    if (!notifica.letto) {
+      await segnaNotificaLetta(notifica.id);
+    }
+
+    const riferimentoId = notifica.riferimento_id;
+
+    if (!riferimentoId) {
+      mostraToast('Notifica', 'Questa notifica non è collegata a una pratica specifica.', 'info');
+      return;
+    }
+
+    const pratica = segnalazioniVisualizzate.find((s) => String(s.id) === String(riferimentoId))
+      || segnalazioni.find((s) => String(s.id) === String(riferimentoId));
+
+    if (!pratica) {
+      mostraToast('Pratica non trovata', 'La pratica collegata non è visibile con il profilo corrente.', 'warning');
+      return;
+    }
+
+    setDettaglioAperto(pratica);
+    setCentroNotificheAperto(false);
+  };
+
+  const apriCentroNotifiche = async () => {
+    setCentroNotificheAperto(true);
+    await caricaNotificheUtente();
+  };
+
+  useEffect(() => {
+    if (!utente?.email) return;
+
+    caricaNotificheUtente(utente.email);
+  }, [utente?.email]);
+
+  useEffect(() => {
+    if (!utente?.email) return;
+
+    const timer = window.setInterval(() => {
+      caricaNotificheUtente(utente.email);
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, [utente?.email]);
+
 
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
@@ -4533,6 +4640,8 @@ export default function App() {
         onToggle={() => setCentroNotificheAperto((prev) => !prev)}
         onClose={() => setCentroNotificheAperto(false)}
         onSegnaLette={segnaNotificheLette}
+        onRefresh={() => caricaNotificheUtente()}
+        onOpenRiferimento={apriNotificaInterna}
       />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
@@ -4554,7 +4663,7 @@ export default function App() {
           segnalazioni={segnalazioniVisualizzate}
           onLogout={logout}
           notificheNonLette={notificheUtente.filter((n) => !n.letto).length}
-          onOpenNotifiche={() => setCentroNotificheAperto(true)}
+          onOpenNotifiche={apriCentroNotifiche}
         />
 
         <ActionBar
