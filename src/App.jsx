@@ -3523,8 +3523,6 @@ export default function App() {
         setUtente(null);
         setUserProfile(null);
         setRuolo('');
-        setNotificheUtente([]);
-        setCentroNotificheAperto(false);
         setLoading(false);
       }
     });
@@ -3562,32 +3560,6 @@ export default function App() {
   }, [utente]);
 
 
-  useEffect(() => {
-    const email = String(utente?.email || '').toLowerCase().trim();
-    if (!email) return undefined;
-
-    caricaNotificheUtente(email);
-
-    const channel = supabase
-      .channel(`notifiche-utente-${email}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifiche_utenti' },
-        async (payload) => {
-          const payloadEmail = String(payload?.new?.email || payload?.old?.email || '').toLowerCase().trim();
-          if (payloadEmail && payloadEmail !== email) return;
-
-          if (payload.eventType === 'INSERT' && payloadEmail === email) {
-            mostraToast(payload.new?.titolo || 'Nuova notifica', payload.new?.messaggio || '', 'info');
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [utente?.email]);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
