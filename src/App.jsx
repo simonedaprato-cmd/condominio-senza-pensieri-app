@@ -290,96 +290,6 @@ function StatoBadge({ stato }) {
 
 
 
-function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette, onRefresh, onOpenRiferimento }) {
-  const nonLette = (notifiche || []).filter((n) => !n.letto).length;
-
-  return (
-    <>
-      {aperto && (
-        <div className="fixed inset-0 z-[75] bg-slate-950/35 p-3 backdrop-blur-sm md:flex md:justify-end">
-          <div className="ml-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/50 bg-white shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">Notifiche</h3>
-                <p className="text-xs text-slate-500">
-                  {nonLette > 0 ? `${nonLette} non lette` : 'Tutto letto'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {nonLette > 0 && (
-                  <button
-                    type="button"
-                    onClick={onSegnaLette}
-                    className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-800"
-                  >
-                    Segna lette
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={onRefresh}
-                  className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
-                >
-                  Aggiorna
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white"
-                >
-                  Chiudi
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
-              {(notifiche || []).length === 0 ? (
-                <EmptyState
-                  icon="🔔"
-                  title="Nessuna notifica"
-                  text="Quando arriveranno aggiornamenti importanti del condominio, li troverai qui."
-                  action="Centro notifiche pronto"
-                  tone="slate"
-                />
-              ) : (
-                notifiche.map((notifica) => (
-                  <button
-                    type="button"
-                    key={notifica.id}
-                    onClick={() => onOpenRiferimento(notifica)}
-                    className={`w-full rounded-2xl border p-4 text-left shadow-sm transition hover:scale-[1.01] ${
-                      notifica.letto
-                        ? 'border-slate-100 bg-slate-50'
-                        : 'border-emerald-100 bg-emerald-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-slate-900">{notifica.titolo}</p>
-                        {notifica.messaggio && (
-                          <p className="mt-1 text-xs leading-relaxed text-slate-600">{notifica.messaggio}</p>
-                        )}
-                        <p className="mt-2 text-[11px] font-semibold text-slate-400">
-                          {notifica.created_at ? new Date(notifica.created_at).toLocaleString('it-IT') : ''}
-                        </p>
-                      </div>
-                      <span className={`mt-1 shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
-                        notifica.letto ? 'bg-slate-200 text-slate-500' : 'bg-emerald-500 text-white'
-                      }`}>
-                        {notifica.letto ? 'Letta' : 'Nuova'}
-                      </span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
 function ToastInterno({ toast, onClose }) {
   if (!toast) return null;
 
@@ -936,7 +846,7 @@ function Login() {
   );
 }
 
-function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout, notificheNonLette = 0, onOpenNotifiche }) {
+function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout }) {
   const ora = new Date().getHours();
   let saluto = 'Ciao';
   if (ora >= 5 && ora < 12) saluto = 'Buongiorno';
@@ -1009,24 +919,6 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">
-          <button
-            type="button"
-            onClick={onOpenNotifiche}
-            className="group flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-transparent shadow-lg backdrop-blur-xl transition duration-300 hover:scale-110 hover:bg-white/10"
-            title={notificheNonLette > 0 ? `${notificheNonLette} notifiche non lette` : 'Nessuna nuova notifica'}
-            aria-label="Centro notifiche"
-          >
-            <span className={`relative h-3.5 w-3.5 rounded-full ${
-              notificheNonLette > 0 ? 'bg-red-500' : 'bg-emerald-300'
-            }`}>
-              <span className={`absolute inset-0 rounded-full ${
-                notificheNonLette > 0 ? 'bg-red-400' : 'bg-emerald-300'
-              } animate-ping opacity-60`} />
-              <span className={`absolute inset-0 rounded-full ring-2 ring-white/70 ${
-                notificheNonLette > 0 ? 'bg-red-500' : 'bg-emerald-400'
-              }`} />
-            </span>
-          </button>
           <a
             href={'https://wa.me/393477921965?text=' + encodeURIComponent(whatsappText)}
             target="_blank"
@@ -3298,8 +3190,6 @@ export default function App() {
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toastInterno, setToastInterno] = useState(null);
-  const [notificheUtente, setNotificheUtente] = useState([]);
-  const [centroNotificheAperto, setCentroNotificheAperto] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -3440,7 +3330,6 @@ export default function App() {
       mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
-      await caricaNotificheUtente();
     } catch (error) {
       console.error(error);
       mostraToast('Errore report', error.message || 'Invio report non riuscito.', 'error');
@@ -3449,181 +3338,6 @@ export default function App() {
     }
   };
 
-  const caricaNotificheUtente = async (emailOverride = null) => {
-    const email = String(emailOverride || utente?.email || '').toLowerCase().trim();
-
-    if (!email) {
-      setNotificheUtente([]);
-      return [];
-    }
-
-    try {
-      const { data, error } = await supabase.functions.invoke('notifiche-utente', {
-        body: {
-          action: 'list',
-          email,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.success === false) throw new Error(data?.error || 'Caricamento notifiche non riuscito');
-
-      const notifiche = data?.notifiche || [];
-      setNotificheUtente(notifiche);
-      console.info('Notifiche caricate da Edge Function:', { email, count: notifiche.length });
-      return notifiche;
-    } catch (edgeError) {
-      console.warn('Edge Function notifiche-utente non disponibile, provo lettura diretta:', edgeError);
-
-      try {
-        const { data, error } = await supabase
-          .from('notifiche_utenti')
-          .select('*')
-          .eq('email', email)
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        if (error) throw error;
-
-        setNotificheUtente(data || []);
-        return data || [];
-      } catch (directError) {
-        console.warn('Errore caricamento notifiche utente:', directError);
-        setNotificheUtente([]);
-        return [];
-      }
-    }
-  };
-
-  const segnaNotificaLetta = async (notificaId) => {
-    if (!notificaId) return;
-
-    try {
-      const email = String(utente?.email || '').toLowerCase().trim();
-
-      const { data, error } = await supabase.functions.invoke('notifiche-utente', {
-        body: {
-          action: 'mark_one',
-          email,
-          notificaId,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.success === false) throw new Error(data?.error || 'Aggiornamento notifica non riuscito');
-
-      setNotificheUtente((prev) => prev.map((n) => (
-        n.id === notificaId ? { ...n, letto: true } : n
-      )));
-    } catch (edgeError) {
-      console.warn('Errore Edge mark_one, provo update diretto:', edgeError);
-
-      try {
-        const { error } = await supabase
-          .from('notifiche_utenti')
-          .update({ letto: true })
-          .eq('id', notificaId);
-
-        if (error) throw error;
-
-        setNotificheUtente((prev) => prev.map((n) => (
-          n.id === notificaId ? { ...n, letto: true } : n
-        )));
-      } catch (directError) {
-        console.warn('Errore aggiornamento singola notifica:', directError);
-      }
-    }
-  };
-
-  const segnaNotificheLette = async () => {
-    const email = String(utente?.email || '').toLowerCase().trim();
-    if (!email) return;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('notifiche-utente', {
-        body: {
-          action: 'mark_all',
-          email,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.success === false) throw new Error(data?.error || 'Aggiornamento notifiche non riuscito');
-
-      setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
-      await caricaNotificheUtente(email);
-    } catch (edgeError) {
-      console.warn('Errore Edge mark_all, provo update diretto:', edgeError);
-
-      const idsNonLetti = notificheUtente
-        .filter((n) => !n.letto)
-        .map((n) => n.id)
-        .filter(Boolean);
-
-      if (idsNonLetti.length === 0) return;
-
-      try {
-        const { error } = await supabase
-          .from('notifiche_utenti')
-          .update({ letto: true })
-          .in('id', idsNonLetti);
-
-        if (error) throw error;
-
-        setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
-      } catch (directError) {
-        console.warn('Errore aggiornamento notifiche lette:', directError);
-        mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
-      }
-    }
-  };
-
-  const apriNotificaInterna = async (notifica) => {
-    if (!notifica) return;
-
-    if (!notifica.letto) {
-      await segnaNotificaLetta(notifica.id);
-    }
-
-    const riferimentoId = notifica.riferimento_id;
-
-    if (!riferimentoId) {
-      mostraToast('Notifica', 'Questa notifica non è collegata a una pratica specifica.', 'info');
-      return;
-    }
-
-    const pratica = segnalazioniVisualizzate.find((s) => String(s.id) === String(riferimentoId))
-      || segnalazioni.find((s) => String(s.id) === String(riferimentoId));
-
-    if (!pratica) {
-      mostraToast('Pratica non trovata', 'La pratica collegata non è visibile con il profilo corrente.', 'warning');
-      return;
-    }
-
-    setDettaglioAperto(pratica);
-    setCentroNotificheAperto(false);
-  };
-
-  const apriCentroNotifiche = async () => {
-    setCentroNotificheAperto(true);
-    await caricaNotificheUtente();
-  };
-
-  useEffect(() => {
-    if (!utente?.email) return;
-
-    caricaNotificheUtente(utente.email);
-  }, [utente?.email]);
-
-  useEffect(() => {
-    if (!utente?.email) return;
-
-    const timer = window.setInterval(() => {
-      caricaNotificheUtente(utente.email);
-    }, 30000);
-
-    return () => window.clearInterval(timer);
-  }, [utente?.email]);
 
 
   const condominiVisibili = useMemo(() => {
@@ -3756,8 +3470,6 @@ export default function App() {
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
-
-      await caricaNotificheUtente(currentUser?.email || utente?.email);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -3865,8 +3577,6 @@ export default function App() {
           const payloadEmail = String(payload?.new?.email || payload?.old?.email || '').toLowerCase().trim();
           if (payloadEmail && payloadEmail !== email) return;
 
-          await caricaNotificheUtente(email);
-
           if (payload.eventType === 'INSERT' && payloadEmail === email) {
             mostraToast(payload.new?.titolo || 'Nuova notifica', payload.new?.messaggio || '', 'info');
           }
@@ -3931,7 +3641,6 @@ export default function App() {
 
       setShowNuovaSegnalazione(false);
       await carica();
-      await caricaNotificheUtente();
       setStatusMessage('Segnalazione salvata correttamente.');
       mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
     } finally {
@@ -4675,15 +4384,6 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
-      <CentroNotifiche
-        notifiche={notificheUtente}
-        aperto={centroNotificheAperto}
-        onToggle={() => setCentroNotificheAperto((prev) => !prev)}
-        onClose={() => setCentroNotificheAperto(false)}
-        onSegnaLette={segnaNotificheLette}
-        onRefresh={() => caricaNotificheUtente()}
-        onOpenRiferimento={apriNotificaInterna}
-      />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
@@ -4703,8 +4403,6 @@ export default function App() {
           condominiVisibili={condominiVisibili}
           segnalazioni={segnalazioniVisualizzate}
           onLogout={logout}
-          notificheNonLette={notificheUtente.filter((n) => !n.letto).length}
-          onOpenNotifiche={apriCentroNotifiche}
         />
 
         <ActionBar
