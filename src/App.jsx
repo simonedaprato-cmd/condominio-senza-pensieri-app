@@ -2236,7 +2236,7 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, se
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        {(ruolo === 'gestore' || ruolo === 'amministratore') && (
+        {ruolo === 'gestore' && (
           <button
             type="button"
             onClick={onOpenReportPremium}
@@ -3324,6 +3324,11 @@ export default function App() {
   };
 
   const inviaReportSemestrale = async ({ condominioId, periodo, titolo, file }) => {
+    if (ruoloNormalizzato !== 'gestore') {
+      mostraToast('Permesso negato', 'L’invio del report Premium è riservato al gestore.', 'warning');
+      return;
+    }
+
     if (!condominioId || !file) return;
 
     setSendingReportSemestrale(true);
