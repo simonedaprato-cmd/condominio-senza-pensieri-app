@@ -290,7 +290,7 @@ function StatoBadge({ stato }) {
 
 
 
-function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette, onRefresh }) {
+function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette }) {
   const nonLette = (notifiche || []).filter((n) => !n.letto).length;
 
   return (
@@ -315,13 +315,6 @@ function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette, o
                     Segna lette
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={onRefresh}
-                  className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700"
-                >
-                  Aggiorna
-                </button>
                 <button
                   type="button"
                   onClick={onClose}
@@ -2125,7 +2118,6 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   );
 }
 
-
 function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
   const [condominioId, setCondominioId] = useState(condomini?.[0]?.id ? String(condomini[0].id) : '');
   const [periodo, setPeriodo] = useState('');
@@ -3302,31 +3294,20 @@ export default function App() {
 
   const caricaNotificheUtente = async (emailOverride = null) => {
     const email = String(emailOverride || utente?.email || '').toLowerCase().trim();
-
-    if (!email) {
-      setNotificheUtente([]);
-      return [];
-    }
+    if (!email) return;
 
     try {
       const { data, error } = await supabase
         .from('notifiche_utenti')
         .select('*')
+        .ilike('email', email)
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(50);
 
       if (error) throw error;
-
-      const notificheFiltrate = (data || []).filter((notifica) => (
-        String(notifica.email || '').toLowerCase().trim() === email
-      ));
-
-      setNotificheUtente(notificheFiltrate);
-      return notificheFiltrate;
+      setNotificheUtente(data || []);
     } catch (error) {
       console.warn('Errore caricamento notifiche utente:', error);
-      mostraToast('Notifiche', 'Non sono riuscito a caricare lo storico notifiche.', 'warning');
-      return [];
     }
   };
 
@@ -3335,33 +3316,19 @@ export default function App() {
     if (!email) return;
 
     try {
-      const idsNonLetti = notificheUtente
-        .filter((n) => !n.letto)
-        .map((n) => n.id)
-        .filter(Boolean);
+      const { error } = await supabase
+        .from('notifiche_utenti')
+        .update({ letto: true })
+        .ilike('email', email)
+        .eq('letto', false);
 
-      if (idsNonLetti.length > 0) {
-        const { error } = await supabase
-          .from('notifiche_utenti')
-          .update({ letto: true })
-          .in('id', idsNonLetti);
-
-        if (error) throw error;
-      }
-
+      if (error) throw error;
       setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
-      await caricaNotificheUtente(email);
     } catch (error) {
       console.warn('Errore aggiornamento notifiche lette:', error);
       mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
     }
   };
-
-  const apriCentroNotifiche = async () => {
-    setCentroNotificheAperto(true);
-    await caricaNotificheUtente();
-  };
-
 
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
@@ -4385,7 +4352,6 @@ export default function App() {
         onToggle={() => setCentroNotificheAperto((prev) => !prev)}
         onClose={() => setCentroNotificheAperto(false)}
         onSegnaLette={segnaNotificheLette}
-        onRefresh={() => caricaNotificheUtente()}
       />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
@@ -4407,7 +4373,7 @@ export default function App() {
           segnalazioni={segnalazioniVisualizzate}
           onLogout={logout}
           notificheNonLette={notificheUtente.filter((n) => !n.letto).length}
-          onOpenNotifiche={apriCentroNotifiche}
+          onOpenNotifiche={() => setCentroNotificheAperto(true)}
         />
 
         <ActionBar
