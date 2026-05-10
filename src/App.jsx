@@ -2513,6 +2513,10 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     quota_rata: quotePerRata * Number(item.millesimi || 0) / 1000,
   }));
 
+  const ripartoSalvato = segnalazione.riparto_millesimale || null;
+  const emailUtentePulita = String(utenteEmail || '').toLowerCase().trim();
+  const quotaUtenteRiparto = ripartoSalvato?.quote?.find((item) => String(item.email || '').toLowerCase().trim() === emailUtentePulita);
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
       <div className="min-h-full w-full max-w-4xl rounded-2xl border border-white/60 bg-white shadow-2xl md:flex md:h-[90vh] md:min-h-0 md:flex-col md:overflow-hidden md:rounded-3xl">
@@ -2874,6 +2878,53 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
+            {ripartoSalvato && (
+              <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <div>
+                  <p className="font-semibold text-amber-900">Riparto millesimale</p>
+                  <p className="mt-1 text-sm text-amber-800">
+                    {ruolo === 'condominio'
+                      ? 'Consulta il riepilogo delle rate a tuo carico.'
+                      : 'Riepilogo riparto inviato ai condòmini.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 text-xs font-bold sm:grid-cols-3">
+                  <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Importo totale: {formatEuro(ripartoSalvato.importo_totale || 0)}</span>
+                  <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Rate: {ripartoSalvato.rate || 1}</span>
+                  {quotaUtenteRiparto && (
+                    <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Tua quota: {formatEuro(quotaUtenteRiparto.quota || 0)}</span>
+                  )}
+                </div>
+
+                {quotaUtenteRiparto ? (
+                  <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Piano rate personale</p>
+                    <div className="mt-2 space-y-2">
+                      {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => (
+                        <div key={`${scadenza}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2">
+                          <span className="text-xs font-black text-amber-800">Rata {index + 1}</span>
+                          <span className="text-xs font-semibold text-slate-600">{new Date(scadenza).toLocaleDateString('it-IT')}</span>
+                          <span className="text-sm font-black text-amber-700">{formatEuro(quotaUtenteRiparto.quota_rata || quotaUtenteRiparto.quota || 0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Scadenze rate</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => (
+                        <span key={`${scadenza}-${index}`} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                          Rata {index + 1}: {new Date(scadenza).toLocaleDateString('it-IT')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {ruolo === 'amministratore' && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
@@ -2882,7 +2933,28 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input type="number" min="0" step="0.01" value={importoRiparto} onChange={(e) => setImportoRiparto(e.target.value)} placeholder={`Importo totale ${formatEuro(segnalazione.importo_preventivo || 0)}`} className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
-                  <input type="number" min="1" value={rateRiparto} onChange={(e) => aggiornaNumeroRateRiparto(e.target.value)} placeholder="Numero rate" className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-white px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => aggiornaNumeroRateRiparto(Math.max(1, numeroRateRiparto - 1))}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-lg font-black text-amber-800"
+                      aria-label="Diminuisci rate"
+                    >
+                      −
+                    </button>
+                    <div className="text-center">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">Rate</p>
+                      <p className="text-lg font-black text-slate-900">{numeroRateRiparto}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => aggiornaNumeroRateRiparto(numeroRateRiparto + 1)}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-600 text-lg font-black text-white"
+                      aria-label="Aumenta rate"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-amber-200 bg-white/70 p-3">
@@ -4047,11 +4119,27 @@ export default function App() {
       };
 
       const noteAggiornate = [...(pratica.note || []), notaRiparto];
-      await supabase.from('segnalazioni').update({ note: noteAggiornate }).eq('id', pratica.id);
+      const ripartoMillesimale = {
+        importo_totale: riparto.importo_totale,
+        scadenza: riparto.scadenza,
+        scadenze_rate: riparto.scadenze_rate || [],
+        rate: riparto.rate,
+        quote: riparto.quote,
+        totale_millesimi: riparto.totale_millesimi,
+        inviato_il: new Date().toISOString(),
+      };
+
+      await supabase
+        .from('segnalazioni')
+        .update({
+          note: noteAggiornate,
+          riparto_millesimale: ripartoMillesimale,
+        })
+        .eq('id', pratica.id);
 
       setStatusMessage(`Riparto inviato a ${data?.emails?.length || 0} condomini.`);
       await carica();
-      setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, note: noteAggiornate } : prev);
+      setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, note: noteAggiornate, riparto_millesimale: ripartoMillesimale } : prev);
     } catch (error) {
       console.error(error);
       alert('Errore invio riparto: ' + (error.message || 'sconosciuto'));
