@@ -3295,7 +3295,6 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
-  const [praticaDaAprireId, setPraticaDaAprireId] = useState(null);
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -3314,17 +3313,6 @@ export default function App() {
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
 
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    const praticaId = params.get('pratica');
-
-    if (praticaId) {
-      setPraticaDaAprireId(praticaId);
-    }
-  }, []);
 
   const mostraToast = (title, message = '', tone = 'info') => {
     setToastInterno({ title, message, tone, createdAt: Date.now() });
@@ -3522,22 +3510,6 @@ export default function App() {
 
 
   const hasPreventiviBanner = ruoloNormalizzato !== 'condominio' && segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
-
-  useEffect(() => {
-    if (!praticaDaAprireId || !segnalazioniVisualizzate.length) return;
-
-    const pratica = segnalazioniVisualizzate.find((s) => String(s.id) === String(praticaDaAprireId));
-
-    if (pratica) {
-      setDettaglioAperto(pratica);
-      setPraticaDaAprireId(null);
-
-      const url = new URL(window.location.href);
-      url.searchParams.delete('pratica');
-      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-    }
-  }, [praticaDaAprireId, segnalazioniVisualizzate]);
-
 
   const normalizzaSegnalazioni = (data) => (data || []).map((item) => {
     const statoDb = item.stato || '';
