@@ -2513,7 +2513,23 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     quota_rata: quotePerRata * Number(item.millesimi || 0) / 1000,
   }));
 
-  const ripartoSalvato = segnalazione.riparto_millesimale || null;
+  const ripartoSalvato = (() => {
+    const raw = segnalazione.riparto_millesimale;
+
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })();
+
+  const noteRipartoStorico = (segnalazione.note || []).some((nota) =>
+    String(nota?.testo || '').toLowerCase().includes('riparto millesimale inviato')
+  );
+
   const emailUtentePulita = String(utenteEmail || '').toLowerCase().trim();
   const quotaUtenteRiparto = ripartoSalvato?.quote?.find((item) => String(item.email || '').toLowerCase().trim() === emailUtentePulita);
 
@@ -2878,6 +2894,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
+            {!ripartoSalvato && noteRipartoStorico && (
+              <div className="space-y-2 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <p className="font-semibold text-amber-900">Riparto millesimale inviato</p>
+                <p className="text-sm text-amber-800">
+                  Per questa pratica risulta un riparto già inviato, ma non è presente il dettaglio strutturato delle rate.
+                  Per visualizzare importi rata e scadenze nella scheda del condomino, reinvia il riparto con la nuova versione.
+                </p>
+              </div>
+            )}
+
             {ripartoSalvato && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
@@ -2913,6 +2939,11 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 ) : (
                   <div className="rounded-2xl border border-amber-200 bg-white p-3">
                     <p className="text-xs font-black uppercase tracking-wide text-slate-500">Scadenze rate</p>
+                    {ruolo === 'condominio' && (
+                      <p className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                        La tua quota personale non è stata trovata nel riparto. Verifica che la tua email sia presente nel riparto millesimale del condominio.
+                      </p>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => (
                         <span key={`${scadenza}-${index}`} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
