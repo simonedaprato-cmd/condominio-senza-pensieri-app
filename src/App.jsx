@@ -3458,40 +3458,40 @@ export default function App() {
     }
 
     try {
-      let data = [];
-      let error = null;
-
-      const rispostaDiretta = await supabase
-        .from('notifiche_utenti')
-        .select('*')
-        .eq('email', email)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      data = rispostaDiretta.data || [];
-      error = rispostaDiretta.error;
+      const { data, error } = await supabase.functions.invoke('notifiche-utente', {
+        body: {
+          action: 'list',
+          email,
+        },
+      });
 
       if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error || 'Caricamento notifiche non riuscito');
 
-      if ((data || []).length === 0) {
-        const rispostaFallback = await supabase
+      const notifiche = data?.notifiche || [];
+      setNotificheUtente(notifiche);
+      console.info('Notifiche caricate da Edge Function:', { email, count: notifiche.length });
+      return notifiche;
+    } catch (edgeError) {
+      console.warn('Edge Function notifiche-utente non disponibile, provo lettura diretta:', edgeError);
+
+      try {
+        const { data, error } = await supabase
           .from('notifiche_utenti')
           .select('*')
+          .eq('email', email)
           .order('created_at', { ascending: false })
-          .limit(200);
+          .limit(100);
 
-        if (rispostaFallback.error) throw rispostaFallback.error;
+        if (error) throw error;
 
-        data = (rispostaFallback.data || []).filter((notifica) =>
-          String(notifica.email || '').toLowerCase().trim() === email
-        );
+        setNotificheUtente(data || []);
+        return data || [];
+      } catch (directError) {
+        console.warn('Errore caricamento notifiche utente:', directError);
+        setNotificheUtente([]);
+        return [];
       }
-
-      setNotificheUtente(data || []);
-      return data || [];
-    } catch (error) {
-      console.warn('Errore caricamento notifiche utente:', error);
-      return [];
     }
   };
 
@@ -3499,41 +3499,82 @@ export default function App() {
     if (!notificaId) return;
 
     try {
-      const { error } = await supabase
-        .from('notifiche_utenti')
-        .update({ letto: true })
-        .eq('id', notificaId);
+      const email = String(utente?.email || '').toLowerCase().trim();
+
+      const { data, error } = await supabase.functions.invoke('notifiche-utente', {
+        body: {
+          action: 'mark_one',
+          email,
+          notificaId,
+        },
+      });
 
       if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error || 'Aggiornamento notifica non riuscito');
 
       setNotificheUtente((prev) => prev.map((n) => (
         n.id === notificaId ? { ...n, letto: true } : n
       )));
-    } catch (error) {
-      console.warn('Errore aggiornamento singola notifica:', error);
+    } catch (edgeError) {
+      console.warn('Errore Edge mark_one, provo update diretto:', edgeError);
+
+      try {
+        const { error } = await supabase
+          .from('notifiche_utenti')
+          .update({ letto: true })
+          .eq('id', notificaId);
+
+        if (error) throw error;
+
+        setNotificheUtente((prev) => prev.map((n) => (
+          n.id === notificaId ? { ...n, letto: true } : n
+        )));
+      } catch (directError) {
+        console.warn('Errore aggiornamento singola notifica:', directError);
+      }
     }
   };
 
   const segnaNotificheLette = async () => {
-    const idsNonLetti = notificheUtente
-      .filter((n) => !n.letto)
-      .map((n) => n.id)
-      .filter(Boolean);
-
-    if (idsNonLetti.length === 0) return;
+    const email = String(utente?.email || '').toLowerCase().trim();
+    if (!email) return;
 
     try {
-      const { error } = await supabase
-        .from('notifiche_utenti')
-        .update({ letto: true })
-        .in('id', idsNonLetti);
+      const { data, error } = await supabase.functions.invoke('notifiche-utente', {
+        body: {
+          action: 'mark_all',
+          email,
+        },
+      });
 
       if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error || 'Aggiornamento notifiche non riuscito');
 
       setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
-    } catch (error) {
-      console.warn('Errore aggiornamento notifiche lette:', error);
-      mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
+      await caricaNotificheUtente(email);
+    } catch (edgeError) {
+      console.warn('Errore Edge mark_all, provo update diretto:', edgeError);
+
+      const idsNonLetti = notificheUtente
+        .filter((n) => !n.letto)
+        .map((n) => n.id)
+        .filter(Boolean);
+
+      if (idsNonLetti.length === 0) return;
+
+      try {
+        const { error } = await supabase
+          .from('notifiche_utenti')
+          .update({ letto: true })
+          .in('id', idsNonLetti);
+
+        if (error) throw error;
+
+        setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
+      } catch (directError) {
+        console.warn('Errore aggiornamento notifiche lette:', directError);
+        mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
+      }
     }
   };
 
