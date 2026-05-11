@@ -288,6 +288,89 @@ function StatoBadge({ stato }) {
 }
 
 
+
+
+function CentroNotifiche({ notifiche, aperto, onToggle, onClose, onSegnaLette }) {
+  const nonLette = (notifiche || []).filter((n) => !n.letto).length;
+
+  return (
+    <>
+      {aperto && (
+        <div className="fixed inset-0 z-[75] bg-slate-950/35 p-3 backdrop-blur-sm md:flex md:justify-end">
+          <div className="ml-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/50 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Notifiche</h3>
+                <p className="text-xs text-slate-500">
+                  {nonLette > 0 ? `${nonLette} non lette` : 'Tutto letto'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {nonLette > 0 && (
+                  <button
+                    type="button"
+                    onClick={onSegnaLette}
+                    className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-800"
+                  >
+                    Segna lette
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white"
+                >
+                  Chiudi
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
+              {(notifiche || []).length === 0 ? (
+                <EmptyState
+                  icon="🔔"
+                  title="Nessuna notifica"
+                  text="Quando arriveranno aggiornamenti importanti del condominio, li troverai qui."
+                  action="Centro notifiche pronto"
+                  tone="slate"
+                />
+              ) : (
+                notifiche.map((notifica) => (
+                  <div
+                    key={notifica.id}
+                    className={`rounded-2xl border p-4 shadow-sm ${
+                      notifica.letto
+                        ? 'border-slate-100 bg-slate-50'
+                        : 'border-emerald-100 bg-emerald-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-900">{notifica.titolo}</p>
+                        {notifica.messaggio && (
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600">{notifica.messaggio}</p>
+                        )}
+                        <p className="mt-2 text-[11px] font-semibold text-slate-400">
+                          {notifica.created_at ? new Date(notifica.created_at).toLocaleString('it-IT') : ''}
+                        </p>
+                      </div>
+                      <span className={`mt-1 shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
+                        notifica.letto ? 'bg-slate-200 text-slate-500' : 'bg-emerald-500 text-white'
+                      }`}>
+                        {notifica.letto ? 'Letta' : 'Nuova'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function ToastInterno({ toast, onClose }) {
   if (!toast) return null;
 
@@ -844,7 +927,7 @@ function Login() {
   );
 }
 
-function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout }) {
+function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout, notificheNonLette = 0, onOpenNotifiche }) {
   const ora = new Date().getHours();
   let saluto = 'Ciao';
   if (ora >= 5 && ora < 12) saluto = 'Buongiorno';
@@ -917,7 +1000,24 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">
-          
+          <button
+            type="button"
+            onClick={onOpenNotifiche}
+            className="group flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-transparent shadow-lg backdrop-blur-xl transition duration-300 hover:scale-110 hover:bg-white/10"
+            title={notificheNonLette > 0 ? `${notificheNonLette} notifiche non lette` : 'Nessuna nuova notifica'}
+            aria-label="Centro notifiche"
+          >
+            <span className={`relative h-3.5 w-3.5 rounded-full ${
+              notificheNonLette > 0 ? 'bg-red-500' : 'bg-emerald-300'
+            }`}>
+              <span className={`absolute inset-0 rounded-full ${
+                notificheNonLette > 0 ? 'bg-red-400' : 'bg-emerald-300'
+              } animate-ping opacity-60`} />
+              <span className={`absolute inset-0 rounded-full ring-2 ring-white/70 ${
+                notificheNonLette > 0 ? 'bg-red-500' : 'bg-emerald-400'
+              }`} />
+            </span>
+          </button>
           <a
             href={'https://wa.me/393477921965?text=' + encodeURIComponent(whatsappText)}
             target="_blank"
@@ -3189,6 +3289,8 @@ export default function App() {
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toastInterno, setToastInterno] = useState(null);
+  const [notificheUtente, setNotificheUtente] = useState([]);
+  const [centroNotificheAperto, setCentroNotificheAperto] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -3329,6 +3431,7 @@ export default function App() {
       mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
+      await caricaNotificheUtente();
     } catch (error) {
       console.error(error);
       mostraToast('Errore report', error.message || 'Invio report non riuscito.', 'error');
@@ -3337,6 +3440,43 @@ export default function App() {
     }
   };
 
+  const caricaNotificheUtente = async (emailOverride = null) => {
+    const email = String(emailOverride || utente?.email || '').toLowerCase().trim();
+    if (!email) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notifiche_utenti')
+        .select('*')
+        .ilike('email', email)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setNotificheUtente(data || []);
+    } catch (error) {
+      console.warn('Errore caricamento notifiche utente:', error);
+    }
+  };
+
+  const segnaNotificheLette = async () => {
+    const email = String(utente?.email || '').toLowerCase().trim();
+    if (!email) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifiche_utenti')
+        .update({ letto: true })
+        .ilike('email', email)
+        .eq('letto', false);
+
+      if (error) throw error;
+      setNotificheUtente((prev) => prev.map((n) => ({ ...n, letto: true })));
+    } catch (error) {
+      console.warn('Errore aggiornamento notifiche lette:', error);
+      mostraToast('Notifiche', 'Non sono riuscito ad aggiornare lo stato letto.', 'warning');
+    }
+  };
 
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
@@ -3468,6 +3608,8 @@ export default function App() {
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
+
+      await caricaNotificheUtente(currentUser?.email || utente?.email);
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -3521,6 +3663,8 @@ export default function App() {
         setUtente(null);
         setUserProfile(null);
         setRuolo('');
+        setNotificheUtente([]);
+        setCentroNotificheAperto(false);
         setLoading(false);
       }
     });
@@ -3558,6 +3702,35 @@ export default function App() {
   }, [utente]);
 
 
+  useEffect(() => {
+    const email = String(utente?.email || '').toLowerCase().trim();
+    if (!email) return undefined;
+
+    caricaNotificheUtente(email);
+
+    const channel = supabase
+      .channel(`notifiche-utente-${email}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifiche_utenti' },
+        async (payload) => {
+          const payloadEmail = String(payload?.new?.email || payload?.old?.email || '').toLowerCase().trim();
+          if (payloadEmail && payloadEmail !== email) return;
+
+          await caricaNotificheUtente(email);
+
+          if (payload.eventType === 'INSERT' && payloadEmail === email) {
+            mostraToast(payload.new?.titolo || 'Nuova notifica', payload.new?.messaggio || '', 'info');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [utente?.email]);
+
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
     const safeName = file.name.split(' ').join('-');
@@ -3572,46 +3745,47 @@ export default function App() {
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
       const condominioId = Number(form.condominioId);
-      const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
-
-      const { data, error } = await supabase.functions.invoke('crea-segnalazione', {
-        body: {
-          titolo: form.titolo.trim(),
-          descrizione: form.descrizione.trim(),
-          categoria: form.categoria,
-          priorita: form.priorita,
-          luogo: form.luogo.trim(),
-          referente: form.referente.trim(),
-          telefono: form.telefono.trim(),
-          condominioId,
-          nomeCondominio,
-          allegatonome,
-          amministratoreEmail: utente?.email || '',
-          amministratoreTelefono: userProfile?.telefono || '',
-        },
+      const { error } = await supabase.from('segnalazioni').insert({
+        titolo: form.titolo.trim(),
+        descrizione: form.descrizione.trim(),
+        categoria: form.categoria,
+        priorita: form.priorita,
+        luogo: form.luogo.trim(),
+        referente: form.referente.trim(),
+        telefono: form.telefono.trim(),
+        condominio_id: condominioId,
+        stato: 'Presa in carico',
+        allegatonome,
+        amministratore_email: utente?.email || '',
+        amministratore_telefono: userProfile?.telefono || '',
+        note: [],
       });
-
       if (error) throw error;
-      if (data && data.success === false) {
-        throw new Error(data.error || 'Creazione segnalazione non completata.');
-      }
 
-      const emailOk = data?.email?.success === true || data?.email?.skipped === true;
-      const whatsappOk = data?.whatsapp?.success === true || data?.whatsapp?.skipped === true;
-      const pushOk = data?.push?.success === true || data?.push?.skipped === true;
+      try {
+        const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+          body: {
+            condominioId,
+            title: 'Nuova segnalazione',
+            message: `È stata inserita una nuova segnalazione per ${nomeCondominio}. Apri l’app per i dettagli.`,
+          },
+        });
+
+        if (notifyError) {
+          console.warn('Notifica push nuova segnalazione non inviata:', notifyError.message || notifyError);
+        } else {
+          console.info('Notifica push nuova segnalazione inviata:', notifyData);
+        }
+      } catch (notifyCatchError) {
+        console.warn('Errore chiamata notify-condominio:', notifyCatchError);
+      }
 
       setShowNuovaSegnalazione(false);
       await carica();
+      await caricaNotificheUtente();
       setStatusMessage('Segnalazione salvata correttamente.');
-
-      if (emailOk && whatsappOk && pushOk) {
-        mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e le comunicazioni sono state gestite.', 'success');
-      } else {
-        mostraToast('Segnalazione creata', 'La pratica è stata salvata. Alcune comunicazioni potrebbero non essere state completate: verifica i log della funzione crea-segnalazione.', 'warning');
-      }
-    } catch (error) {
-      console.error(error);
-      mostraToast('Errore segnalazione', error.message || 'Creazione segnalazione non riuscita.', 'error');
+      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
     } finally {
       setSaving(false);
     }
@@ -4353,6 +4527,13 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
+      <CentroNotifiche
+        notifiche={notificheUtente}
+        aperto={centroNotificheAperto}
+        onToggle={() => setCentroNotificheAperto((prev) => !prev)}
+        onClose={() => setCentroNotificheAperto(false)}
+        onSegnaLette={segnaNotificheLette}
+      />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
@@ -4372,6 +4553,8 @@ export default function App() {
           condominiVisibili={condominiVisibili}
           segnalazioni={segnalazioniVisualizzate}
           onLogout={logout}
+          notificheNonLette={notificheUtente.filter((n) => !n.letto).length}
+          onOpenNotifiche={() => setCentroNotificheAperto(true)}
         />
 
         <ActionBar
