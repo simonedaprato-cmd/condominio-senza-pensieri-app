@@ -7,11 +7,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
-const CSP_BUILD_LABEL = 'CSP_NOTIFICHE_RECUPERO_V5_BADGE_VISIBILE_2026-05-11';
-if (typeof window !== 'undefined') {
-  window.__CSP_BUILD_LABEL__ = CSP_BUILD_LABEL;
-  console.warn('🟢 CSP BUILD ATTIVA:', CSP_BUILD_LABEL);
-}
 
 const MOTION_CARD = 'transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl';
 const MOTION_SOFT = 'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md';
@@ -36,75 +31,6 @@ const STATI_PRATICA = [
   'Pianificata',
   'Chiusa',
 ];
-
-
-const NOTIFICHE_TEMPLATE = {
-  nuova_segnalazione: {
-    title: 'Nuova segnalazione',
-    destinatari: 'tutti',
-    message: (nomeCondominio) => `Nuova segnalazione aperta per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-  report_semestrale: {
-    title: 'Report semestrale disponibile',
-    destinatari: 'tutti',
-    message: (nomeCondominio) => `Il report semestrale di ${nomeCondominio} è disponibile. Apri l’app per consultarlo.`,
-  },
-  presa_in_carico: {
-    title: 'Segnalazione presa in carico',
-    destinatari: 'condominio_operativo',
-    message: (nomeCondominio) => `La segnalazione di ${nomeCondominio} è stata presa in gestione. Apri l’app per i dettagli.`,
-  },
-  sopralluogo_effettuato: {
-    title: 'Sopralluogo completato',
-    destinatari: 'condominio_operativo',
-    message: (nomeCondominio) => `Sopralluogo completato per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-  preventivata: {
-    title: 'Preventivo disponibile',
-    destinatari: 'amministratore',
-    message: (nomeCondominio) => `Preventivo disponibile per ${nomeCondominio}. Apri l’app per consultarlo.`,
-  },
-  pianificata: {
-    title: 'Intervento pianificato',
-    destinatari: 'condominio_operativo',
-    message: (nomeCondominio) => `Intervento pianificato per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-  chiusa: {
-    title: 'Pratica completata',
-    destinatari: 'condominio_operativo',
-    message: (nomeCondominio) => `Pratica completata per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-  preventivo_condiviso: {
-    title: 'Preventivo condiviso',
-    destinatari: 'condomini',
-    message: (nomeCondominio) => `Nuovo preventivo da valutare per ${nomeCondominio}. Apri l’app per consultarlo.`,
-  },
-  reminder_votazione: {
-    title: 'Promemoria votazione',
-    destinatari: 'condomini_non_votanti',
-    message: (nomeCondominio) => `Votazione in attesa per ${nomeCondominio}. Apri l’app per esprimere il voto.`,
-  },
-  votazione_completa: {
-    title: 'Votazione completata',
-    destinatari: 'amministrazione',
-    message: (nomeCondominio) => `Votazione completata per ${nomeCondominio}. Apri l’app per verificare l’esito.`,
-  },
-  lavori_pianificati: {
-    title: 'Lavori pianificati',
-    destinatari: 'condominio_operativo',
-    message: (nomeCondominio) => `Lavori programmati per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-  preventivo_approvato: {
-    title: 'Preventivo approvato',
-    destinatari: 'tutti',
-    message: (nomeCondominio) => `Preventivo approvato per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-  preventivo_rifiutato: {
-    title: 'Preventivo non approvato',
-    destinatari: 'tutti',
-    message: (nomeCondominio) => `Preventivo non approvato per ${nomeCondominio}. Apri l’app per i dettagli.`,
-  },
-};
 
 const PIANI_ABBONAMENTO = {
   base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false },
@@ -720,9 +646,9 @@ function NotifichePushBox({ utenteEmail }) {
 
   const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
 
-  if (attive) {
-    return null;
-  }
+  // Motore push silenzioso: inizializzazione, login OneSignal e salvataggio subscription restano attivi,
+  // ma la UI notifiche non viene mostrata nell'app.
+  return null;
 
   const titoloBox = iosInfo.isIOS && !iosInfo.isStandalone
     ? 'Installa l’app su iPhone'
@@ -2301,30 +2227,11 @@ function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio,
   const submit = async (e) => {
     e.preventDefault();
     setErrore('');
-    console.log('FORM SEGNALAZIONE SUBMIT AVVIATO', {
-      titolo,
-      categoria,
-      priorita,
-      luogo,
-      referente,
-      telefono,
-      condominioId,
-      haFile: Boolean(file),
-    });
-
     if (!titolo.trim() || !descrizione.trim() || !luogo.trim() || !condominioId) {
-      console.warn('FORM SEGNALAZIONE BLOCCATO: campi obbligatori mancanti', {
-        titolo: Boolean(titolo.trim()),
-        descrizione: Boolean(descrizione.trim()),
-        luogo: Boolean(luogo.trim()),
-        condominioId: Boolean(condominioId),
-      });
       setErrore('Compila titolo, descrizione, luogo e condominio.');
       return;
     }
-
     await onSave({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, file, condominioId });
-    console.log('FORM SEGNALAZIONE SUBMIT COMPLETATO');
     reset();
   };
 
@@ -3322,23 +3229,8 @@ export default function App() {
     tipo = 'generica',
     riferimentoId = null,
   }) => {
-    console.log('FUNZIONE inviaNotificaCondominio AVVIATA');
-    console.log('PARAMETRI NOTIFICA:', {
-      condominioId,
-      destinatari,
-      title,
-      message,
-      tipo,
-      riferimentoId,
-    });
-
     try {
-      if (!condominioId) {
-        console.warn('Notifica non inviata: condominioId mancante');
-        return null;
-      }
-
-      console.log('CHIAMATA notify-condominio IN CORSO');
+      if (!condominioId) return null;
 
       const { data, error } = await supabase.functions.invoke('notify-condominio', {
         body: {
@@ -3350,9 +3242,6 @@ export default function App() {
           riferimentoId,
         },
       });
-
-      console.log('RISPOSTA NOTIFICA:', data);
-      console.log('ERRORE NOTIFICA:', error);
 
       if (error) {
         console.warn('Notifica condominio non inviata:', error.message || error);
@@ -3367,27 +3256,9 @@ export default function App() {
       console.info('Notifica condominio inviata:', data);
       return data;
     } catch (error) {
-      console.error('ERRORE BLOCCANTE inviaNotificaCondominio:', error);
+      console.warn('Errore invio notifica condominio:', error);
       return null;
     }
-  };
-
-  const inviaNotificaTemplate = async ({ tipo, condominioId, nomeCondominio, riferimentoId = null }) => {
-    const template = NOTIFICHE_TEMPLATE[tipo];
-
-    if (!template) {
-      console.warn('Template notifica mancante:', tipo);
-      return null;
-    }
-
-    return inviaNotificaCondominio({
-      condominioId: Number(condominioId),
-      destinatari: template.destinatari,
-      title: template.title,
-      message: template.message(nomeCondominio || 'il condominio'),
-      tipo,
-      riferimentoId,
-    });
   };
 
   const inviaReportSemestrale = async ({ condominioId, periodo, titolo, file }) => {
@@ -3429,19 +3300,16 @@ export default function App() {
 
         if (reportError) throw reportError;
         reportId = reportData?.id || null;
-        if (reportData) {
-          setReportCondominio((prev) => [reportData, ...(prev || [])]);
-        }
       } catch (reportError) {
-        console.error('Report caricato ma non salvato in report_condominio:', reportError);
-        throw reportError;
+        console.warn('Report caricato ma non salvato in report_condominio:', reportError);
       }
 
-      const nomeCondominioReport = condomini.find((c) => Number(c.id) === Number(condominioId))?.nome || 'il tuo condominio';
-      await inviaNotificaTemplate({
-        tipo: 'report_semestrale',
+      await inviaNotificaCondominio({
         condominioId,
-        nomeCondominio: nomeCondominioReport,
+        destinatari: 'tutti',
+        title: 'Report semestrale disponibile',
+        message: `È disponibile il report semestrale Premium: ${periodo}. Puoi consultarlo nell’app nella sezione Report condominio oppure dalla mail.`,
+        tipo: 'report_semestrale',
         riferimentoId: reportId,
       });
 
@@ -3490,7 +3358,7 @@ export default function App() {
       const passaRicerca = !testo || [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente].filter(Boolean).some((v) => String(v).toLowerCase().includes(testo));
       return passaCondominio && passaRicerca && passaArchivio;
     });
-  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
+  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm, showArchiviate]);
 
   const reportVisibili = useMemo(() => {
     const ids = ruoloNormalizzato === 'gestore'
@@ -3700,16 +3568,11 @@ export default function App() {
   };
 
   const salvaSegnalazione = async (form) => {
-    console.log('SALVA SEGNALAZIONE AVVIATA', form);
-    setStatusMessage('Debug notifiche: salvataggio segnalazione avviato.');
     setSaving(true);
-
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
       const condominioId = Number(form.condominioId);
-      const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
-
-      const payloadSegnalazione = {
+      const { error } = await supabase.from('segnalazioni').insert({
         titolo: form.titolo.trim(),
         descrizione: form.descrizione.trim(),
         categoria: form.categoria,
@@ -3723,38 +3586,34 @@ export default function App() {
         amministratore_email: utente?.email || '',
         amministratore_telefono: userProfile?.telefono || '',
         note: [],
-      };
-
-      console.log('INSERIMENTO SEGNALAZIONE IN CORSO', payloadSegnalazione);
-
-      const { data: nuovaSegnalazione, error } = await supabase
-        .from('segnalazioni')
-        .insert(payloadSegnalazione)
-        .select('id, condominio_id, titolo')
-        .single();
-
-      console.log('RISULTATO INSERIMENTO SEGNALAZIONE:', { nuovaSegnalazione, error });
-
+      });
       if (error) throw error;
 
-      console.log('CREAZIONE SEGNALAZIONE COMPLETATA', nuovaSegnalazione);
-      setStatusMessage('Debug notifiche: segnalazione salvata, invio notifica in corso.');
+      try {
+        const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+          body: {
+            condominioId,
+            destinatari: 'tutti',
+            title: 'Nuova segnalazione',
+            message: `Nuova segnalazione aperta per ${nomeCondominio}. Apri l’app per i dettagli.`,
+            tipo: 'nuova_segnalazione',
+          },
+        });
 
-      await inviaNotificaTemplate({
-        tipo: 'nuova_segnalazione',
-        condominioId,
-        nomeCondominio,
-        riferimentoId: nuovaSegnalazione?.id || null,
-      });
+        if (notifyError) {
+          console.warn('Notifica push nuova segnalazione non inviata:', notifyError.message || notifyError);
+        } else {
+          console.info('Notifica push nuova segnalazione inviata:', notifyData);
+        }
+      } catch (notifyCatchError) {
+        console.warn('Errore chiamata notify-condominio:', notifyCatchError);
+      }
 
       setShowNuovaSegnalazione(false);
       await carica();
-      setStatusMessage('Segnalazione salvata correttamente. Debug notifiche completato.');
+      setStatusMessage('Segnalazione salvata correttamente.');
       mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
-    } catch (error) {
-      console.error('ERRORE SALVA SEGNALAZIONE:', error);
-      setStatusMessage('Errore salvataggio segnalazione: ' + (error.message || 'sconosciuto'));
-      mostraToast('Errore segnalazione', error.message || 'Salvataggio non riuscito.', 'error');
     } finally {
       setSaving(false);
     }
@@ -4496,9 +4355,6 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
-      <div className="fixed left-3 top-3 z-[9999] rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-black text-white shadow-2xl ring-2 ring-white">
-        V5 notifiche attiva
-      </div>
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
