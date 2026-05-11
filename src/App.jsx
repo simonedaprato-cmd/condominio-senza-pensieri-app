@@ -3274,22 +3274,37 @@ export default function App() {
     tipo = 'generica',
     riferimentoId = null,
   }) => {
+    console.log('FUNZIONE inviaNotificaCondominio AVVIATA');
+    console.log('PARAMETRI NOTIFICA:', {
+      condominioId,
+      destinatari,
+      title,
+      message,
+      tipo,
+      riferimentoId,
+    });
+
     try {
-      if (!condominioId) return null;
+      if (!condominioId) {
+        console.warn('Notifica non inviata: condominioId mancante');
+        return null;
+      }
 
-     const { data, error } = await supabase.functions.invoke('notify-condominio', {
-  body: {
-    condominioId: Number(condominioId),
-    destinatari,
-    title,
-    message,
-    tipo,
-    riferimentoId,
-  },
-});
+      console.log('CHIAMATA notify-condominio IN CORSO');
 
-console.log('RISPOSTA NOTIFICA:', data);
-console.log('ERRORE NOTIFICA:', error);
+      const { data, error } = await supabase.functions.invoke('notify-condominio', {
+        body: {
+          condominioId: Number(condominioId),
+          destinatari,
+          title,
+          message,
+          tipo,
+          riferimentoId,
+        },
+      });
+
+      console.log('RISPOSTA NOTIFICA:', data);
+      console.log('ERRORE NOTIFICA:', error);
 
       if (error) {
         console.warn('Notifica condominio non inviata:', error.message || error);
@@ -3304,7 +3319,7 @@ console.log('ERRORE NOTIFICA:', error);
       console.info('Notifica condominio inviata:', data);
       return data;
     } catch (error) {
-      console.warn('Errore invio notifica condominio:', error);
+      console.error('ERRORE BLOCCANTE inviaNotificaCondominio:', error);
       return null;
     }
   };
