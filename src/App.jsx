@@ -3277,16 +3277,19 @@ export default function App() {
     try {
       if (!condominioId) return null;
 
-      const { data, error } = await supabase.functions.invoke('notify-condominio', {
-        body: {
-          condominioId: Number(condominioId),
-          destinatari,
-          title,
-          message,
-          tipo,
-          riferimentoId,
-        },
-      });
+     const { data, error } = await supabase.functions.invoke('notify-condominio', {
+  body: {
+    condominioId: Number(condominioId),
+    destinatari,
+    title,
+    message,
+    tipo,
+    riferimentoId,
+  },
+});
+
+console.log('RISPOSTA NOTIFICA:', data);
+console.log('ERRORE NOTIFICA:', error);
 
       if (error) {
         console.warn('Notifica condominio non inviata:', error.message || error);
