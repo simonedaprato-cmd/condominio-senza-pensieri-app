@@ -646,9 +646,9 @@ function NotifichePushBox({ utenteEmail }) {
 
   const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
 
-  // Motore push silenzioso: inizializzazione, login OneSignal e salvataggio subscription restano attivi,
-  // ma la UI notifiche non viene mostrata nell'app.
-  return null;
+  if (attive) {
+    return null;
+  }
 
   const titoloBox = iosInfo.isIOS && !iosInfo.isStandalone
     ? 'Installa l’app su iPhone'
@@ -3358,7 +3358,7 @@ export default function App() {
       const passaRicerca = !testo || [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente].filter(Boolean).some((v) => String(v).toLowerCase().includes(testo));
       return passaCondominio && passaRicerca && passaArchivio;
     });
-  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm, showArchiviate]);
+  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
 
   const reportVisibili = useMemo(() => {
     const ids = ruoloNormalizzato === 'gestore'
@@ -3572,48 +3572,46 @@ export default function App() {
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
       const condominioId = Number(form.condominioId);
-      const { error } = await supabase.from('segnalazioni').insert({
-        titolo: form.titolo.trim(),
-        descrizione: form.descrizione.trim(),
-        categoria: form.categoria,
-        priorita: form.priorita,
-        luogo: form.luogo.trim(),
-        referente: form.referente.trim(),
-        telefono: form.telefono.trim(),
-        condominio_id: condominioId,
-        stato: 'Presa in carico',
-        allegatonome,
-        amministratore_email: utente?.email || '',
-        amministratore_telefono: userProfile?.telefono || '',
-        note: [],
+      const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
+
+      const { data, error } = await supabase.functions.invoke('crea-segnalazione', {
+        body: {
+          titolo: form.titolo.trim(),
+          descrizione: form.descrizione.trim(),
+          categoria: form.categoria,
+          priorita: form.priorita,
+          luogo: form.luogo.trim(),
+          referente: form.referente.trim(),
+          telefono: form.telefono.trim(),
+          condominioId,
+          nomeCondominio,
+          allegatonome,
+          amministratoreEmail: utente?.email || '',
+          amministratoreTelefono: userProfile?.telefono || '',
+        },
       });
+
       if (error) throw error;
-
-      try {
-        const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
-        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
-          body: {
-            condominioId,
-            destinatari: 'tutti',
-            title: 'Nuova segnalazione',
-            message: `Nuova segnalazione aperta per ${nomeCondominio}. Apri l’app per i dettagli.`,
-            tipo: 'nuova_segnalazione',
-          },
-        });
-
-        if (notifyError) {
-          console.warn('Notifica push nuova segnalazione non inviata:', notifyError.message || notifyError);
-        } else {
-          console.info('Notifica push nuova segnalazione inviata:', notifyData);
-        }
-      } catch (notifyCatchError) {
-        console.warn('Errore chiamata notify-condominio:', notifyCatchError);
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Creazione segnalazione non completata.');
       }
+
+      const emailOk = data?.email?.success === true || data?.email?.skipped === true;
+      const whatsappOk = data?.whatsapp?.success === true || data?.whatsapp?.skipped === true;
+      const pushOk = data?.push?.success === true || data?.push?.skipped === true;
 
       setShowNuovaSegnalazione(false);
       await carica();
       setStatusMessage('Segnalazione salvata correttamente.');
-      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
+
+      if (emailOk && whatsappOk && pushOk) {
+        mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e le comunicazioni sono state gestite.', 'success');
+      } else {
+        mostraToast('Segnalazione creata', 'La pratica è stata salvata. Alcune comunicazioni potrebbero non essere state completate: verifica i log della funzione crea-segnalazione.', 'warning');
+      }
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore segnalazione', error.message || 'Creazione segnalazione non riuscita.', 'error');
     } finally {
       setSaving(false);
     }
