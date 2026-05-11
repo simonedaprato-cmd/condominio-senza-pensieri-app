@@ -39,6 +39,8 @@ const PIANI_ABBONAMENTO = {
 };
 
 
+const DEBUG_RELEASE_LABEL = 'RECUPERO_NOTIFICHE_V2_LOG_FORZATI';
+
 const APP_CONFIG = {
   condominio: {
     nome: 'Condominio Senza Pensieri',
@@ -2271,12 +2273,31 @@ function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio,
 
   const submit = async (e) => {
     e.preventDefault();
+    console.log('FORM SEGNALAZIONE SUBMIT PREMUTO', {
+      titolo,
+      descrizione,
+      categoria,
+      priorita,
+      luogo,
+      referente,
+      telefono,
+      hasFile: Boolean(file),
+      condominioId,
+    });
     setErrore('');
     if (!titolo.trim() || !descrizione.trim() || !luogo.trim() || !condominioId) {
+      console.warn('FORM SEGNALAZIONE BLOCCATO: campi obbligatori mancanti', {
+        titolo,
+        descrizione,
+        luogo,
+        condominioId,
+      });
       setErrore('Compila titolo, descrizione, luogo e condominio.');
       return;
     }
+    console.log('FORM SEGNALAZIONE VALIDO: chiamo onSave');
     await onSave({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, file, condominioId });
+    console.log('FORM SEGNALAZIONE onSave COMPLETATO');
     reset();
   };
 
@@ -3673,6 +3694,8 @@ export default function App() {
 
   const salvaSegnalazione = async (form) => {
     console.log('SALVA SEGNALAZIONE AVVIATA:', form);
+    console.log('DEBUG RELEASE:', DEBUG_RELEASE_LABEL);
+    setStatusMessage('Debug: salvataggio segnalazione avviato.');
     setSaving(true);
 
     try {
@@ -3680,6 +3703,7 @@ export default function App() {
       const condominioId = Number(form.condominioId);
 
       console.log('INSERIMENTO SEGNALAZIONE IN CORSO:', { condominioId, allegatonome });
+      setStatusMessage('Debug: inserimento segnalazione in corso.');
 
       const { data: segnalazioneCreata, error } = await supabase
         .from('segnalazioni')
@@ -3707,6 +3731,7 @@ export default function App() {
       if (!segnalazioneCreata) throw new Error('Segnalazione creata ma record non restituito.');
 
       console.log('CREAZIONE SEGNALAZIONE COMPLETATA. INVIO NOTIFICA NUOVA SEGNALAZIONE.');
+      setStatusMessage('Debug: segnalazione salvata, invio notifica in corso.');
 
       const risultatoNotifica = await inviaNotificaTemplate({
         condominioId,
