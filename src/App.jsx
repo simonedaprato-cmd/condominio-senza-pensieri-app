@@ -39,90 +39,107 @@ const PIANI_ABBONAMENTO = {
 };
 
 
+const APP_CONFIG = {
+  condominio: {
+    nome: 'Condominio Senza Pensieri',
+    modello: 'abbonamento_annuale',
+    attivaSe: 'premium_attivo',
+    moduli: ['segnalazioni', 'report', 'preventivi', 'votazioni', 'notifiche'],
+  },
+  cantiere: {
+    nome: 'Cantiere Senza Pensieri',
+    modello: 'temporanea_cantiere',
+    attivaSe: 'cantiere_attivo',
+    moduli: ['avanzamento_lavori', 'calendario_cantiere', 'comunicazioni', 'foto_cantiere', 'documenti', 'notifiche'],
+  },
+};
+
+const PRODOTTO_ATTIVO = 'condominio';
+
 const NOTIFICHE_TEMPLATE = {
   nuova_segnalazione: {
     title: 'Nuova segnalazione',
     destinatari: 'tutti',
     message: (nomeCondominio) =>
-      `È stata aperta una nuova segnalazione per il condominio ${nomeCondominio}. Accedi all’app per consultare i dettagli.`,
+      `Nuova segnalazione aperta per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   report_semestrale: {
     title: 'Report semestrale disponibile',
     destinatari: 'tutti',
     message: (nomeCondominio) =>
-      `È disponibile il nuovo report semestrale Premium del condominio ${nomeCondominio}. Accedi all’app per consultarlo.`,
+      `Il report semestrale di ${nomeCondominio} è disponibile. Apri l’app per consultarlo.`,
   },
   presa_in_carico: {
     title: 'Segnalazione presa in carico',
     destinatari: 'condominio_operativo',
     message: (nomeCondominio) =>
-      `La segnalazione del condominio ${nomeCondominio} è stata presa in carico. Seguiranno aggiornamenti direttamente dall’app.`,
+      `La segnalazione di ${nomeCondominio} è stata presa in gestione. Apri l’app per i dettagli.`,
   },
   sopralluogo_effettuato: {
-    title: 'Sopralluogo effettuato',
+    title: 'Sopralluogo completato',
     destinatari: 'condominio_operativo',
     message: (nomeCondominio) =>
-      `Il sopralluogo relativo al condominio ${nomeCondominio} è stato effettuato. Accedi all’app per consultare l’aggiornamento.`,
+      `Sopralluogo completato per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   preventivata: {
     title: 'Preventivo disponibile',
     destinatari: 'amministratore',
     message: (nomeCondominio) =>
-      `È disponibile un preventivo relativo al condominio ${nomeCondominio}. Accedi all’app per consultarlo.`,
+      `Preventivo disponibile per ${nomeCondominio}. Apri l’app per consultarlo.`,
   },
   pianificata: {
     title: 'Intervento pianificato',
     destinatari: 'condominio_operativo',
     message: (nomeCondominio) =>
-      `È stato pianificato un intervento per il condominio ${nomeCondominio}. Accedi all’app per i dettagli.`,
+      `Intervento pianificato per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   chiusa: {
-    title: 'Pratica chiusa',
+    title: 'Pratica completata',
     destinatari: 'condominio_operativo',
     message: (nomeCondominio) =>
-      `La pratica relativa al condominio ${nomeCondominio} è stata chiusa. Accedi all’app per consultare il riepilogo.`,
+      `Pratica completata per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   preventivo_condiviso: {
-    title: 'Preventivo da consultare',
+    title: 'Preventivo condiviso',
     destinatari: 'condomini',
     message: (nomeCondominio) =>
-      `È stato condiviso un preventivo relativo al condominio ${nomeCondominio}. Accedi all’app per consultarlo e votare.`,
+      `Nuovo preventivo da valutare per ${nomeCondominio}. Apri l’app per consultarlo.`,
   },
   reminder_votazione: {
     title: 'Promemoria votazione',
     destinatari: 'condomini_non_votanti',
     message: (nomeCondominio) =>
-      `Promemoria: è ancora aperta una votazione relativa al condominio ${nomeCondominio}. Accedi all’app per esprimere il tuo voto.`,
+      `Votazione in attesa per ${nomeCondominio}. Apri l’app per esprimere il voto.`,
   },
   votazione_completa: {
     title: 'Votazione completata',
     destinatari: 'amministrazione',
     message: (nomeCondominio) =>
-      `La votazione relativa al condominio ${nomeCondominio} è stata completata. Accedi all’app per consultare l’esito.`,
+      `Votazione completata per ${nomeCondominio}. Apri l’app per verificare l’esito.`,
   },
   lavori_pianificati: {
     title: 'Lavori pianificati',
     destinatari: 'condominio_operativo',
     message: (nomeCondominio) =>
-      `Sono stati pianificati lavori per il condominio ${nomeCondominio}. Accedi all’app per consultare i dettagli.`,
+      `Lavori programmati per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   preventivo_approvato: {
     title: 'Preventivo approvato',
     destinatari: 'tutti',
     message: (nomeCondominio) =>
-      `Il preventivo relativo al condominio ${nomeCondominio} è stato approvato. Accedi all’app per consultare l’aggiornamento.`,
+      `Preventivo approvato per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   preventivo_rifiutato: {
-    title: 'Preventivo rifiutato',
+    title: 'Preventivo non approvato',
     destinatari: 'tutti',
     message: (nomeCondominio) =>
-      `Il preventivo relativo al condominio ${nomeCondominio} non è stato approvato. Accedi all’app per consultare l’aggiornamento.`,
+      `Preventivo non approvato per ${nomeCondominio}. Apri l’app per i dettagli.`,
   },
   riparto_millesimale: {
     title: 'Riparto millesimale disponibile',
     destinatari: 'condomini',
     message: (nomeCondominio) =>
-      `È disponibile il riparto millesimale relativo al condominio ${nomeCondominio}. Accedi all’app per consultarlo.`,
+      `Riparto millesimale disponibile per ${nomeCondominio}. Apri l’app per consultarlo.`,
   },
 };
 
@@ -3341,26 +3358,25 @@ export default function App() {
       if (uploadError) throw uploadError;
 
       const reportUrl = buildPublicUrl(fileName);
-      let reportId = null;
 
-      try {
-        const { data: reportData, error: reportError } = await supabase
-          .from('report_condominio')
-          .insert({
-            condominio_id: condominioId,
-            titolo,
-            periodo,
-            file_nome: fileName,
-            file_url: reportUrl,
-            creato_da: utente?.email || '',
-          })
-          .select()
-          .single();
+      const { data: reportData, error: reportError } = await supabase
+        .from('report_condominio')
+        .insert({
+          condominio_id: condominioId,
+          titolo,
+          periodo,
+          file_nome: fileName,
+          file_url: reportUrl,
+          creato_da: utente?.email || '',
+        })
+        .select()
+        .single();
 
-        if (reportError) throw reportError;
-        reportId = reportData?.id || null;
-      } catch (reportError) {
-        console.warn('Report caricato ma non salvato in report_condominio:', reportError);
+      if (reportError) throw reportError;
+
+      const reportId = reportData?.id || null;
+      if (reportData) {
+        setReportCondominio((prev) => [reportData, ...(prev || [])]);
       }
 
       await inviaNotificaTemplate({
@@ -3382,6 +3398,7 @@ export default function App() {
       if (emailError) throw emailError;
       if (emailData && emailData.success === false) throw new Error(emailData.error || 'Invio email non completato.');
 
+      await carica();
       mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
