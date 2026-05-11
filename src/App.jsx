@@ -3340,19 +3340,32 @@ export default function App() {
     riferimentoId = null,
     pratica = null,
   }) => {
+    console.log('TEMPLATE NOTIFICA RICHIESTO:', { condominioId, tipo, riferimentoId, pratica });
+
     const template = NOTIFICHE_TEMPLATE[tipo];
-    if (!template || !condominioId) return null;
+    if (!template) {
+      console.warn('Template notifica non trovato:', tipo);
+      return null;
+    }
+
+    if (!condominioId) {
+      console.warn('Template notifica non inviato: condominioId mancante', { tipo, riferimentoId });
+      return null;
+    }
 
     const nomeCondominio = getNomeCondominio(condominioId, pratica);
-
-    return inviaNotificaCondominio({
+    const payloadNotifica = {
       condominioId: Number(condominioId),
       destinatari: template.destinatari,
       title: template.title,
       message: template.message(nomeCondominio),
       tipo,
       riferimentoId,
-    });
+    };
+
+    console.log('PAYLOAD TEMPLATE NOTIFICA:', payloadNotifica);
+
+    return inviaNotificaCondominio(payloadNotifica);
   };
 
   const inviaReportSemestrale = async ({ condominioId, periodo, titolo, file }) => {
@@ -3659,36 +3672,69 @@ export default function App() {
   };
 
   const salvaSegnalazione = async (form) => {
+    console.log('SALVA SEGNALAZIONE AVVIATA:', form);
     setSaving(true);
+
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
       const condominioId = Number(form.condominioId);
-      const { error } = await supabase.from('segnalazioni').insert({
-        titolo: form.titolo.trim(),
-        descrizione: form.descrizione.trim(),
-        categoria: form.categoria,
-        priorita: form.priorita,
-        luogo: form.luogo.trim(),
-        referente: form.referente.trim(),
-        telefono: form.telefono.trim(),
-        condominio_id: condominioId,
-        stato: 'Presa in carico',
-        allegatonome,
-        amministratore_email: utente?.email || '',
-        amministratore_telefono: userProfile?.telefono || '',
-        note: [],
-      });
-      if (error) throw error;
 
-      await inviaNotificaTemplate({
+      console.log('INSERIMENTO SEGNALAZIONE IN CORSO:', { condominioId, allegatonome });
+
+      const { data: segnalazioneCreata, error } = await supabase
+        .from('segnalazioni')
+        .insert({
+          titolo: form.titolo.trim(),
+          descrizione: form.descrizione.trim(),
+          categoria: form.categoria,
+          priorita: form.priorita,
+          luogo: form.luogo.trim(),
+          referente: form.referente.trim(),
+          telefono: form.telefono.trim(),
+          condominio_id: condominioId,
+          stato: 'Presa in carico',
+          allegatonome,
+          amministratore_email: utente?.email || '',
+          amministratore_telefono: userProfile?.telefono || '',
+          note: [],
+        })
+        .select('*')
+        .single();
+
+      console.log('RISULTATO INSERIMENTO SEGNALAZIONE:', { segnalazioneCreata, error });
+
+      if (error) throw error;
+      if (!segnalazioneCreata) throw new Error('Segnalazione creata ma record non restituito.');
+
+      console.log('CREAZIONE SEGNALAZIONE COMPLETATA. INVIO NOTIFICA NUOVA SEGNALAZIONE.');
+
+      const risultatoNotifica = await inviaNotificaTemplate({
         condominioId,
         tipo: 'nuova_segnalazione',
+        riferimentoId: segnalazioneCreata.id,
+        pratica: segnalazioneCreata,
       });
+
+      console.log('RISULTATO NOTIFICA NUOVA SEGNALAZIONE:', risultatoNotifica);
 
       setShowNuovaSegnalazione(false);
       await carica();
-      setStatusMessage('Segnalazione salvata correttamente.');
-      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
+      setStatusMessage(
+        risultatoNotifica
+          ? `Segnalazione salvata. Notifica: ${risultatoNotifica.recipients ?? 0} dispositivi raggiunti.`
+          : 'Segnalazione salvata. Notifica non confermata: controlla Console e log notify-condominio.'
+      );
+      mostraToast(
+        'Nuova segnalazione creata',
+        risultatoNotifica
+          ? `Notifica inviata. Dispositivi raggiunti: ${risultatoNotifica.recipients ?? 0}.`
+          : 'Pratica salvata, ma la notifica non è stata confermata.',
+        risultatoNotifica ? 'success' : 'warning'
+      );
+    } catch (error) {
+      console.error('ERRORE SALVA SEGNALAZIONE:', error);
+      mostraToast('Errore segnalazione', error.message || 'Salvataggio non riuscito.', 'error');
+      alert('Errore salvataggio segnalazione: ' + (error.message || 'sconosciuto'));
     } finally {
       setSaving(false);
     }
