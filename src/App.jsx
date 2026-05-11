@@ -642,71 +642,11 @@ function NotifichePushBox({ utenteEmail }) {
     }
   };
 
-  if (!supportate && !iosInfo.isIOS) return null;
+  // Componente intenzionalmente invisibile: mantiene attivo il motore push
+  // senza mostrare campanella, spie o archivio notifiche nell'interfaccia.
+  // Se il permesso browser è già concesso, il dispositivo viene registrato/sincronizzato in automatico.
+  return null;
 
-  const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
-
-  if (attive) {
-    return null;
-  }
-
-  const titoloBox = iosInfo.isIOS && !iosInfo.isStandalone
-    ? 'Installa l’app su iPhone'
-    : permesso === 'granted'
-      ? 'Registra questo dispositivo'
-      : 'Attiva notifiche push';
-
-  const testoBox = iosInfo.isIOS && !iosInfo.isStandalone
-    ? 'Per ricevere notifiche su iPhone: Safari → Condividi → Aggiungi a Home. Poi apri l’app dalla nuova icona.'
-    : permesso === 'granted'
-      ? 'Le notifiche sono consentite. Completa la registrazione del dispositivo per riceverle.'
-      : 'Ricevi avvisi su nuove segnalazioni, votazioni e aggiornamenti importanti.';
-
-  return (
-    <div className="csp-enter rounded-3xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-black text-amber-900">
-            {titoloBox}
-          </p>
-          <p className="mt-1 text-xs text-amber-700">
-            {testoBox}
-          </p>
-          {emailPulita && (
-            <p className="mt-1 text-[11px] font-semibold text-amber-800">
-              Collegamento utente: {emailPulita}
-            </p>
-          )}
-          {subscriptionId && (
-            <p className="mt-1 text-[10px] font-semibold text-amber-700">
-              Dispositivo: {subscriptionId}
-            </p>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={attivaNotifiche}
-          disabled={inizializzazioneInCorso}
-          className={`rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm disabled:opacity-60 ${MOTION_BUTTON}`}
-        >
-          {inizializzazioneInCorso ? 'Preparo...' : iosInfo.isIOS && !iosInfo.isStandalone ? 'Istruzioni' : permesso === 'granted' ? 'Registra' : 'Attiva'}
-        </button>
-      </div>
-
-      {messaggio && (
-        <p className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600">
-          {messaggio}
-        </p>
-      )}
-
-      {debugSalvataggio && (
-        <pre className="mt-3 max-h-32 overflow-auto rounded-2xl bg-white/80 px-3 py-2 text-[10px] leading-relaxed text-slate-600">
-          {debugSalvataggio}
-        </pre>
-      )}
-    </div>
-  );
 }
 
 
