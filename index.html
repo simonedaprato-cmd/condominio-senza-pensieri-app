@@ -16,15 +16,5 @@
   <body class="bg-slate-100">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(() => console.log('SW registrato'))
-            .catch(err => console.log('SW errore', err));
-        });
-      }
-    </script>
   </body>
 </html>
