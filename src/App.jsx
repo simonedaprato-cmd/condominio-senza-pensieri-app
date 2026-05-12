@@ -346,62 +346,6 @@ function NotifichePushBox({ utenteEmail }) {
   });
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
-  const MIGRATION_VERSION = 'push-sw-clean-v2';
-
-  const creaDeviceFingerprint = () => {
-    if (typeof window === 'undefined') return '';
-
-    const storageKey = 'csp_device_fingerprint_v2';
-    const esistente = window.localStorage.getItem(storageKey);
-    if (esistente) return esistente;
-
-    const randomPart = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const nuovo = `csp-${randomPart}`;
-    window.localStorage.setItem(storageKey, nuovo);
-    return nuovo;
-  };
-
-  const bonificaServiceWorkerLegacy = async () => {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return { removed: 0 };
-
-    try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      let removed = 0;
-
-      await Promise.all(registrations.map(async (registration) => {
-        const scriptUrl =
-          registration?.active?.scriptURL ||
-          registration?.waiting?.scriptURL ||
-          registration?.installing?.scriptURL ||
-          '';
-
-        if (scriptUrl.endsWith('/sw.js')) {
-          const ok = await registration.unregister();
-          if (ok) removed += 1;
-        }
-      }));
-
-      if (removed > 0) {
-        console.info('CSP push migration: service worker legacy /sw.js rimosso', { removed });
-      }
-
-      window.localStorage.setItem('csp_push_migration_version', MIGRATION_VERSION);
-      return { removed };
-    } catch (error) {
-      console.warn('CSP push migration: bonifica service worker non completata', error);
-      return { removed: 0, error: error.message || String(error) };
-    }
-  };
-
-  const getDeviceLabel = () => {
-    const ua = navigator.userAgent || '';
-    if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? 'Android Phone' : 'Android Tablet';
-    if (/iPhone/i.test(ua)) return 'iPhone';
-    if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
-    if (/Windows/i.test(ua)) return 'Windows';
-    if (/Macintosh/i.test(ua)) return 'Mac';
-    return 'Web';
-  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -440,8 +384,6 @@ function NotifichePushBox({ utenteEmail }) {
     try {
       setInizializzazioneInCorso(true);
       setMessaggio('Preparo le notifiche...');
-
-      await bonificaServiceWorkerLegacy();
 
       await OneSignal.init({
         appId: ONESIGNAL_APP_ID,
@@ -509,10 +451,13 @@ function NotifichePushBox({ utenteEmail }) {
         body: {
           email: emailPulita,
           subscriptionId: subId,
-          deviceLabel: getDeviceLabel(),
-          deviceFingerprint: creaDeviceFingerprint(),
-          migrationVersion: MIGRATION_VERSION,
-          permission: typeof Notification !== 'undefined' ? Notification.permission : 'n/a',
+          deviceLabel: /Android/i.test(navigator.userAgent)
+            ? 'Android'
+            : /iPhone|iPad|iPod/i.test(navigator.userAgent)
+              ? 'iOS'
+              : /Windows/i.test(navigator.userAgent)
+                ? 'Windows'
+                : 'Web',
           userAgent: navigator.userAgent,
         },
       });
@@ -2898,53 +2843,50 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ripartoSalvato && (
+            {ruolo === 'condominio' && ripartoSalvato && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto millesimale</p>
                   <p className="mt-1 text-sm text-amber-800">
-                    {ruolo === 'condominio'
-                      ? 'Consulta il riepilogo delle rate a tuo carico.'
-                      : 'Riepilogo riparto inviato ai condòmini.'}
+                    Consulta il riepilogo riservato della tua quota e delle scadenze di pagamento.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 text-xs font-bold sm:grid-cols-3">
-                  <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Importo totale: {formatEuro(ripartoSalvato.importo_totale || 0)}</span>
-                  <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Rate: {ripartoSalvato.rate || 1}</span>
-                  {quotaUtenteRiparto && (
-                    <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Tua quota: {formatEuro(quotaUtenteRiparto.quota || 0)}</span>
-                  )}
-                </div>
-
                 {quotaUtenteRiparto ? (
-                  <div className="rounded-2xl border border-amber-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Piano rate personale</p>
-                    <div className="mt-2 space-y-2">
-                      {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => (
-                        <div key={`${scadenza}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2">
-                          <span className="text-xs font-black text-amber-800">Rata {index + 1}</span>
-                          <span className="text-xs font-semibold text-slate-600">{new Date(scadenza).toLocaleDateString('it-IT')}</span>
-                          <span className="text-sm font-black text-amber-700">{formatEuro(quotaUtenteRiparto.quota_rata || quotaUtenteRiparto.quota || 0)}</span>
-                        </div>
-                      ))}
+                  <>
+                    <div className="grid grid-cols-1 gap-2 text-xs font-bold sm:grid-cols-2 lg:grid-cols-4">
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Importo totale: {formatEuro(ripartoSalvato.importo_totale || 0)}</span>
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">I tuoi millesimi: {Number(quotaUtenteRiparto.millesimi || 0).toLocaleString('it-IT')}</span>
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Tua quota totale: {formatEuro(quotaUtenteRiparto.quota || 0)}</span>
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Rate: {ripartoSalvato.rate || 1}</span>
                     </div>
-                  </div>
+
+                    <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">Piano rate personale</p>
+                      <div className="mt-2 space-y-2">
+                        {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => {
+                          const rateCount = Math.max(1, Number(ripartoSalvato.rate || 1));
+                          const importoRata = rateCount > 1
+                            ? Number(quotaUtenteRiparto.quota_rata || 0)
+                            : Number(quotaUtenteRiparto.quota || 0);
+
+                          return (
+                            <div key={`${scadenza}-${index}`} className="grid grid-cols-3 items-center gap-3 rounded-xl bg-amber-50 px-3 py-2">
+                              <span className="text-xs font-black text-amber-800">Rata {index + 1}</span>
+                              <span className="text-xs font-semibold text-slate-600">Scadenza: {new Date(scadenza).toLocaleDateString('it-IT')}</span>
+                              <span className="text-right text-sm font-black text-amber-700">{formatEuro(importoRata)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="rounded-2xl border border-amber-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Scadenze rate</p>
-                    {ruolo === 'condominio' && (
-                      <p className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-                        La tua quota personale non è stata trovata nel riparto. Verifica che la tua email sia presente nel riparto millesimale del condominio.
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => (
-                        <span key={`${scadenza}-${index}`} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-                          Rata {index + 1}: {new Date(scadenza).toLocaleDateString('it-IT')}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Quota personale non disponibile</p>
+                    <p className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                      La tua quota personale non è stata trovata nel riparto. Verifica che la tua email sia associata correttamente al condominio.
+                    </p>
                   </div>
                 )}
               </div>
@@ -3287,7 +3229,7 @@ export default function App() {
     try {
       if (!condominioId) return null;
 
-      const { data, error } = await supabase.functions.invoke('notification-router', {
+      const { data, error } = await supabase.functions.invoke('notify-condominio', {
         body: {
           condominioId: Number(condominioId),
           destinatari,
@@ -3627,46 +3569,46 @@ export default function App() {
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
       const condominioId = Number(form.condominioId);
-      const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
-
-      const { data, error } = await supabase.functions.invoke('crea-segnalazione', {
-        body: {
-          titolo: form.titolo.trim(),
-          descrizione: form.descrizione.trim(),
-          categoria: form.categoria,
-          priorita: form.priorita,
-          luogo: form.luogo.trim(),
-          referente: form.referente.trim(),
-          telefono: form.telefono.trim(),
-          condominioId,
-          nomeCondominio,
-          allegatonome,
-          amministratoreEmail: utente?.email || '',
-          amministratoreTelefono: userProfile?.telefono || '',
-        },
+      const { error } = await supabase.from('segnalazioni').insert({
+        titolo: form.titolo.trim(),
+        descrizione: form.descrizione.trim(),
+        categoria: form.categoria,
+        priorita: form.priorita,
+        luogo: form.luogo.trim(),
+        referente: form.referente.trim(),
+        telefono: form.telefono.trim(),
+        condominio_id: condominioId,
+        stato: 'Presa in carico',
+        allegatonome,
+        amministratore_email: utente?.email || '',
+        amministratore_telefono: userProfile?.telefono || '',
+        note: [],
       });
-
       if (error) throw error;
-      if (data && data.success === false) {
-        throw new Error(data.error || 'Creazione segnalazione non completata.');
-      }
 
-      const emailOk = data?.email?.success === true || data?.email?.skipped === true;
-      const whatsappOk = data?.whatsapp?.success === true || data?.whatsapp?.skipped === true;
-      const pushOk = data?.push?.success === true || data?.push?.skipped === true;
+      try {
+        const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+          body: {
+            condominioId,
+            title: 'Nuova segnalazione',
+            message: `È stata inserita una nuova segnalazione per ${nomeCondominio}. Apri l’app per i dettagli.`,
+          },
+        });
+
+        if (notifyError) {
+          console.warn('Notifica push nuova segnalazione non inviata:', notifyError.message || notifyError);
+        } else {
+          console.info('Notifica push nuova segnalazione inviata:', notifyData);
+        }
+      } catch (notifyCatchError) {
+        console.warn('Errore chiamata notify-condominio:', notifyCatchError);
+      }
 
       setShowNuovaSegnalazione(false);
       await carica();
       setStatusMessage('Segnalazione salvata correttamente.');
-
-      if (emailOk && whatsappOk && pushOk) {
-        mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e le comunicazioni sono state gestite.', 'success');
-      } else {
-        mostraToast('Segnalazione creata', 'La pratica è stata salvata. Alcune comunicazioni potrebbero non essere state completate: verifica i log della funzione crea-segnalazione.', 'warning');
-      }
-    } catch (error) {
-      console.error(error);
-      mostraToast('Errore segnalazione', error.message || 'Creazione segnalazione non riuscita.', 'error');
+      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
     } finally {
       setSaving(false);
     }
@@ -3741,7 +3683,7 @@ export default function App() {
       if (config && pratica?.condominio_id) {
         if (config.amministrazione) {
           try {
-            await supabase.functions.invoke('notification-router', {
+            await supabase.functions.invoke('notify-condominio', {
               body: {
                 condominioId: Number(pratica.condominio_id),
                 destinatari: 'amministrazione',
@@ -3758,7 +3700,7 @@ export default function App() {
 
         if (config.condomini) {
           try {
-            await supabase.functions.invoke('notification-router', {
+            await supabase.functions.invoke('notify-condominio', {
               body: {
                 condominioId: Number(pratica.condominio_id),
                 destinatari: 'condomini',
@@ -3814,7 +3756,7 @@ export default function App() {
         const condominioId = Number(pratica?.condominio_id || 0);
 
         if (condominioId) {
-          const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notification-router', {
+          const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
             body: {
               condominioId,
               destinatari: 'amministrazione',
@@ -3903,7 +3845,7 @@ export default function App() {
       setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, ...updatePayload } : prev);
 
       try {
-        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notification-router', {
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
           body: {
             condominioId: Number(pratica.condominio_id),
             destinatari: 'condomini',
