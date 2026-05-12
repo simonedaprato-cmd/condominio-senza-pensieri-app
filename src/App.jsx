@@ -3232,7 +3232,7 @@ export default function App() {
     try {
       if (!condominioId) return null;
 
-      const { data, error } = await supabase.functions.invoke('notify-condominio', {
+      const { data, error } = await supabase.functions.invoke('notification-router', {
         body: {
           condominioId: Number(condominioId),
           destinatari,
@@ -3686,7 +3686,7 @@ export default function App() {
       if (config && pratica?.condominio_id) {
         if (config.amministrazione) {
           try {
-            await supabase.functions.invoke('notify-condominio', {
+            await supabase.functions.invoke('notification-router', {
               body: {
                 condominioId: Number(pratica.condominio_id),
                 destinatari: 'amministrazione',
@@ -3703,7 +3703,7 @@ export default function App() {
 
         if (config.condomini) {
           try {
-            await supabase.functions.invoke('notify-condominio', {
+            await supabase.functions.invoke('notification-router', {
               body: {
                 condominioId: Number(pratica.condominio_id),
                 destinatari: 'condomini',
@@ -3759,7 +3759,7 @@ export default function App() {
         const condominioId = Number(pratica?.condominio_id || 0);
 
         if (condominioId) {
-          const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+          const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notification-router', {
             body: {
               condominioId,
               destinatari: 'amministrazione',
@@ -3848,7 +3848,7 @@ export default function App() {
       setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, ...updatePayload } : prev);
 
       try {
-        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notification-router', {
           body: {
             condominioId: Number(pratica.condominio_id),
             destinatari: 'condomini',
