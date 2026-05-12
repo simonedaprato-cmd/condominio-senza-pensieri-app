@@ -346,6 +346,62 @@ function NotifichePushBox({ utenteEmail }) {
   });
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
+  const MIGRATION_VERSION = 'push-sw-clean-v2';
+
+  const creaDeviceFingerprint = () => {
+    if (typeof window === 'undefined') return '';
+
+    const storageKey = 'csp_device_fingerprint_v2';
+    const esistente = window.localStorage.getItem(storageKey);
+    if (esistente) return esistente;
+
+    const randomPart = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const nuovo = `csp-${randomPart}`;
+    window.localStorage.setItem(storageKey, nuovo);
+    return nuovo;
+  };
+
+  const bonificaServiceWorkerLegacy = async () => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return { removed: 0 };
+
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      let removed = 0;
+
+      await Promise.all(registrations.map(async (registration) => {
+        const scriptUrl =
+          registration?.active?.scriptURL ||
+          registration?.waiting?.scriptURL ||
+          registration?.installing?.scriptURL ||
+          '';
+
+        if (scriptUrl.endsWith('/sw.js')) {
+          const ok = await registration.unregister();
+          if (ok) removed += 1;
+        }
+      }));
+
+      if (removed > 0) {
+        console.info('CSP push migration: service worker legacy /sw.js rimosso', { removed });
+      }
+
+      window.localStorage.setItem('csp_push_migration_version', MIGRATION_VERSION);
+      return { removed };
+    } catch (error) {
+      console.warn('CSP push migration: bonifica service worker non completata', error);
+      return { removed: 0, error: error.message || String(error) };
+    }
+  };
+
+  const getDeviceLabel = () => {
+    const ua = navigator.userAgent || '';
+    if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? 'Android Phone' : 'Android Tablet';
+    if (/iPhone/i.test(ua)) return 'iPhone';
+    if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
+    if (/Windows/i.test(ua)) return 'Windows';
+    if (/Macintosh/i.test(ua)) return 'Mac';
+    return 'Web';
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -384,6 +440,8 @@ function NotifichePushBox({ utenteEmail }) {
     try {
       setInizializzazioneInCorso(true);
       setMessaggio('Preparo le notifiche...');
+
+      await bonificaServiceWorkerLegacy();
 
       await OneSignal.init({
         appId: ONESIGNAL_APP_ID,
@@ -451,13 +509,10 @@ function NotifichePushBox({ utenteEmail }) {
         body: {
           email: emailPulita,
           subscriptionId: subId,
-          deviceLabel: /Android/i.test(navigator.userAgent)
-            ? 'Android'
-            : /iPhone|iPad|iPod/i.test(navigator.userAgent)
-              ? 'iOS'
-              : /Windows/i.test(navigator.userAgent)
-                ? 'Windows'
-                : 'Web',
+          deviceLabel: getDeviceLabel(),
+          deviceFingerprint: creaDeviceFingerprint(),
+          migrationVersion: MIGRATION_VERSION,
+          permission: typeof Notification !== 'undefined' ? Notification.permission : 'n/a',
           userAgent: navigator.userAgent,
         },
       });
