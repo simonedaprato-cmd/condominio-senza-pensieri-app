@@ -4193,6 +4193,8 @@ export default function App() {
       });
 
       try {
+        setStatusMessage(`Voto registrato. Controllo completamento votazione pratica #${Number(id)}...`);
+
         const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-votazione-completata', {
           body: {
             segnalazioneId: Number(id),
@@ -4201,14 +4203,31 @@ export default function App() {
 
         if (notifyError) {
           console.warn('Controllo votazione completata non riuscito:', notifyError.message || notifyError);
+          setStatusMessage(`Voto registrato, ma controllo completamento non riuscito: ${notifyError.message || 'errore funzione'}`);
         } else {
           console.info('Controllo votazione completata:', notifyData);
+
+          if (notifyData?.completed && notifyData?.notified) {
+            setStatusMessage('Votazione completata: push ed email inviati a tutti.');
+            mostraToast('Votazione completata', 'Push ed email inviati a tutti gli utenti collegati.', 'success');
+          } else if (notifyData?.already_sent) {
+            setStatusMessage('Votazione già completata e già notificata.');
+            mostraToast('Votazione già notificata', 'La comunicazione finale era già stata inviata.', 'info');
+          } else if (notifyData?.completed === false) {
+            setStatusMessage(`Voto registrato. Votazione non ancora completa: ${notifyData?.totaleVoti || 0}/${notifyData?.totaleAventiDiritto || 0} voti.`);
+            mostraToast('Voto registrato', `Votazione non ancora completa: ${notifyData?.totaleVoti || 0}/${notifyData?.totaleAventiDiritto || 0}.`, 'info');
+          } else if (notifyData?.success === false) {
+            setStatusMessage(`Voto registrato, ma notifica finale non inviata: ${notifyData?.error || 'errore sconosciuto'}`);
+            mostraToast('Controllo votazione', notifyData?.error || 'Notifica finale non inviata.', 'warning');
+          } else {
+            setStatusMessage('Voto registrato. Controllo completamento eseguito.');
+          }
         }
       } catch (notifyError) {
         console.warn('Errore controllo votazione completata:', notifyError);
+        setStatusMessage(`Voto registrato, ma controllo completamento non eseguito: ${notifyError?.message || 'errore sconosciuto'}`);
       }
 
-      setStatusMessage('Voto consultivo registrato con successo.');
       await carica();
     } catch (error) {
       console.error(error);
