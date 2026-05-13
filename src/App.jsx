@@ -3334,26 +3334,28 @@ export default function App() {
       if (uploadError) throw uploadError;
 
       const reportUrl = buildPublicUrl(fileName);
-      let reportId = null;
 
-      try {
-        const { data: reportData, error: reportError } = await supabase
-          .from('report_condominio')
-          .insert({
-            condominio_id: condominioId,
-            titolo,
-            periodo,
-            file_nome: fileName,
-            file_url: reportUrl,
-            creato_da: utente?.email || '',
-          })
-          .select()
-          .single();
+      const { data: reportData, error: reportError } = await supabase
+        .from('report_condominio')
+        .insert({
+          condominio_id: condominioId,
+          titolo,
+          periodo,
+          file_nome: fileName,
+          file_url: reportUrl,
+          creato_da: utente?.email || '',
+        })
+        .select()
+        .single();
 
-        if (reportError) throw reportError;
-        reportId = reportData?.id || null;
-      } catch (reportError) {
-        console.warn('Report caricato ma non salvato in report_condominio:', reportError);
+      if (reportError) {
+        throw new Error(`Report caricato ma non salvato in archivio: ${reportError.message || 'errore sconosciuto'}`);
+      }
+
+      const reportId = reportData?.id || null;
+
+      if (reportData) {
+        setReportCondominio((prev) => [reportData, ...(prev || []).filter((item) => Number(item.id) !== Number(reportData.id))]);
       }
 
       await inviaNotificaCondominio({
