@@ -2178,7 +2178,7 @@ function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
   );
 }
 
-function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
+function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, filtroStato, onChangeFiltroStato, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -2186,11 +2186,24 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, se
           <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Azioni rapide</p>
           <p className="mt-1 text-sm text-slate-500">Filtra, cerca e aggiorna le pratiche.</p>
         </div>
-        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] lg:w-auto">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[1fr_1fr_1fr_auto]">
           <select value={filtroCondominioId} onChange={(e) => onChangeFiltroCondominio(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
             <option value="">Tutti i condomini</option>
             {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
+          {ruolo === 'amministratore' && (
+            <select value={filtroStato} onChange={(e) => onChangeFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+              <option value="">Tutti gli stati</option>
+              <option value="Presa in carico">Presa in carico</option>
+              <option value="Sopralluogo programmato">Sopralluogo programmato</option>
+              <option value="Sopralluogo effettuato">Sopralluogo effettuato</option>
+              <option value="Preventivata">Preventivata</option>
+              <option value="Accettata">Accettata</option>
+              <option value="Pianificata">Pianificata</option>
+              <option value="Chiusa">Chiusa</option>
+              <option value="Rifiutata">Rifiutata</option>
+            </select>
+          )}
           <input value={searchTerm} onChange={(e) => onChangeSearchTerm(e.target.value)} placeholder="Cerca pratica..." className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <button onClick={onRefresh} disabled={loading} className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
             {loading ? 'Sincronizzo...' : 'Aggiorna live'}
@@ -3220,6 +3233,7 @@ export default function App() {
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
+  const [filtroStato, setFiltroStato] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [showFabLabel, setShowFabLabel] = useState(false);
@@ -3381,10 +3395,11 @@ export default function App() {
       const isArchiviata = isValoreVero(s.archiviata);
       const passaArchivio = showArchiviate ? isArchiviata : !isArchiviata;
       const passaCondominio = filtroCondominioId ? String(s.condominio_id) === String(filtroCondominioId) : true;
+      const passaStato = filtroStato ? String(s.stato || '') === String(filtroStato) : true;
       const passaRicerca = !testo || [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente].filter(Boolean).some((v) => String(v).toLowerCase().includes(testo));
-      return passaCondominio && passaRicerca && passaArchivio;
+      return passaCondominio && passaStato && passaRicerca && passaArchivio;
     });
-  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm, showArchiviate]);
+  }, [segnalazioniFiltrate, filtroCondominioId, filtroStato, searchTerm, showArchiviate]);
 
   const reportVisibili = useMemo(() => {
     const ids = ruoloNormalizzato === 'gestore'
@@ -4408,6 +4423,8 @@ export default function App() {
           condomini={condominiVisibili}
           filtroCondominioId={filtroCondominioId}
           onChangeFiltroCondominio={setFiltroCondominioId}
+          filtroStato={filtroStato}
+          onChangeFiltroStato={setFiltroStato}
           searchTerm={searchTerm}
           onChangeSearchTerm={setSearchTerm}
           onRefresh={carica}
