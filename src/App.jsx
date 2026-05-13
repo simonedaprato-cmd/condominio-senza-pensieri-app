@@ -4,7 +4,7 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.1';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1984,8 +1984,17 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-bold">Situazione per condominio</h3>
-          <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1 csp-scroll">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold">Situazione per condominio</h3>
+              <p className="mt-1 text-sm text-slate-500">Riepilogo compatto dei condomìni visibili.</p>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              {condomini.length} condomìni
+            </span>
+          </div>
+
+          <div className="mt-4 max-h-[292px] space-y-3 overflow-y-auto pr-1 csp-scroll">
             {condomini.map((c) => {
               const items = segnalazioni.filter((s) => s.condominio_id === c.id);
               return (
@@ -2001,6 +2010,12 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
               );
             })}
           </div>
+
+          {condomini.length > 3 && (
+            <p className="mt-2 text-xs font-semibold text-emerald-700">
+              Scorri il riquadro per visualizzare gli altri condomìni.
+            </p>
+          )}
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -4178,37 +4193,16 @@ export default function App() {
       });
 
       try {
-        const pratica = segnalazioni.find((s) => Number(s.id) === Number(id)) || dettaglioAperto;
-        const condominioId = Number(pratica?.condominio_id || 0);
+        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-votazione-completata', {
+          body: {
+            segnalazioneId: Number(id),
+          },
+        });
 
-        if (condominioId) {
-          const { data: votiAggiornati } = await supabase
-            .from('preventivo_voti')
-            .select('email')
-            .eq('segnalazione_id', id);
-
-          const { data: condominiVotanti } = await supabase
-            .from('utenti_condomini')
-            .select('email, ruolo')
-            .eq('condominio_id', condominioId)
-            .in('ruolo', ['condominio', 'condomino']);
-
-          const emailVoti = new Set((votiAggiornati || []).map((v) => String(v.email || '').toLowerCase().trim()));
-          const emailCondomini = (condominiVotanti || []).map((u) => String(u.email || '').toLowerCase().trim()).filter(Boolean);
-
-          if (emailCondomini.length > 0 && emailCondomini.every((email) => emailVoti.has(email))) {
-            const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-votazione-completata', {
-              body: {
-                segnalazioneId: Number(id),
-              },
-            });
-
-            if (notifyError) {
-              console.warn('Notifica votazione completata non inviata:', notifyError.message || notifyError);
-            } else {
-              console.info('Notifica votazione completata:', notifyData);
-            }
-          }
+        if (notifyError) {
+          console.warn('Controllo votazione completata non riuscito:', notifyError.message || notifyError);
+        } else {
+          console.info('Controllo votazione completata:', notifyData);
         }
       } catch (notifyError) {
         console.warn('Errore controllo votazione completata:', notifyError);
