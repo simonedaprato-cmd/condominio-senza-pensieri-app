@@ -2056,8 +2056,7 @@ function ArchivioReportPremium({ reports }) {
                   Apri report
                 </a>
                 <a
-                  href={report.file_url}
-                  download
+                  href={`${report.file_url}?download=1`}
                   className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-center text-sm font-black text-emerald-700"
                 >
                   Scarica
