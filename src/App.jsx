@@ -4,6 +4,7 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
+const APP_VERSION_LABEL = 'CSP v1.0.1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
@@ -886,7 +887,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         <div className="flex min-w-0 items-start gap-2 md:items-center md:gap-4">
           <LogoMark />
           <div className="min-w-0 text-white">
-            <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
+            <h1 className="text-lg font-semibold leading-tight tracking-tight text-[#d4af37] drop-shadow md:text-2xl">Condominio Senza Pensieri</h1>
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
             {userProfile?.nome && (
               <div className="mt-3 space-y-3">
@@ -933,6 +934,10 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
             Logout
           </button>
         </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black tracking-[0.14em] text-[#d4af37] shadow-sm backdrop-blur">
+        {APP_VERSION_LABEL}
       </div>
     </header>
   );
