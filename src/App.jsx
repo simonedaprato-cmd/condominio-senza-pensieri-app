@@ -4011,22 +4011,25 @@ export default function App() {
 
           const { data: condominiVotanti } = await supabase
             .from('utenti_condomini')
-            .select('email')
+            .select('email, ruolo')
             .eq('condominio_id', condominioId)
-            .eq('ruolo', 'condominio');
+            .in('ruolo', ['condominio', 'condomino']);
 
           const emailVoti = new Set((votiAggiornati || []).map((v) => String(v.email || '').toLowerCase().trim()));
           const emailCondomini = (condominiVotanti || []).map((u) => String(u.email || '').toLowerCase().trim()).filter(Boolean);
 
           if (emailCondomini.length > 0 && emailCondomini.every((email) => emailVoti.has(email))) {
-            await inviaNotificaCondominio({
-              condominioId,
-              destinatari: 'amministrazione',
-              title: 'Votazione completata',
-              message: `La votazione del preventivo per la pratica “${pratica?.titolo || 'Pratica'}” è completa.`,
-              tipo: 'votazione_completata',
-              riferimentoId: Number(id),
+            const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-votazione-completata', {
+              body: {
+                segnalazioneId: Number(id),
+              },
             });
+
+            if (notifyError) {
+              console.warn('Notifica votazione completata non inviata:', notifyError.message || notifyError);
+            } else {
+              console.info('Notifica votazione completata:', notifyData);
+            }
           }
         }
       } catch (notifyError) {
