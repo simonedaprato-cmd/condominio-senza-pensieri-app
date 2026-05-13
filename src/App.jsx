@@ -887,7 +887,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         <div className="flex min-w-0 items-start gap-2 md:items-center md:gap-4">
           <LogoMark />
           <div className="min-w-0 text-white">
-            <h1 className="text-lg font-semibold leading-tight tracking-tight text-[#d4af37] drop-shadow md:text-2xl">Condominio Senza Pensieri</h1>
+            <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
             {userProfile?.nome && (
               <div className="mt-3 space-y-3">
@@ -936,7 +936,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black tracking-[0.14em] text-[#d4af37] shadow-sm backdrop-blur">
+      <div className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black tracking-[0.14em] text-white/80 shadow-sm backdrop-blur">
         {APP_VERSION_LABEL}
       </div>
     </header>
