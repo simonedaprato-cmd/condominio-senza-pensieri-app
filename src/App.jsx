@@ -2409,14 +2409,15 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     .map((item) => {
       const email = String(item.email || '').toLowerCase().trim();
       const utente = (utentiSistema || []).find((u) => String(u.email || '').toLowerCase().trim() === email);
+      const ruoloRiparto = String(item.ruolo || utente?.ruolo || '').toLowerCase().trim();
       return {
         email,
         nome: utente?.nome || email,
-        ruolo: String(utente?.ruolo || '').toLowerCase().trim(),
+        ruolo: ruoloRiparto,
         millesimi: Number(item.millesimi || 0),
       };
     })
-    .filter((item) => item.email && item.ruolo === 'condominio');
+    .filter((item) => item.email && ['condominio', 'condomino'].includes(item.ruolo));
 
   const totaleMillesimi = condominiRiparto.reduce((sum, item) => sum + Number(item.millesimi || 0), 0);
   const importoRipartoNumero = Number(importoRiparto || segnalazione.importo_preventivo || 0);
@@ -2470,7 +2471,11 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   );
 
   const emailUtentePulita = String(utenteEmail || '').toLowerCase().trim();
-  const quotaUtenteRiparto = ripartoSalvato?.quote?.find((item) => String(item.email || '').toLowerCase().trim() === emailUtentePulita);
+  const ruoloRipartoVisibile = ['condominio', 'condomino'].includes(String(ruolo || '').toLowerCase().trim());
+  const quotaUtenteRiparto = ripartoSalvato?.quote?.find((item) => {
+    const emailQuota = String(item.email || item.utente_email || item.email_condomino || '').toLowerCase().trim();
+    return emailQuota && emailQuota === emailUtentePulita;
+  });
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
@@ -2843,7 +2848,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {['condominio', 'condomino'].includes(ruolo) && ripartoSalvato && (
+            {ruoloRipartoVisibile && ripartoSalvato && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto millesimale</p>
@@ -4002,15 +4007,27 @@ export default function App() {
       const conferma = window.confirm('Vuoi inviare il riparto millesimale ai condomini?');
       if (!conferma) return;
 
-      const scadenzeRiparto = (riparto.scadenze_rate || [riparto.scadenza]).filter(Boolean);
-      const notaRiparto = {
-        id: Date.now(),
-        testo: `Riparto millesimale inviato ai condomini. Importo totale: ${formatEuro(riparto.importo_totale)}. Rate: ${riparto.rate}. Scadenze: ${scadenzeRiparto.map((data) => new Date(data).toLocaleDateString('it-IT')).join(', ')}.`,
-        data: new Date().toLocaleString('it-IT'),
-      };
+      setStatusMessage('Salvataggio riparto strutturato e invio comunicazioni in corso...');
 
-      const noteAggiornate = [...(pratica.note || []), notaRiparto];
-      const ripartoMillesimale = {
+      const { data, error } = await supabase.functions.invoke('gestione-riparto-millesimale', {
+        body: {
+          segnalazione_id: Number(pratica.id),
+          titolo: pratica.titolo,
+          condominio_id: Number(pratica.condominio_id),
+          importo_totale: riparto.importo_totale,
+          scadenza: riparto.scadenza,
+          scadenze_rate: riparto.scadenze_rate || [],
+          rate: riparto.rate,
+          quote: riparto.quote,
+          totale_millesimi: riparto.totale_millesimi,
+          created_by_email: utente?.email || '',
+        },
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Gestione riparto non completata.');
+
+      const ripartoMillesimale = data?.riparto_millesimale || {
         importo_totale: riparto.importo_totale,
         scadenza: riparto.scadenza,
         scadenze_rate: riparto.scadenze_rate || [],
@@ -4020,74 +4037,30 @@ export default function App() {
         inviato_il: new Date().toISOString(),
       };
 
-      // Prima salviamo il riparto nella pratica: così il box resta visibile anche se email o push falliscono.
-      const { error: updateError } = await supabase
-        .from('segnalazioni')
-        .update({
-          note: noteAggiornate,
-          riparto_millesimale: ripartoMillesimale,
-        })
-        .eq('id', pratica.id);
+      const noteAggiornate = data?.note || pratica.note || [];
 
-      if (updateError) throw updateError;
+      setDettaglioAperto((prev) => prev && prev.id === pratica.id
+        ? { ...prev, note: noteAggiornate, riparto_millesimale: ripartoMillesimale }
+        : prev
+      );
 
-      setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, note: noteAggiornate, riparto_millesimale: ripartoMillesimale } : prev);
-      setStatusMessage('Riparto millesimale salvato nella pratica. Invio comunicazioni in corso...');
-
-      let emailResult = null;
-      let pushResult = null;
-
-      try {
-        const { data, error } = await supabase.functions.invoke('notify-riparto-millesimi', {
-          body: {
-            segnalazione_id: pratica.id,
-            titolo: pratica.titolo,
-            condominio_id: pratica.condominio_id,
-            importo_totale: riparto.importo_totale,
-            scadenza: riparto.scadenza,
-            scadenze_rate: riparto.scadenze_rate || [],
-            rate: riparto.rate,
-            quote: riparto.quote,
-            totale_millesimi: riparto.totale_millesimi,
-          },
-        });
-
-        if (error) throw error;
-        emailResult = data;
-        if (data && data.success === false) {
-          console.warn('Invio email riparto non completato:', data);
-        }
-      } catch (emailError) {
-        emailResult = { success: false, error: emailError.message || String(emailError) };
-        console.warn('Errore invio email riparto:', emailError);
-      }
-
-      try {
-        pushResult = await inviaNotificaCondominio({
-          condominioId: pratica.condominio_id,
-          destinatari: 'condomini',
-          title: 'Riparto millesimale disponibile',
-          message: `È disponibile il riparto millesimale per la pratica “${pratica.titolo || 'Pratica'}”.`,
-          tipo: 'riparto_millesimale',
-          riferimentoId: Number(pratica.id),
-        });
-      } catch (pushError) {
-        pushResult = { success: false, error: pushError.message || String(pushError) };
-        console.warn('Errore invio push riparto:', pushError);
-      }
-
-      const emailOk = emailResult?.success !== false;
-      const pushOk = pushResult?.success !== false;
-      const emailCount = emailResult?.emails?.length || emailResult?.sent || 0;
+      const emailOk = data?.email?.success !== false;
+      const pushOk = data?.push?.success !== false;
+      const emailCount = data?.email?.emails?.length || data?.email?.sent || 0;
+      const rateCount = data?.rate_count || 0;
 
       if (emailOk && pushOk) {
-        setStatusMessage(`Riparto salvato e inviato ai condomini. Email: ${emailCount || 'OK'}.`);
+        setStatusMessage(`Riparto strutturato salvato e inviato. Rate generate: ${rateCount}. Email: ${emailCount || 'OK'}.`);
+        mostraToast('Riparto inviato', `Riparto salvato, rate generate e comunicazioni inviate ai condòmini.`, 'success');
       } else if (emailOk && !pushOk) {
-        setStatusMessage('Riparto salvato. Email inviata, ma push non completata.');
+        setStatusMessage(`Riparto strutturato salvato. Email inviata, ma push non completata. Rate generate: ${rateCount}.`);
+        mostraToast('Riparto salvato', 'Email inviata, push da verificare nei log.', 'warning');
       } else if (!emailOk && pushOk) {
-        setStatusMessage('Riparto salvato. Push inviata, ma email non completata.');
+        setStatusMessage(`Riparto strutturato salvato. Push inviata, ma email non completata. Rate generate: ${rateCount}.`);
+        mostraToast('Riparto salvato', 'Push inviata, email da verificare nei log.', 'warning');
       } else {
-        setStatusMessage('Riparto salvato nella pratica. Email e push non completate: controllare i log.');
+        setStatusMessage(`Riparto strutturato salvato. Email e push non completate: controllare i log. Rate generate: ${rateCount}.`);
+        mostraToast('Riparto salvato', 'Comunicazioni da verificare nei log.', 'warning');
       }
 
       await carica();
