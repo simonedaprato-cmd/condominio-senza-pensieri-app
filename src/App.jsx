@@ -2036,7 +2036,7 @@ function ArchivioReportPremium({ reports }) {
         <p className="mt-1 text-sm text-slate-500">Archivio dei report semestrali disponibili.</p>
       </div>
 
-      <div className="space-y-2">
+      <div className="max-h-[288px] space-y-2 overflow-y-auto pr-1">
         {reports.map((report) => (
           <div key={report.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2046,18 +2046,33 @@ function ArchivioReportPremium({ reports }) {
                   {report.periodo} • {report.created_at ? new Date(report.created_at).toLocaleDateString('it-IT') : ''}
                 </p>
               </div>
-              <a
-                href={report.file_url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-sm font-black text-white"
-              >
-                Apri report
-              </a>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={report.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-sm font-black text-white"
+                >
+                  Apri report
+                </a>
+                <a
+                  href={report.file_url}
+                  download
+                  className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-center text-sm font-black text-emerald-700"
+                >
+                  Scarica
+                </a>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {reports.length > 3 && (
+        <p className="mt-2 text-xs font-semibold text-emerald-700">
+          Scorri il riquadro per visualizzare gli altri report disponibili.
+        </p>
+      )}
     </section>
   );
 }
