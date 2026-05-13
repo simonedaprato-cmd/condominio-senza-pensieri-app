@@ -2357,7 +2357,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, reportCondominio = [], onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
@@ -2477,6 +2477,12 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     return emailQuota && emailQuota === emailUtentePulita;
   });
 
+  const reportsSchedaPratica = (reportCondominio || [])
+    .filter((report) => Number(report.condominio_id) === Number(segnalazione.condominio_id))
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+  const mostraReportScheda = ['gestore', 'amministratore', 'condominio', 'condomino'].includes(String(ruolo || '').toLowerCase().trim());
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
       <div className="min-h-full w-full max-w-4xl rounded-2xl border border-white/60 bg-white shadow-2xl md:flex md:h-[90vh] md:min-h-0 md:flex-col md:overflow-hidden md:rounded-3xl">
@@ -2540,6 +2546,50 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
                 <p className="mb-2 text-sm font-black text-emerald-800">Foto lavoro finito</p>
                 <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
+              </div>
+            )}
+
+            {mostraReportScheda && reportsSchedaPratica.length > 0 && (
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <div className="mb-3 flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">📄</div>
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">Report semestrali</p>
+                    <h4 className="text-base font-black text-slate-900">Documenti disponibili per questo condominio</h4>
+                    <p className="mt-1 text-xs text-slate-600">
+                      I report caricati dal gestore sono consultabili da amministratore e condòmini collegati al condominio.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {reportsSchedaPratica.map((report) => (
+                    <div key={report.id || `${report.file_url}-${report.created_at}`} className="rounded-xl border border-emerald-100 bg-white p-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-black text-slate-900">{report.titolo || 'Report semestrale'}</p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            {report.periodo || 'Periodo non indicato'}{report.created_at ? ` • ${new Date(report.created_at).toLocaleDateString('it-IT')}` : ''}
+                          </p>
+                        </div>
+                        {report.file_url ? (
+                          <a
+                            href={report.file_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-xs font-black text-white"
+                          >
+                            Apri report
+                          </a>
+                        ) : (
+                          <span className="rounded-xl bg-slate-100 px-4 py-2 text-center text-xs font-bold text-slate-500">
+                            File non disponibile
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
@@ -3331,6 +3381,7 @@ export default function App() {
       mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
+      await carica();
     } catch (error) {
       console.error(error);
       mostraToast('Errore report', error.message || 'Invio report non riuscito.', 'error');
@@ -4576,6 +4627,7 @@ export default function App() {
         votiPreventivi={votiPreventivi}
         utentiCondomini={utentiCondomini}
         utentiSistema={utentiSistema}
+        reportCondominio={reportCondominio}
       />
     </div>
   );
