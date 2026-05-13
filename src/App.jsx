@@ -2361,7 +2361,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, reportCondominio = [], condominiVisibili = [], onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
@@ -2481,17 +2481,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     return emailQuota && emailQuota === emailUtentePulita;
   });
 
-  const ruoloReportNormalizzato = String(ruolo || '').toLowerCase().trim();
-  const puoFiltrareReport = ['gestore', 'amministratore'].includes(ruoloReportNormalizzato);
-  const condominioReportFiltroEffettivo = puoFiltrareReport && filtroReportCondominioId !== 'scheda'
-    ? Number(filtroReportCondominioId)
-    : Number(segnalazione.condominio_id);
-
-  const reportsSchedaPratica = (reportCondominio || [])
-    .filter((report) => Number(report.condominio_id) === Number(condominioReportFiltroEffettivo))
-    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
-  const mostraReportScheda = ['gestore', 'amministratore', 'condominio', 'condomino'].includes(ruoloReportNormalizzato);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
@@ -2559,84 +2548,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {mostraReportScheda && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">📄</div>
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">Report semestrali</p>
-                      <h4 className="text-base font-black text-slate-900">Documenti disponibili</h4>
-                      <p className="mt-1 text-xs text-slate-600">
-                        I report caricati dal gestore sono consultabili da amministratore e condòmini collegati al condominio.
-                      </p>
-                    </div>
-                  </div>
-
-                  {puoFiltrareReport && (
-                    <div className="w-full lg:w-72">
-                      <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">
-                        Filtra condominio
-                      </label>
-                      <select
-                        value={filtroReportCondominioId}
-                        onChange={(event) => setFiltroReportCondominioId(event.target.value)}
-                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-500"
-                      >
-                        <option value="scheda">Condominio della pratica</option>
-                        {(condominiVisibili || []).map((condominio) => (
-                          <option key={condominio.id} value={condominio.id}>
-                            {condominio.nome || `Condominio #${condominio.id}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                {reportsSchedaPratica.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-emerald-200 bg-white/70 p-3 text-sm font-semibold text-slate-500">
-                    Nessun report semestrale disponibile per il condominio selezionato.
-                  </div>
-                ) : (
-                  <>
-                    <div className="max-h-[252px] space-y-2 overflow-y-auto pr-1">
-                      {reportsSchedaPratica.map((report) => (
-                        <div key={report.id || `${report.file_url}-${report.created_at}`} className="rounded-xl border border-emerald-100 bg-white p-3">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="break-words text-sm font-black text-slate-900">{report.titolo || 'Report semestrale'}</p>
-                              <p className="mt-1 text-xs font-semibold text-slate-500">
-                                {report.periodo || 'Periodo non indicato'}{report.created_at ? ` • ${new Date(report.created_at).toLocaleDateString('it-IT')}` : ''}
-                              </p>
-                            </div>
-                            {report.file_url ? (
-                              <a
-                                href={report.file_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-xs font-black text-white"
-                              >
-                                Apri report
-                              </a>
-                            ) : (
-                              <span className="rounded-xl bg-slate-100 px-4 py-2 text-center text-xs font-bold text-slate-500">
-                                File non disponibile
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {reportsSchedaPratica.length > 3 && (
-                      <p className="mt-2 text-[11px] font-semibold text-emerald-700">
-                        Scorri il riquadro per vedere gli altri report disponibili.
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
             {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
@@ -4674,8 +4585,6 @@ export default function App() {
         votiPreventivi={votiPreventivi}
         utentiCondomini={utentiCondomini}
         utentiSistema={utentiSistema}
-        reportCondominio={reportCondominio}
-        condominiVisibili={condominiVisibili}
       />
     </div>
   );
