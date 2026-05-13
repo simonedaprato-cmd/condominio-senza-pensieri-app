@@ -886,7 +886,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         <div className="flex min-w-0 items-start gap-2 md:items-center md:gap-4">
           <LogoMark />
           <div className="min-w-0 text-white">
-            <h1 className="text-lg font-semibold leading-tight tracking-tight text-[#d8b25a] drop-shadow md:text-2xl">Condominio Senza Pensieri</h1>
+            <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
             {userProfile?.nome && (
               <div className="mt-3 space-y-3">
@@ -933,10 +933,6 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
             Logout
           </button>
         </div>
-      </div>
-
-      <div className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black tracking-[0.14em] text-[#d8b25a] shadow-sm backdrop-blur md:bottom-4 md:right-6">
-        {APP_VERSION_LABEL}
       </div>
     </header>
   );
@@ -2481,7 +2477,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     return emailQuota && emailQuota === emailUtentePulita;
   });
 
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
       <div className="min-h-full w-full max-w-4xl rounded-2xl border border-white/60 bg-white shadow-2xl md:flex md:h-[90vh] md:min-h-0 md:flex-col md:overflow-hidden md:rounded-3xl">
@@ -2547,7 +2542,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
               </div>
             )}
-
             {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
@@ -3290,28 +3284,26 @@ export default function App() {
       if (uploadError) throw uploadError;
 
       const reportUrl = buildPublicUrl(fileName);
+      let reportId = null;
 
-      const { data: reportData, error: reportError } = await supabase
-        .from('report_condominio')
-        .insert({
-          condominio_id: condominioId,
-          titolo,
-          periodo,
-          file_nome: fileName,
-          file_url: reportUrl,
-          creato_da: utente?.email || '',
-        })
-        .select()
-        .single();
+      try {
+        const { data: reportData, error: reportError } = await supabase
+          .from('report_condominio')
+          .insert({
+            condominio_id: condominioId,
+            titolo,
+            periodo,
+            file_nome: fileName,
+            file_url: reportUrl,
+            creato_da: utente?.email || '',
+          })
+          .select()
+          .single();
 
-      if (reportError) {
-        throw new Error(`Report caricato ma non salvato in archivio: ${reportError.message || 'errore sconosciuto'}`);
-      }
-
-      const reportId = reportData?.id || null;
-
-      if (reportData) {
-        setReportCondominio((prev) => [reportData, ...(prev || []).filter((item) => Number(item.id) !== Number(reportData.id))]);
+        if (reportError) throw reportError;
+        reportId = reportData?.id || null;
+      } catch (reportError) {
+        console.warn('Report caricato ma non salvato in report_condominio:', reportError);
       }
 
       await inviaNotificaCondominio({
@@ -3339,7 +3331,6 @@ export default function App() {
       mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
-      await carica();
     } catch (error) {
       console.error(error);
       mostraToast('Errore report', error.message || 'Invio report non riuscito.', 'error');
