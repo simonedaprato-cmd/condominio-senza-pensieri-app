@@ -7,6 +7,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
+const APP_VERSION = 'CSP-2026.05.13-PWA-UPDATE-V1';
+const APP_VERSION_LABEL = 'CSP v1.0.1';
 
 const MOTION_CARD = 'transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl';
 const MOTION_SOFT = 'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md';
@@ -2357,7 +2359,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, reportCondominio = [], onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, reportCondominio = [], condominiVisibili = [], onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
@@ -2477,11 +2479,17 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     return emailQuota && emailQuota === emailUtentePulita;
   });
 
+  const ruoloReportNormalizzato = String(ruolo || '').toLowerCase().trim();
+  const puoFiltrareReport = ['gestore', 'amministratore'].includes(ruoloReportNormalizzato);
+  const condominioReportFiltroEffettivo = puoFiltrareReport && filtroReportCondominioId !== 'scheda'
+    ? Number(filtroReportCondominioId)
+    : Number(segnalazione.condominio_id);
+
   const reportsSchedaPratica = (reportCondominio || [])
-    .filter((report) => Number(report.condominio_id) === Number(segnalazione.condominio_id))
+    .filter((report) => Number(report.condominio_id) === Number(condominioReportFiltroEffettivo))
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-  const mostraReportScheda = ['gestore', 'amministratore', 'condominio', 'condomino'].includes(String(ruolo || '').toLowerCase().trim());
+  const mostraReportScheda = ['gestore', 'amministratore', 'condominio', 'condomino'].includes(ruoloReportNormalizzato);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
@@ -2549,47 +2557,91 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {mostraReportScheda && reportsSchedaPratica.length > 0 && (
+            {mostraReportScheda && (
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <div className="mb-3 flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">📄</div>
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">Report semestrali</p>
-                    <h4 className="text-base font-black text-slate-900">Documenti disponibili per questo condominio</h4>
-                    <p className="mt-1 text-xs text-slate-600">
-                      I report caricati dal gestore sono consultabili da amministratore e condòmini collegati al condominio.
-                    </p>
+                <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">📄</div>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">Report semestrali</p>
+                      <h4 className="text-base font-black text-slate-900">Documenti disponibili</h4>
+                      <p className="mt-1 text-xs text-slate-600">
+                        I report caricati dal gestore sono consultabili da amministratore e condòmini collegati al condominio.
+                      </p>
+                    </div>
                   </div>
+
+                  {puoFiltrareReport && (
+                    <div className="w-full lg:w-72">
+                      <label className="mb-1 block text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                        Filtra condominio
+                      </label>
+                      <select
+                        value={filtroReportCondominioId}
+                        onChange={(event) => setFiltroReportCondominioId(event.target.value)}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-500"
+                      >
+                        <option value="scheda">Condominio della pratica</option>
+                        {(condominiVisibili || []).map((condominio) => (
+                          <option key={condominio.id} value={condominio.id}>
+                            {condominio.nome || `Condominio #${condominio.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  {reportsSchedaPratica.map((report) => (
-                    <div key={report.id || `${report.file_url}-${report.created_at}`} className="rounded-xl border border-emerald-100 bg-white p-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <p className="break-words text-sm font-black text-slate-900">{report.titolo || 'Report semestrale'}</p>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">
-                            {report.periodo || 'Periodo non indicato'}{report.created_at ? ` • ${new Date(report.created_at).toLocaleDateString('it-IT')}` : ''}
-                          </p>
+                {reportsSchedaPratica.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-emerald-200 bg-white/70 p-3 text-sm font-semibold text-slate-500">
+                    Nessun report semestrale disponibile per il condominio selezionato.
+                  </div>
+                ) : (
+                  <>
+                    <div className="max-h-[270px] space-y-2 overflow-y-auto pr-1">
+                      {reportsSchedaPratica.map((report) => (
+                        <div key={report.id || `${report.file_url}-${report.created_at}`} className="rounded-xl border border-emerald-100 bg-white p-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-black text-slate-900">{report.titolo || 'Report semestrale'}</p>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                {report.periodo || 'Periodo non indicato'}{report.created_at ? ` • ${new Date(report.created_at).toLocaleDateString('it-IT')}` : ''}
+                              </p>
+                            </div>
+                            {report.file_url ? (
+                              <div className="flex flex-wrap gap-2">
+                                <a
+                                  href={report.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-xs font-black text-white"
+                                >
+                                  Apri report
+                                </a>
+                                <a
+                                  href={report.file_url}
+                                  download={report.file_nome || report.titolo || 'report-semestrale.pdf'}
+                                  className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-center text-xs font-black text-emerald-700"
+                                >
+                                  Scarica
+                                </a>
+                              </div>
+                            ) : (
+                              <span className="rounded-xl bg-slate-100 px-4 py-2 text-center text-xs font-bold text-slate-500">
+                                File non disponibile
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {report.file_url ? (
-                          <a
-                            href={report.file_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-xs font-black text-white"
-                          >
-                            Apri report
-                          </a>
-                        ) : (
-                          <span className="rounded-xl bg-slate-100 px-4 py-2 text-center text-xs font-bold text-slate-500">
-                            File non disponibile
-                          </span>
-                        )}
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                    {reportsSchedaPratica.length > 3 && (
+                      <p className="mt-2 text-[11px] font-semibold text-emerald-700">
+                        Scorri il riquadro per vedere gli altri report disponibili.
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             )}
             {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
@@ -3091,6 +3143,48 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   );
 }
 
+
+function AppUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
+  if (!updateInfo) return null;
+
+  return (
+    <div className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-4xl rounded-2xl border border-emerald-200 bg-white/95 p-3 shadow-2xl shadow-emerald-950/20 backdrop-blur md:bottom-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-900">Nuova versione disponibile</p>
+          <p className="text-xs font-semibold text-slate-500">
+            Aggiorna l’app per usare l’ultima versione stabile di Condominio Senza Pensieri.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600"
+          >
+            Dopo
+          </button>
+          <button
+            type="button"
+            onClick={onUpdate}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
+          >
+            Aggiorna ora
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppVersionBadge() {
+  return (
+    <div className="fixed bottom-2 left-2 z-20 hidden rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-bold text-slate-400 shadow-sm backdrop-blur md:block">
+      {APP_VERSION_LABEL}
+    </div>
+  );
+}
+
 export default function App() {
   const generaPdfVotazioni = (pratica) => {
     if (!pratica) return;
@@ -3259,6 +3353,7 @@ export default function App() {
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
   const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
   const [reportCondominio, setReportCondominio] = useState([]);
+  const [updateDisponibile, setUpdateDisponibile] = useState(null);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -3271,6 +3366,43 @@ export default function App() {
     window.__cspToastTimer = window.setTimeout(() => {
       setToastInterno(null);
     }, 4200);
+  };
+
+  const controllaAggiornamentoApp = async (silent = true) => {
+    try {
+      const response = await fetch(`/version.json?ts=${Date.now()}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) return;
+
+      const remote = await response.json();
+      const remoteVersion = remote?.version;
+
+      if (remoteVersion && remoteVersion !== APP_VERSION) {
+        setUpdateDisponibile(remote);
+        if (!silent) {
+          mostraToast('Nuova versione disponibile', 'Tocca “Aggiorna ora” per caricare l’ultima versione dell’app.', 'info');
+        }
+      }
+    } catch {
+      // Controllo aggiornamento non bloccante.
+    }
+  };
+
+  const aggiornaAppOra = async () => {
+    try {
+      if ('caches' in window) {
+        const cacheNames = await window.caches.keys();
+        await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+      }
+    } catch {
+      // Ignora errori cache: il reload resta sufficiente.
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('app_version', updateDisponibile?.version || Date.now().toString());
+    window.location.replace(url.toString());
   };
 
   const inviaNotificaCondominio = async ({
@@ -3537,6 +3669,27 @@ export default function App() {
     }, 1300);
 
     return () => window.clearTimeout(timer);
+  }, []);
+
+
+  useEffect(() => {
+    window.localStorage.setItem('csp_app_version_seen', APP_VERSION);
+
+    controllaAggiornamentoApp(true);
+    const timer = window.setInterval(() => {
+      controllaAggiornamentoApp(true);
+    }, 5 * 60 * 1000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) controllaAggiornamentoApp(true);
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -4411,6 +4564,8 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
+      <AppUpdateBanner updateInfo={updateDisponibile} onUpdate={aggiornaAppOra} onDismiss={() => setUpdateDisponibile(null)} />
+      <AppVersionBadge />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
@@ -4630,6 +4785,7 @@ export default function App() {
         utentiCondomini={utentiCondomini}
         utentiSistema={utentiSistema}
         reportCondominio={reportCondominio}
+        condominiVisibili={condominiVisibili}
       />
     </div>
   );
