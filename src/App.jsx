@@ -2763,7 +2763,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               ))}
             </div>
 
-            {segnalazione.stato === 'Sopralluogo effettuato' && (
+            {ruolo === 'gestore' && segnalazione.stato === 'Sopralluogo effettuato' && (
               <div className="space-y-2 rounded-2xl border border-purple-100 bg-purple-50 p-4">
                 <p className="font-semibold text-purple-800">Foto sopralluogo</p>
                 <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
