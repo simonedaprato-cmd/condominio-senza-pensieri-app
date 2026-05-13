@@ -2178,6 +2178,184 @@ function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
   );
 }
 
+
+function GestioneAnagraficheBox({ condomini, onSaved }) {
+  const [tab, setTab] = useState('amministratore');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '' });
+  const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
+  const [condominoForm, setCondominoForm] = useState({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+  const [importCondominioId, setImportCondominioId] = useState('');
+  const [importText, setImportText] = useState('');
+
+  const invokeGestione = async (payload) => {
+    setSaving(true);
+    setMessage('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('gestione-anagrafiche', {
+        body: payload,
+      });
+
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Operazione non riuscita.');
+
+      setMessage('Operazione completata correttamente.');
+      await onSaved?.();
+      return data;
+    } catch (error) {
+      setMessage(`Errore: ${error.message || 'operazione non riuscita'}`);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const parseImportRows = () => {
+    return importText
+      .split('\n')
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .map((row) => {
+        const parts = row.includes(';') ? row.split(';') : row.split(',');
+        return {
+          nome: String(parts[0] || '').trim(),
+          email: String(parts[1] || '').trim(),
+          millesimi: String(parts[2] || '').trim(),
+          telefono: String(parts[3] || '').trim(),
+        };
+      });
+  };
+
+  return (
+    <section className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Gestore</p>
+          <h2 className="text-xl font-black text-slate-900">Gestione anagrafiche</h2>
+          <p className="mt-1 text-sm text-slate-500">Inserisci amministratori, condomìni e condòmini senza accedere a Supabase.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ['amministratore', 'Amministratore'],
+            ['condominio', 'Condominio'],
+            ['condomino', 'Condòmino'],
+            ['import', 'Import condòmini'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setTab(key);
+                setMessage('');
+              }}
+              className={`rounded-full px-3 py-1.5 text-xs font-black ${tab === key ? 'bg-emerald-600 text-white' : 'border border-emerald-100 bg-emerald-50 text-emerald-700'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {message && (
+        <div className={`mb-4 rounded-2xl border p-3 text-sm font-bold ${message.startsWith('Errore') ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+          {message}
+        </div>
+      )}
+
+      {tab === 'amministratore' && (
+        <form
+          className="grid gap-3 md:grid-cols-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = await invokeGestione({ action: 'crea_amministratore', ...adminForm });
+            if (data?.success) setAdminForm({ nome: '', email: '', telefono: '', studio: '' });
+          }}
+        >
+          <input value={adminForm.nome} onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })} placeholder="Nome amministratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.telefono} onChange={(e) => setAdminForm({ ...adminForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Studio / riferimento" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
+            {saving ? 'Salvataggio...' : 'Salva amministratore'}
+          </button>
+        </form>
+      )}
+
+      {tab === 'condominio' && (
+        <form
+          className="grid gap-3 md:grid-cols-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = await invokeGestione({ action: 'crea_condominio', ...condominioForm });
+            if (data?.success) setCondominioForm({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
+          }}
+        >
+          <input value={condominioForm.condominioNome} onChange={(e) => setCondominioForm({ ...condominioForm, condominioNome: e.target.value })} placeholder="Nome condominio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.condominioIndirizzo} onChange={(e) => setCondominioForm({ ...condominioForm, condominioIndirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.condominioCitta} onChange={(e) => setCondominioForm({ ...condominioForm, condominioCitta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} placeholder="Email amministratore associato" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
+            {saving ? 'Salvataggio...' : 'Salva condominio'}
+          </button>
+        </form>
+      )}
+
+      {tab === 'condomino' && (
+        <form
+          className="grid gap-3 md:grid-cols-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = await invokeGestione({ action: 'crea_condomino', ...condominoForm });
+            if (data?.success) setCondominoForm({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+          }}
+        >
+          <select value={condominoForm.condominioId} onChange={(e) => setCondominoForm({ ...condominoForm, condominioId: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="">Seleziona condominio</option>
+            {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          <input value={condominoForm.nome} onChange={(e) => setCondominoForm({ ...condominoForm, nome: e.target.value })} placeholder="Nome condòmino" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominoForm.email} onChange={(e) => setCondominoForm({ ...condominoForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominoForm.telefono} onChange={(e) => setCondominoForm({ ...condominoForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominoForm.millesimi} onChange={(e) => setCondominoForm({ ...condominoForm, millesimi: e.target.value })} placeholder="Millesimi" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
+          <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
+            {saving ? 'Salvataggio...' : 'Salva condòmino'}
+          </button>
+        </form>
+      )}
+
+      {tab === 'import' && (
+        <form
+          className="space-y-3"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const rows = parseImportRows();
+            const data = await invokeGestione({ action: 'importa_condomini', condominioId: importCondominioId, condomini: rows });
+            if (data?.success) setImportText('');
+          }}
+        >
+          <select value={importCondominioId} onChange={(e) => setImportCondominioId(e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="">Seleziona condominio</option>
+            {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          <textarea
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            rows={8}
+            placeholder={'Formato: Nome; email; millesimi; telefono\\nMario Rossi; mario@email.it; 120; 333000000'}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
+          />
+          <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+            {saving ? 'Importazione...' : 'Importa condòmini'}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+
 function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, filtroStato, onChangeFiltroStato, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -4439,6 +4617,10 @@ export default function App() {
         />
 
         <ArchivioReportPremium reports={reportVisibili} />
+
+        {ruoloNormalizzato === 'gestore' && (
+          <GestioneAnagraficheBox condomini={condomini} onSaved={carica} />
+        )}
 
         {ruoloNormalizzato === 'amministratore' && (
           <section className="space-y-3 pb-36 md:pb-6">
