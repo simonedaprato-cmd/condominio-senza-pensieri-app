@@ -2843,7 +2843,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruolo === 'condominio' && ripartoSalvato && (
+            {['condominio', 'condomino'].includes(ruolo) && ripartoSalvato && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto millesimale</p>
@@ -4002,35 +4002,10 @@ export default function App() {
       const conferma = window.confirm('Vuoi inviare il riparto millesimale ai condomini?');
       if (!conferma) return;
 
-      const { data, error } = await supabase.functions.invoke('notify-riparto-millesimi', {
-        body: {
-          segnalazione_id: pratica.id,
-          titolo: pratica.titolo,
-          condominio_id: pratica.condominio_id,
-          importo_totale: riparto.importo_totale,
-          scadenza: riparto.scadenza,
-          scadenze_rate: riparto.scadenze_rate || [],
-          rate: riparto.rate,
-          quote: riparto.quote,
-          totale_millesimi: riparto.totale_millesimi,
-        },
-      });
-
-      if (error) throw error;
-      if (data && data.success === false) throw new Error(data.error || 'Invio riparto non riuscito.');
-
-      await inviaNotificaCondominio({
-        condominioId: pratica.condominio_id,
-        destinatari: 'condomini',
-        title: 'Riparto millesimale disponibile',
-        message: `È disponibile il riparto millesimale per la pratica “${pratica.titolo || 'Pratica'}”.`,
-        tipo: 'riparto_millesimale',
-        riferimentoId: Number(pratica.id),
-      });
-
+      const scadenzeRiparto = (riparto.scadenze_rate || [riparto.scadenza]).filter(Boolean);
       const notaRiparto = {
         id: Date.now(),
-        testo: `Riparto millesimale inviato ai condomini. Importo totale: ${formatEuro(riparto.importo_totale)}. Rate: ${riparto.rate}. Scadenze: ${(riparto.scadenze_rate || [riparto.scadenza]).filter(Boolean).map((data) => new Date(data).toLocaleDateString('it-IT')).join(', ')}.`,
+        testo: `Riparto millesimale inviato ai condomini. Importo totale: ${formatEuro(riparto.importo_totale)}. Rate: ${riparto.rate}. Scadenze: ${scadenzeRiparto.map((data) => new Date(data).toLocaleDateString('it-IT')).join(', ')}.`,
         data: new Date().toLocaleString('it-IT'),
       };
 
@@ -4045,7 +4020,8 @@ export default function App() {
         inviato_il: new Date().toISOString(),
       };
 
-      await supabase
+      // Prima salviamo il riparto nella pratica: così il box resta visibile anche se email o push falliscono.
+      const { error: updateError } = await supabase
         .from('segnalazioni')
         .update({
           note: noteAggiornate,
@@ -4053,9 +4029,68 @@ export default function App() {
         })
         .eq('id', pratica.id);
 
-      setStatusMessage(`Riparto inviato a ${data?.emails?.length || 0} condomini.`);
-      await carica();
+      if (updateError) throw updateError;
+
       setDettaglioAperto((prev) => prev && prev.id === pratica.id ? { ...prev, note: noteAggiornate, riparto_millesimale: ripartoMillesimale } : prev);
+      setStatusMessage('Riparto millesimale salvato nella pratica. Invio comunicazioni in corso...');
+
+      let emailResult = null;
+      let pushResult = null;
+
+      try {
+        const { data, error } = await supabase.functions.invoke('notify-riparto-millesimi', {
+          body: {
+            segnalazione_id: pratica.id,
+            titolo: pratica.titolo,
+            condominio_id: pratica.condominio_id,
+            importo_totale: riparto.importo_totale,
+            scadenza: riparto.scadenza,
+            scadenze_rate: riparto.scadenze_rate || [],
+            rate: riparto.rate,
+            quote: riparto.quote,
+            totale_millesimi: riparto.totale_millesimi,
+          },
+        });
+
+        if (error) throw error;
+        emailResult = data;
+        if (data && data.success === false) {
+          console.warn('Invio email riparto non completato:', data);
+        }
+      } catch (emailError) {
+        emailResult = { success: false, error: emailError.message || String(emailError) };
+        console.warn('Errore invio email riparto:', emailError);
+      }
+
+      try {
+        pushResult = await inviaNotificaCondominio({
+          condominioId: pratica.condominio_id,
+          destinatari: 'condomini',
+          title: 'Riparto millesimale disponibile',
+          message: `È disponibile il riparto millesimale per la pratica “${pratica.titolo || 'Pratica'}”.`,
+          tipo: 'riparto_millesimale',
+          riferimentoId: Number(pratica.id),
+        });
+      } catch (pushError) {
+        pushResult = { success: false, error: pushError.message || String(pushError) };
+        console.warn('Errore invio push riparto:', pushError);
+      }
+
+      const emailOk = emailResult?.success !== false;
+      const pushOk = pushResult?.success !== false;
+      const emailCount = emailResult?.emails?.length || emailResult?.sent || 0;
+
+      if (emailOk && pushOk) {
+        setStatusMessage(`Riparto salvato e inviato ai condomini. Email: ${emailCount || 'OK'}.`);
+      } else if (emailOk && !pushOk) {
+        setStatusMessage('Riparto salvato. Email inviata, ma push non completata.');
+      } else if (!emailOk && pushOk) {
+        setStatusMessage('Riparto salvato. Push inviata, ma email non completata.');
+      } else {
+        setStatusMessage('Riparto salvato nella pratica. Email e push non completate: controllare i log.');
+      }
+
+      await carica();
     } catch (error) {
       console.error(error);
       alert('Errore invio riparto: ' + (error.message || 'sconosciuto'));
