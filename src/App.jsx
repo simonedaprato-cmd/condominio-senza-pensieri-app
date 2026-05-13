@@ -5,6 +5,7 @@ import OneSignal from 'react-onesignal';
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
 const APP_VERSION_LABEL = 'CSP v1.0.1';
+const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
@@ -2057,9 +2058,12 @@ function ArchivioReportPremium({ reports }) {
                 </a>
                 <a
                   href={`${report.file_url}?download=1`}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
                   className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-center text-sm font-black text-emerald-700"
                 >
-                  Scarica
+                  Apri / Scarica
                 </a>
               </div>
             </div>
@@ -3374,7 +3378,8 @@ export default function App() {
   const segnalazioniVisualizzate = useMemo(() => {
     const testo = searchTerm.toLowerCase().trim();
     return segnalazioniFiltrate.filter((s) => {
-      const passaArchivio = showArchiviate ? s.archiviata === true : s.archiviata !== true;
+      const isArchiviata = isValoreVero(s.archiviata);
+      const passaArchivio = showArchiviate ? isArchiviata : !isArchiviata;
       const passaCondominio = filtroCondominioId ? String(s.condominio_id) === String(filtroCondominioId) : true;
       const passaRicerca = !testo || [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente].filter(Boolean).some((v) => String(v).toLowerCase().includes(testo));
       return passaCondominio && passaRicerca && passaArchivio;
@@ -3413,6 +3418,7 @@ export default function App() {
     fotolavorifinitiurl: item.fotolavorifinitinome ? buildPublicUrl(item.fotolavorifinitinome) : '',
     preventivourl: item.preventivonome ? buildPublicUrl(item.preventivonome) : '',
     note: Array.isArray(item.note) ? item.note : [],
+    archiviata: isValoreVero(item.archiviata),
   };
   });
 
