@@ -7,8 +7,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
-const APP_VERSION = 'CSP-2026.05.13-PWA-UPDATE-V1';
-const APP_VERSION_LABEL = 'CSP v1.0.1';
 
 const MOTION_CARD = 'transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl';
 const MOTION_SOFT = 'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md';
@@ -888,7 +886,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
         <div className="flex min-w-0 items-start gap-2 md:items-center md:gap-4">
           <LogoMark />
           <div className="min-w-0 text-white">
-            <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
+            <h1 className="text-lg font-semibold leading-tight tracking-tight text-[#d8b25a] drop-shadow md:text-2xl">Condominio Senza Pensieri</h1>
             <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
             {userProfile?.nome && (
               <div className="mt-3 space-y-3">
@@ -935,6 +933,10 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
             Logout
           </button>
         </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black tracking-[0.14em] text-[#d8b25a] shadow-sm backdrop-blur md:bottom-4 md:right-6">
+        {APP_VERSION_LABEL}
       </div>
     </header>
   );
@@ -2598,7 +2600,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </div>
                 ) : (
                   <>
-                    <div className="max-h-[270px] space-y-2 overflow-y-auto pr-1">
+                    <div className="max-h-[252px] space-y-2 overflow-y-auto pr-1">
                       {reportsSchedaPratica.map((report) => (
                         <div key={report.id || `${report.file_url}-${report.created_at}`} className="rounded-xl border border-emerald-100 bg-white p-3">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2609,23 +2611,14 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                               </p>
                             </div>
                             {report.file_url ? (
-                              <div className="flex flex-wrap gap-2">
-                                <a
-                                  href={report.file_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-xs font-black text-white"
-                                >
-                                  Apri report
-                                </a>
-                                <a
-                                  href={report.file_url}
-                                  download={report.file_nome || report.titolo || 'report-semestrale.pdf'}
-                                  className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-center text-xs font-black text-emerald-700"
-                                >
-                                  Scarica
-                                </a>
-                              </div>
+                              <a
+                                href={report.file_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-xs font-black text-white"
+                              >
+                                Apri report
+                              </a>
                             ) : (
                               <span className="rounded-xl bg-slate-100 px-4 py-2 text-center text-xs font-bold text-slate-500">
                                 File non disponibile
@@ -3143,48 +3136,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   );
 }
 
-
-function AppUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
-  if (!updateInfo) return null;
-
-  return (
-    <div className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-4xl rounded-2xl border border-emerald-200 bg-white/95 p-3 shadow-2xl shadow-emerald-950/20 backdrop-blur md:bottom-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-black text-slate-900">Nuova versione disponibile</p>
-          <p className="text-xs font-semibold text-slate-500">
-            Aggiorna l’app per usare l’ultima versione stabile di Condominio Senza Pensieri.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600"
-          >
-            Dopo
-          </button>
-          <button
-            type="button"
-            onClick={onUpdate}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
-          >
-            Aggiorna ora
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AppVersionBadge() {
-  return (
-    <div className="fixed bottom-2 left-2 z-20 hidden rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-bold text-slate-400 shadow-sm backdrop-blur md:block">
-      {APP_VERSION_LABEL}
-    </div>
-  );
-}
-
 export default function App() {
   const generaPdfVotazioni = (pratica) => {
     if (!pratica) return;
@@ -3353,7 +3304,6 @@ export default function App() {
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
   const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
   const [reportCondominio, setReportCondominio] = useState([]);
-  const [updateDisponibile, setUpdateDisponibile] = useState(null);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
@@ -3366,43 +3316,6 @@ export default function App() {
     window.__cspToastTimer = window.setTimeout(() => {
       setToastInterno(null);
     }, 4200);
-  };
-
-  const controllaAggiornamentoApp = async (silent = true) => {
-    try {
-      const response = await fetch(`/version.json?ts=${Date.now()}`, {
-        cache: 'no-store',
-      });
-
-      if (!response.ok) return;
-
-      const remote = await response.json();
-      const remoteVersion = remote?.version;
-
-      if (remoteVersion && remoteVersion !== APP_VERSION) {
-        setUpdateDisponibile(remote);
-        if (!silent) {
-          mostraToast('Nuova versione disponibile', 'Tocca “Aggiorna ora” per caricare l’ultima versione dell’app.', 'info');
-        }
-      }
-    } catch {
-      // Controllo aggiornamento non bloccante.
-    }
-  };
-
-  const aggiornaAppOra = async () => {
-    try {
-      if ('caches' in window) {
-        const cacheNames = await window.caches.keys();
-        await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
-      }
-    } catch {
-      // Ignora errori cache: il reload resta sufficiente.
-    }
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('app_version', updateDisponibile?.version || Date.now().toString());
-    window.location.replace(url.toString());
   };
 
   const inviaNotificaCondominio = async ({
@@ -3669,27 +3582,6 @@ export default function App() {
     }, 1300);
 
     return () => window.clearTimeout(timer);
-  }, []);
-
-
-  useEffect(() => {
-    window.localStorage.setItem('csp_app_version_seen', APP_VERSION);
-
-    controllaAggiornamentoApp(true);
-    const timer = window.setInterval(() => {
-      controllaAggiornamentoApp(true);
-    }, 5 * 60 * 1000);
-
-    const onVisibilityChange = () => {
-      if (!document.hidden) controllaAggiornamentoApp(true);
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
   }, []);
 
   useEffect(() => {
@@ -4564,8 +4456,6 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
-      <AppUpdateBanner updateInfo={updateDisponibile} onUpdate={aggiornaAppOra} onDismiss={() => setUpdateDisponibile(null)} />
-      <AppVersionBadge />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
