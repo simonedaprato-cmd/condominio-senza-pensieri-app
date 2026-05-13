@@ -1866,7 +1866,7 @@ function DashboardVendite({ segnalazioni }) {
 }
 
 function DashboardStorico({ segnalazioni }) {
-  const archiviate = segnalazioni.filter((s) => s.archiviata === true);
+  const archiviate = segnalazioni.filter((s) => isValoreVero(s.archiviata));
   const chiuse = archiviate.filter((s) => s.stato === 'Chiusa').length;
   const rifiutate = archiviate.filter((s) => s.stato === 'Rifiutata').length;
   const valoreStorico = archiviate.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
@@ -3384,7 +3384,7 @@ export default function App() {
       const passaRicerca = !testo || [s.titolo, s.descrizione, s.condominio, s.categoria, s.luogo, s.referente].filter(Boolean).some((v) => String(v).toLowerCase().includes(testo));
       return passaCondominio && passaRicerca && passaArchivio;
     });
-  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm]);
+  }, [segnalazioniFiltrate, filtroCondominioId, searchTerm, showArchiviate]);
 
   const reportVisibili = useMemo(() => {
     const ids = ruoloNormalizzato === 'gestore'
