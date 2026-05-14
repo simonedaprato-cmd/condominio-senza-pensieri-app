@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2587,7 +2587,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, utentiCondomini, utentiSistema, onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, onRefreshVoti }) {
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
@@ -2633,6 +2633,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const nonVotanti = aventiDirittoVoto.filter((email) => !emailVotanti.has(email));
   const partecipazioneRealePercentuale = totaleAventiDiritto ? Math.round((totaleVoti / totaleAventiDiritto) * 100) : 0;
   const consultazioneCompletata = totaleAventiDiritto > 0 && votiMancanti === 0;
+
+  const riepilogoAggregato = (votazioniRiepiloghi || []).find((item) => Number(item.segnalazione_id) === Number(segnalazione.id));
+  const sintesiFavorevoli = Number(riepilogoAggregato?.favorevoli ?? votiFavorevoli);
+  const sintesiContrari = Number(riepilogoAggregato?.contrari ?? votiContrari);
+  const sintesiIndecisi = Number(riepilogoAggregato?.indecisi ?? votiIndecisi);
+  const sintesiTotaleVoti = Number(riepilogoAggregato?.totale_voti ?? totaleVoti);
+  const sintesiAventiDiritto = Number(riepilogoAggregato?.totale_aventi_diritto ?? totaleAventiDiritto);
+  const sintesiVotiMancanti = Math.max(Number(riepilogoAggregato?.voti_mancanti ?? votiMancanti), 0);
+  const sintesiPartecipazione = Number(riepilogoAggregato?.partecipazione_percentuale ?? partecipazioneRealePercentuale);
+  const sintesiCompletata = Boolean(riepilogoAggregato?.completata ?? consultazioneCompletata);
 
   const condominiRiparto = (utentiCondomini || [])
     .filter((item) => Number(item.condominio_id) === Number(segnalazione.condominio_id))
@@ -2835,44 +2845,44 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                               Esito consultivo aggiornato in tempo reale.
                             </p>
                           </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-black ${consultazioneCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {consultazioneCompletata ? 'Completata' : 'In corso'}
+                          <span className={`rounded-full px-3 py-1 text-xs font-black ${sintesiCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {sintesiCompletata ? 'Completata' : 'In corso'}
                           </span>
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                           <div className="rounded-xl bg-emerald-50 p-3 text-center border border-emerald-100">
                             <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
-                            <p className="text-lg font-black text-emerald-700">{votiFavorevoli}</p>
+                            <p className="text-lg font-black text-emerald-700">{sintesiFavorevoli}</p>
                           </div>
                           <div className="rounded-xl bg-red-50 p-3 text-center border border-red-100">
                             <p className="text-[10px] uppercase tracking-wide text-slate-500">Contrari</p>
-                            <p className="text-lg font-black text-red-600">{votiContrari}</p>
+                            <p className="text-lg font-black text-red-600">{sintesiContrari}</p>
                           </div>
                           <div className="rounded-xl bg-amber-50 p-3 text-center border border-amber-100">
                             <p className="text-[10px] uppercase tracking-wide text-slate-500">Indecisi</p>
-                            <p className="text-lg font-black text-amber-600">{votiIndecisi}</p>
+                            <p className="text-lg font-black text-amber-600">{sintesiIndecisi}</p>
                           </div>
                           <div className="rounded-xl bg-sky-50 p-3 text-center border border-sky-100">
                             <p className="text-[10px] uppercase tracking-wide text-slate-500">Voti</p>
-                            <p className="text-lg font-black text-sky-700">{totaleVoti}/{totaleAventiDiritto || totaleVoti}</p>
+                            <p className="text-lg font-black text-sky-700">{sintesiTotaleVoti}/{sintesiAventiDiritto || sintesiTotaleVoti}</p>
                           </div>
                         </div>
 
                         <div className="mt-3">
                           <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
                             <span>Partecipazione</span>
-                            <span>{partecipazioneRealePercentuale}%</span>
+                            <span>{sintesiPartecipazione}%</span>
                           </div>
                           <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-                            <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${partecipazioneRealePercentuale}%` }} />
+                            <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${sintesiPartecipazione}%` }} />
                           </div>
                         </div>
 
                         <p className="mt-3 text-xs font-semibold text-slate-600">
-                          {consultazioneCompletata
+                          {sintesiCompletata
                             ? 'La votazione è completa. Push ed email finali vengono inviate automaticamente dal sistema.'
-                            : `La votazione non è ancora completa: mancano ${votiMancanti} voti.`}
+                            : `La votazione non è ancora completa: mancano ${sintesiVotiMancanti} voti.`}
                         </p>
                       </div>
                     )}
@@ -2950,15 +2960,15 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                       <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
-                        <p className="text-lg font-black text-emerald-700">{votiFavorevoli}</p>
+                        <p className="text-lg font-black text-emerald-700">{sintesiFavorevoli}</p>
                       </div>
                       <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Contrari</p>
-                        <p className="text-lg font-black text-red-600">{votiContrari}</p>
+                        <p className="text-lg font-black text-red-600">{sintesiContrari}</p>
                       </div>
                       <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Indecisi</p>
-                        <p className="text-lg font-black text-amber-600">{votiIndecisi}</p>
+                        <p className="text-lg font-black text-amber-600">{sintesiIndecisi}</p>
                       </div>
                       <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Consenso</p>
@@ -2972,7 +2982,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                         <span>{totaleVoti}/{totaleAventiDiritto} voti</span>
                       </div>
                       <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-                        <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${partecipazioneRealePercentuale}%` }} />
+                        <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${sintesiPartecipazione}%` }} />
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
                         <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
@@ -2992,7 +3002,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                           <p className="font-black text-emerald-700">{partecipazioneRealePercentuale}%</p>
                         </div>
                       </div>
-                      <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-black ${consultazioneCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-black ${sintesiCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {consultazioneCompletata ? 'Consultazione completata' : `In attesa di ${votiMancanti} voti`}
                       </div>
                       {ultimoVoto && (
@@ -3524,6 +3534,7 @@ export default function App() {
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [showFabLabel, setShowFabLabel] = useState(false);
   const [votiPreventivi, setVotiPreventivi] = useState([]);
+  const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
@@ -3827,6 +3838,14 @@ export default function App() {
 
       if (votiError && votiError.code !== 'PGRST116') throw votiError;
       setVotiPreventivi(votiData || []);
+
+      const { data: riepiloghiData, error: riepiloghiError } = await supabase
+        .from('votazioni_riepiloghi')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (riepiloghiError && riepiloghiError.code !== 'PGRST116' && riepiloghiError.code !== '42P01') throw riepiloghiError;
+      setVotazioniRiepiloghi(riepiloghiData || []);
 
       const { data: contrattiData, error: contrattiError } = await supabase
         .from('contratti_condominio')
@@ -4976,6 +4995,7 @@ export default function App() {
         onDeletePratica={eliminaPratica}
         onRipristinaPratica={ripristinaPratica}
         votiPreventivi={votiPreventivi}
+        votazioniRiepiloghi={votazioniRiepiloghi}
         utentiCondomini={utentiCondomini}
         utentiSistema={utentiSistema}
       />
