@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.21';
-const APP_VERSION_LABEL = 'CSP v1.0.21';
+const APP_VERSION = '1.0.22';
+const APP_VERSION_LABEL = 'CSP v1.0.22';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1592,18 +1592,80 @@ function GestioneLeadAmministratori({ onCreateLead }) {
   );
 }
 
-function DashboardLeadAmministratori({ leadAmministratori }) {
+function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
+  const [leadInModifica, setLeadInModifica] = useState(null);
+  const [formLead, setFormLead] = useState({
+    stato_pipeline: '',
+    prossimo_followup: '',
+    note: '',
+    numero_condomini: '',
+    valore_potenziale: '',
+  });
+
   const totale = leadAmministratori.length;
   const clienti = leadAmministratori.filter((l) => l.stato_pipeline === 'cliente').length;
-  const trattative = leadAmministratori.filter((l) => ['trattativa', 'preventivo_inviato'].includes(l.stato_pipeline)).length;
+  const trattative = leadAmministratori.filter((l) => ['trattativa', 'preventivo_inviato', 'in_trattativa', 'presentazione_effettuata'].includes(l.stato_pipeline)).length;
   const valorePipeline = leadAmministratori.reduce((sum, l) => sum + Number(l.valore_potenziale || 0), 0);
   const followupOggi = leadAmministratori.filter((l) => l.prossimo_followup && new Date(l.prossimo_followup) <= new Date()).length;
+
+  const statiLead = [
+    ['prospect', 'Nuovo'],
+    ['contattato', 'Contattato'],
+    ['appuntamento_fissato', 'Appuntamento fissato'],
+    ['presentazione_effettuata', 'Presentazione effettuata'],
+    ['follow_up', 'Follow-up richiesto'],
+    ['in_trattativa', 'In trattativa'],
+    ['preventivo_inviato', 'Preventivo inviato'],
+    ['cliente', 'Convertito'],
+    ['perso', 'Perso'],
+  ];
+
+  const apriModificaLead = (lead) => {
+    setLeadInModifica(lead);
+    setFormLead({
+      stato_pipeline: lead.stato_pipeline || 'prospect',
+      prossimo_followup: lead.prossimo_followup ? String(lead.prossimo_followup).slice(0, 10) : '',
+      note: lead.note || '',
+      numero_condomini: lead.numero_condomini || '',
+      valore_potenziale: lead.valore_potenziale || '',
+    });
+  };
+
+  const aggiornaFormLead = (field, value) => {
+    setFormLead((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (field === 'numero_condomini') {
+        const numero = Number(value || 0);
+        next.valore_potenziale = numero * 12 * PIANI_ABBONAMENTO.premium.costo * 12;
+      }
+
+      return next;
+    });
+  };
+
+  const salvaModificaLead = async () => {
+    if (!leadInModifica?.id) return;
+
+    await onUpdateLead(leadInModifica.id, {
+      stato_pipeline: formLead.stato_pipeline,
+      prossimo_followup: formLead.prossimo_followup || null,
+      note: formLead.note,
+      numero_condomini: Number(formLead.numero_condomini || 0),
+      valore_potenziale: Number(formLead.valore_potenziale || 0),
+    });
+
+    setLeadInModifica(null);
+  };
+
+  const labelStato = (stato) => statiLead.find((item) => item[0] === stato)?.[1] || stato || 'n.d.';
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Lead Amministratori</p>
       <h2 className="mt-1 text-xl font-bold">Dashboard pipeline commerciale</h2>
-      <p className="mt-1 text-sm text-slate-500">Controllo prospect, trattative e valore potenziale Toscana.</p>
+      <p className="mt-1 text-sm text-slate-500">Controllo prospect, trattative, follow-up e valore potenziale Toscana.</p>
+
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <DashboardStat label="Lead totali" value={totale} tone="slate" />
         <DashboardStat label="Trattative" value={trattative} tone="amber" />
@@ -1611,17 +1673,69 @@ function DashboardLeadAmministratori({ leadAmministratori }) {
         <DashboardStat label="Follow-up" value={followupOggi} tone="red" />
         <DashboardStat label="Valore pipeline" value={formatEuro(valorePipeline)} tone="sky" />
       </div>
+
+      {leadInModifica && (
+        <div className="mt-5 rounded-3xl border border-cyan-200 bg-cyan-50 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Aggiorna lead</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">{leadInModifica.nome_studio}</h3>
+              <p className="text-sm text-slate-500">{leadInModifica.provincia} • {leadInModifica.referente || 'Referente n.d.'}</p>
+            </div>
+            <button type="button" onClick={() => setLeadInModifica(null)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600">
+              Chiudi
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <select value={formLead.stato_pipeline} onChange={(e) => aggiornaFormLead('stato_pipeline', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3">
+              {statiLead.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <input type="date" value={formLead.prossimo_followup || ''} onChange={(e) => aggiornaFormLead('prossimo_followup', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input type="number" min="0" value={formLead.numero_condomini} onChange={(e) => aggiornaFormLead('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input type="number" min="0" value={formLead.valore_potenziale} onChange={(e) => aggiornaFormLead('valore_potenziale', e.target.value)} placeholder="Valore potenziale" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+          </div>
+
+          <textarea value={formLead.note} onChange={(e) => aggiornaFormLead('note', e.target.value)} placeholder="Note dopo incontro, prossimi passi, obiezioni, richieste..." className="mt-3 min-h-28 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={salvaModificaLead} className="rounded-2xl bg-cyan-700 px-4 py-3 text-sm font-black text-white">
+              Salva aggiornamento lead
+            </button>
+            <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'cliente')} className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white">
+              Segna convertito
+            </button>
+            <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'perso')} className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white">
+              Segna perso
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 space-y-2">
         {leadAmministratori.length === 0 ? (
           <EmptyState icon="🚀" title="Nessun lead inserito" text="Aggiungi il primo lead per iniziare a costruire una pipeline commerciale ordinata e misurabile." action="Crea il primo lead" tone="emerald" />
         ) : (
-          leadAmministratori.slice(0, 6).map((lead) => (
-            <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div>
-                <p className="font-bold text-slate-900">{lead.nome_studio}</p>
-                <p className="text-xs text-slate-500">{lead.provincia} • {lead.stato_pipeline} • {lead.numero_condomini || 0} condomini</p>
+          leadAmministratori.map((lead) => (
+            <div key={lead.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold text-slate-900">{lead.nome_studio}</p>
+                  <p className="text-xs text-slate-500">{lead.provincia} • {labelStato(lead.stato_pipeline)} • {lead.numero_condomini || 0} condomini</p>
+                  {lead.prossimo_followup && (
+                    <p className="mt-1 text-xs font-bold text-amber-700">Follow-up: {new Date(lead.prossimo_followup).toLocaleDateString('it-IT')}</p>
+                  )}
+                  {lead.note && (
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-500">{lead.note}</p>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                  <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
+                  <button type="button" onClick={() => apriModificaLead(lead)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                    Aggiorna
+                  </button>
+                </div>
               </div>
-              <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
             </div>
           ))
         )}
@@ -4630,6 +4744,27 @@ export default function App() {
     }
   };
 
+  const aggiornaLeadAmministratore = async (leadId, updatePayload) => {
+    try {
+      const { error } = await supabase
+        .from('lead_amministratori')
+        .update(updatePayload)
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      setLeadAmministratori((prev) => prev.map((lead) => (
+        Number(lead.id) === Number(leadId) ? { ...lead, ...updatePayload } : lead
+      )));
+
+      setStatusMessage('Lead amministratore aggiornato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento lead: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -4992,7 +5127,7 @@ export default function App() {
             {renderGestoreSectionTitle('Amministratori', 'CRM, lead, ranking, espansione e pipeline commerciale.')}
             <DashboardCRM contratti={contratti} condomini={condomini} />
             <GestioneLeadAmministratori onCreateLead={creaLeadAmministratore} />
-            <DashboardLeadAmministratori leadAmministratori={leadAmministratori} />
+            <DashboardLeadAmministratori leadAmministratori={leadAmministratori} onUpdateLead={aggiornaLeadAmministratore} />
             <DashboardRanking contratti={contratti} condomini={condomini} />
             <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
