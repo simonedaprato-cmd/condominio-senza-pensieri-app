@@ -4,7 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2824,6 +2825,57 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                         )}
                       </div>
                     )}
+
+                    {(ruolo === 'condominio' || ruolo === 'gestore') && (
+                      <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-sky-800">Riepilogo votazione</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              Esito consultivo aggiornato in tempo reale.
+                            </p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-black ${consultazioneCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {consultazioneCompletata ? 'Completata' : 'In corso'}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="rounded-xl bg-emerald-50 p-3 text-center border border-emerald-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
+                            <p className="text-lg font-black text-emerald-700">{votiFavorevoli}</p>
+                          </div>
+                          <div className="rounded-xl bg-red-50 p-3 text-center border border-red-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Contrari</p>
+                            <p className="text-lg font-black text-red-600">{votiContrari}</p>
+                          </div>
+                          <div className="rounded-xl bg-amber-50 p-3 text-center border border-amber-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Indecisi</p>
+                            <p className="text-lg font-black text-amber-600">{votiIndecisi}</p>
+                          </div>
+                          <div className="rounded-xl bg-sky-50 p-3 text-center border border-sky-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Voti</p>
+                            <p className="text-lg font-black text-sky-700">{totaleVoti}/{totaleAventiDiritto || totaleVoti}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+                            <span>Partecipazione</span>
+                            <span>{partecipazioneRealePercentuale}%</span>
+                          </div>
+                          <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${partecipazioneRealePercentuale}%` }} />
+                          </div>
+                        </div>
+
+                        <p className="mt-3 text-xs font-semibold text-slate-600">
+                          {consultazioneCompletata
+                            ? 'La votazione è completa. Push ed email finali vengono inviate automaticamente dal sistema.'
+                            : `La votazione non è ancora completa: mancano ${votiMancanti} voti.`}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -3270,6 +3322,46 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   );
 }
 
+
+function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
+  if (!updateInfo) return null;
+
+  return (
+    <div className="fixed inset-x-3 bottom-3 z-[100] mx-auto max-w-4xl rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl shadow-emerald-950/20 backdrop-blur md:bottom-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-900">Nuova versione disponibile</p>
+          <p className="text-xs font-semibold text-slate-500">
+            È disponibile una versione aggiornata di CSP. Premi “Aggiorna ora” per caricare l’ultima release.
+          </p>
+          {updateInfo?.serverVersion && (
+            <p className="mt-1 text-[11px] font-bold text-emerald-700">
+              Versione disponibile: {updateInfo.serverVersion}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600"
+          >
+            Dopo
+          </button>
+          <button
+            type="button"
+            onClick={onUpdate}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
+          >
+            Aggiorna ora
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App() {
   const generaPdfVotazioni = (pratica) => {
     if (!pratica) return;
@@ -3423,6 +3515,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [updateDisponibile, setUpdateDisponibile] = useState(null);
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
@@ -3438,6 +3531,72 @@ export default function App() {
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
   const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
+
+  const controllaVersioneApp = async () => {
+    try {
+      const response = await fetch(`/version.json?ts=${Date.now()}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) return;
+
+      const versionData = await response.json();
+      const serverVersion = String(versionData?.version || '').trim();
+
+      if (serverVersion && serverVersion !== APP_VERSION) {
+        setUpdateDisponibile({
+          serverVersion,
+          currentVersion: APP_VERSION,
+        });
+      }
+    } catch (error) {
+      console.warn('Controllo versione app non riuscito:', error);
+    }
+  };
+
+  const aggiornaAppOra = async () => {
+    try {
+      setStatusMessage('Aggiornamento app in corso...');
+
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+      }
+
+      localStorage.setItem('csp-last-hard-refresh', String(Date.now()));
+    } catch (error) {
+      console.warn('Aggiornamento forzato non completo:', error);
+    } finally {
+      window.location.replace(`/?v=${Date.now()}`);
+    }
+  };
+
+  useEffect(() => {
+    controllaVersioneApp();
+
+    const interval = window.setInterval(controllaVersioneApp, 120000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        controllaVersioneApp();
+      }
+    };
+
+    window.addEventListener('focus', controllaVersioneApp);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', controllaVersioneApp);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
+
   const [reportCondominio, setReportCondominio] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
@@ -4592,6 +4751,7 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
+      <AppHardUpdateBanner updateInfo={updateDisponibile} onUpdate={aggiornaAppOra} onDismiss={() => setUpdateDisponibile(null)} />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
