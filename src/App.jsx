@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.18';
+const APP_VERSION_LABEL = 'CSP v1.0.18';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -4663,11 +4663,70 @@ export default function App() {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUtente(null);
-    setUserProfile(null);
-    setRuolo('gestore');
-    setDettaglioAperto(null);
+    try {
+      setStatusMessage('Uscita in corso. Pulizia sessione dispositivo...');
+
+      try {
+        if (typeof OneSignal?.logout === 'function') {
+          await OneSignal.logout();
+        }
+      } catch (oneSignalError) {
+        console.warn('Logout OneSignal non completato:', oneSignalError);
+      }
+
+      await supabase.auth.signOut();
+
+      try {
+        const chiaviDaRimuovere = [];
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (
+              key.includes('csp') ||
+              key.includes('supabase') ||
+              key.includes('onesignal') ||
+              key.includes('OneSignal')
+            )
+          ) {
+            chiaviDaRimuovere.push(key);
+          }
+        }
+        chiaviDaRimuovere.forEach((key) => localStorage.removeItem(key));
+      } catch (storageError) {
+        console.warn('Pulizia localStorage non completata:', storageError);
+      }
+
+      try {
+        sessionStorage.clear();
+      } catch (sessionError) {
+        console.warn('Pulizia sessionStorage non completata:', sessionError);
+      }
+
+      try {
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames
+              .filter((cacheName) => cacheName.toLowerCase().includes('csp') || cacheName.toLowerCase().includes('workbox') || cacheName.toLowerCase().includes('onesignal'))
+              .map((cacheName) => caches.delete(cacheName))
+          );
+        }
+      } catch (cacheError) {
+        console.warn('Pulizia cache non completata:', cacheError);
+      }
+
+      setUtente(null);
+      setUserProfile(null);
+      setRuolo('gestore');
+      setDettaglioAperto(null);
+
+      window.location.replace(`/?logout=${Date.now()}`);
+    } catch (error) {
+      console.error('Errore logout pulito:', error);
+      await supabase.auth.signOut();
+      window.location.replace(`/?logout=${Date.now()}`);
+    }
   };
 
   if (loading && !utente) {
