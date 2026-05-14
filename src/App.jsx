@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.22';
-const APP_VERSION_LABEL = 'CSP v1.0.22';
+const APP_VERSION = '1.0.23';
+const APP_VERSION_LABEL = 'CSP v1.0.23';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1525,9 +1525,14 @@ function GestioneLeadAmministratori({ onCreateLead }) {
     telefono: '',
     email: '',
     provincia: 'Firenze',
+    citta: '',
+    indirizzo: '',
     numero_condomini: '',
     origine: 'LinkedIn',
     stato_pipeline: 'prospect',
+    data_appuntamento: '',
+    ora_appuntamento: '',
+    luogo_incontro: '',
     note: '',
   });
 
@@ -1552,9 +1557,14 @@ function GestioneLeadAmministratori({ onCreateLead }) {
       telefono: '',
       email: '',
       provincia: 'Firenze',
+      citta: '',
+      indirizzo: '',
       numero_condomini: '',
       origine: 'LinkedIn',
       stato_pipeline: 'prospect',
+      data_appuntamento: '',
+      ora_appuntamento: '',
+      luogo_incontro: '',
       note: '',
     });
   };
@@ -1576,10 +1586,26 @@ function GestioneLeadAmministratori({ onCreateLead }) {
           <select value={form.provincia} onChange={(e) => update('provincia', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
             {['Firenze', 'Prato', 'Pistoia', 'Lucca', 'Pisa', 'Livorno', 'Arezzo', 'Siena', 'Massa-Carrara', 'Grosseto'].map((p) => <option key={p}>{p}</option>)}
           </select>
+          <input value={form.citta} onChange={(e) => update('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <input value={form.indirizzo} onChange={(e) => update('indirizzo', e.target.value)} placeholder="Indirizzo studio" className="rounded-2xl border border-slate-200 px-3 py-3" />
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <input type="number" min="0" value={form.numero_condomini} onChange={(e) => update('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-slate-200 px-3 py-3" />
           <select value={form.origine} onChange={(e) => update('origine', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
             <option>LinkedIn</option><option>Sito</option><option>Referral</option><option>Telefono</option><option>Email</option><option>Evento</option>
           </select>
+          <select value={form.stato_pipeline} onChange={(e) => update('stato_pipeline', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+            <option value="prospect">Nuovo</option>
+            <option value="contattato">Contattato</option>
+            <option value="appuntamento_fissato">Appuntamento fissato</option>
+            <option value="presentazione_effettuata">Presentazione effettuata</option>
+            <option value="in_trattativa">In trattativa</option>
+          </select>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <input type="date" value={form.data_appuntamento} onChange={(e) => update('data_appuntamento', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <input type="time" value={form.ora_appuntamento} onChange={(e) => update('ora_appuntamento', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <input value={form.luogo_incontro} onChange={(e) => update('luogo_incontro', e.target.value)} placeholder="Luogo incontro" className="rounded-2xl border border-slate-200 px-3 py-3" />
         </div>
         <textarea value={form.note} onChange={(e) => update('note', e.target.value)} placeholder="Note commerciali" className="min-h-24 w-full rounded-2xl border border-slate-200 px-3 py-3" />
         <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
@@ -1597,6 +1623,11 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
   const [formLead, setFormLead] = useState({
     stato_pipeline: '',
     prossimo_followup: '',
+    data_appuntamento: '',
+    ora_appuntamento: '',
+    luogo_incontro: '',
+    citta: '',
+    indirizzo: '',
     note: '',
     numero_condomini: '',
     valore_potenziale: '',
@@ -1625,6 +1656,11 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     setFormLead({
       stato_pipeline: lead.stato_pipeline || 'prospect',
       prossimo_followup: lead.prossimo_followup ? String(lead.prossimo_followup).slice(0, 10) : '',
+      data_appuntamento: lead.data_appuntamento ? String(lead.data_appuntamento).slice(0, 10) : '',
+      ora_appuntamento: lead.ora_appuntamento ? String(lead.ora_appuntamento).slice(0, 5) : '',
+      luogo_incontro: lead.luogo_incontro || '',
+      citta: lead.citta || '',
+      indirizzo: lead.indirizzo || '',
       note: lead.note || '',
       numero_condomini: lead.numero_condomini || '',
       valore_potenziale: lead.valore_potenziale || '',
@@ -1650,12 +1686,85 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     await onUpdateLead(leadInModifica.id, {
       stato_pipeline: formLead.stato_pipeline,
       prossimo_followup: formLead.prossimo_followup || null,
+      data_appuntamento: formLead.data_appuntamento || null,
+      ora_appuntamento: formLead.ora_appuntamento || null,
+      luogo_incontro: formLead.luogo_incontro,
+      citta: formLead.citta,
+      indirizzo: formLead.indirizzo,
       note: formLead.note,
       numero_condomini: Number(formLead.numero_condomini || 0),
       valore_potenziale: Number(formLead.valore_potenziale || 0),
     });
 
     setLeadInModifica(null);
+  };
+
+  const creaLinkGoogleCalendar = (lead) => {
+    const data = lead.data_appuntamento || formLead.data_appuntamento;
+    const ora = lead.ora_appuntamento || formLead.ora_appuntamento || '09:00';
+
+    if (!data) {
+      return '';
+    }
+
+    const start = new Date(`${data}T${ora || '09:00'}:00`);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const toGoogleDate = (date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
+    const location = lead.luogo_incontro || lead.indirizzo || [lead.citta, lead.provincia].filter(Boolean).join(', ');
+    const details = [
+      'Presentazione Condominio Senza Pensieri',
+      '',
+      `Studio: ${lead.nome_studio || ''}`,
+      `Referente: ${lead.referente || ''}`,
+      `Telefono: ${lead.telefono || ''}`,
+      `Email: ${lead.email || ''}`,
+      `Città: ${lead.citta || ''}`,
+      `Indirizzo: ${lead.indirizzo || ''}`,
+      `Condomìni gestiti: ${lead.numero_condomini || 0}`,
+      `Valore potenziale: ${formatEuro(lead.valore_potenziale || 0)}`,
+      '',
+      `Note: ${lead.note || ''}`,
+    ].join('\n');
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: `Demo CSP - ${lead.nome_studio || 'Lead amministratore'}`,
+      dates: `${toGoogleDate(start)}/${toGoogleDate(end)}`,
+      details,
+      location,
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
+  const apriGoogleCalendarLead = (lead) => {
+    const leadCalendar = {
+      ...lead,
+      ...(
+        leadInModifica && Number(leadInModifica.id) === Number(lead.id)
+          ? {
+              data_appuntamento: formLead.data_appuntamento,
+              ora_appuntamento: formLead.ora_appuntamento,
+              luogo_incontro: formLead.luogo_incontro,
+              citta: formLead.citta,
+              indirizzo: formLead.indirizzo,
+              note: formLead.note,
+              numero_condomini: formLead.numero_condomini,
+              valore_potenziale: formLead.valore_potenziale,
+            }
+          : {}
+      ),
+    };
+
+    const url = creaLinkGoogleCalendar(leadCalendar);
+
+    if (!url) {
+      alert('Inserisci almeno la data appuntamento per creare l’evento Google Calendar.');
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const labelStato = (stato) => statiLead.find((item) => item[0] === stato)?.[1] || stato || 'n.d.';
@@ -1692,6 +1801,11 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
               {statiLead.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
             <input type="date" value={formLead.prossimo_followup || ''} onChange={(e) => aggiornaFormLead('prossimo_followup', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input value={formLead.citta} onChange={(e) => aggiornaFormLead('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input value={formLead.indirizzo} onChange={(e) => aggiornaFormLead('indirizzo', e.target.value)} placeholder="Indirizzo studio" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input type="date" value={formLead.data_appuntamento || ''} onChange={(e) => aggiornaFormLead('data_appuntamento', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input type="time" value={formLead.ora_appuntamento || ''} onChange={(e) => aggiornaFormLead('ora_appuntamento', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input value={formLead.luogo_incontro} onChange={(e) => aggiornaFormLead('luogo_incontro', e.target.value)} placeholder="Luogo incontro" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input type="number" min="0" value={formLead.numero_condomini} onChange={(e) => aggiornaFormLead('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input type="number" min="0" value={formLead.valore_potenziale} onChange={(e) => aggiornaFormLead('valore_potenziale', e.target.value)} placeholder="Valore potenziale" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
           </div>
@@ -1701,6 +1815,9 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={salvaModificaLead} className="rounded-2xl bg-cyan-700 px-4 py-3 text-sm font-black text-white">
               Salva aggiornamento lead
+            </button>
+            <button type="button" onClick={() => apriGoogleCalendarLead(leadInModifica)} className="rounded-2xl bg-sky-700 px-4 py-3 text-sm font-black text-white">
+              Crea evento Google Calendar
             </button>
             <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'cliente')} className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white">
               Segna convertito
@@ -1721,7 +1838,15 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-bold text-slate-900">{lead.nome_studio}</p>
-                  <p className="text-xs text-slate-500">{lead.provincia} • {labelStato(lead.stato_pipeline)} • {lead.numero_condomini || 0} condomini</p>
+                  <p className="text-xs text-slate-500">{lead.provincia} • {lead.citta || 'Città n.d.'} • {labelStato(lead.stato_pipeline)} • {lead.numero_condomini || 0} condomini</p>
+                  {lead.indirizzo && (
+                    <p className="mt-1 text-xs font-semibold text-slate-500">📍 {lead.indirizzo}</p>
+                  )}
+                  {lead.data_appuntamento && (
+                    <p className="mt-1 text-xs font-bold text-sky-700">
+                      Appuntamento: {new Date(lead.data_appuntamento).toLocaleDateString('it-IT')} {lead.ora_appuntamento ? `• ${String(lead.ora_appuntamento).slice(0, 5)}` : ''}
+                    </p>
+                  )}
                   {lead.prossimo_followup && (
                     <p className="mt-1 text-xs font-bold text-amber-700">Follow-up: {new Date(lead.prossimo_followup).toLocaleDateString('it-IT')}</p>
                   )}
@@ -1733,6 +1858,9 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
                   <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
                   <button type="button" onClick={() => apriModificaLead(lead)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
                     Aggiorna
+                  </button>
+                  <button type="button" onClick={() => apriGoogleCalendarLead(lead)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
+                    Google Calendar
                   </button>
                 </div>
               </div>
