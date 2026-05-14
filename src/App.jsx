@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.16';
+const APP_VERSION_LABEL = 'CSP v1.0.16';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3525,7 +3525,6 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
-  const [updateDisponibile, setUpdateDisponibile] = useState(null);
   const [dettaglioAperto, setDettaglioAperto] = useState(null);
   const [selectedCondominioId, setSelectedCondominioId] = useState('');
   const [filtroCondominioId, setFiltroCondominioId] = useState('');
@@ -3543,72 +3542,6 @@ export default function App() {
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
   const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
 
-  const controllaVersioneApp = async () => {
-    try {
-      const response = await fetch(`/version.json?ts=${Date.now()}`, {
-        cache: 'no-store',
-      });
-
-      if (!response.ok) return;
-
-      const versionData = await response.json();
-      const serverVersion = String(versionData?.version || '').trim();
-
-      if (serverVersion && serverVersion !== APP_VERSION) {
-        setUpdateDisponibile({
-          serverVersion,
-          currentVersion: APP_VERSION,
-        });
-      } else {
-        setUpdateDisponibile(null);
-      }
-    } catch (error) {
-      console.warn('Controllo versione app non riuscito:', error);
-    }
-  };
-
-  const aggiornaAppOra = async () => {
-    try {
-      setStatusMessage('Aggiornamento app in corso...');
-
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.unregister()));
-      }
-
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-      }
-
-      localStorage.setItem('csp-last-hard-refresh', String(Date.now()));
-    } catch (error) {
-      console.warn('Aggiornamento forzato non completo:', error);
-    } finally {
-      window.location.replace(`/?v=${Date.now()}`);
-    }
-  };
-
-  useEffect(() => {
-    controllaVersioneApp();
-
-    const interval = window.setInterval(controllaVersioneApp, 120000);
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        controllaVersioneApp();
-      }
-    };
-
-    window.addEventListener('focus', controllaVersioneApp);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', controllaVersioneApp);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, []);
 
   const [reportCondominio, setReportCondominio] = useState([]);
 
@@ -4772,7 +4705,6 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
-      <AppHardUpdateBanner updateInfo={updateDisponibile} onUpdate={aggiornaAppOra} onDismiss={() => setUpdateDisponibile(null)} />
       <NotifichePushBox utenteEmail={utente?.email} />
       {showReportSemestrale && (
         <ReportSemestraleModal
