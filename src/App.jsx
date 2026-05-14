@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.18';
-const APP_VERSION_LABEL = 'CSP v1.0.18';
+const APP_VERSION = '1.0.20';
+const APP_VERSION_LABEL = 'CSP v1.0.20';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2751,7 +2751,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             </button>
             {segnalazione.preventivo_condiviso_condomini && (
               <button
-                onClick={() => onGeneraPdfVotazioni(segnalazione)}
+                onClick={() => onGeneraPdfVotazioni(segnalazione, ruolo)}
                 className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-bold text-white"
               >
                 Export PDF votazioni
@@ -3373,15 +3373,24 @@ function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
 
 
 export default function App() {
-  const generaPdfVotazioni = (pratica) => {
+  const generaPdfVotazioni = (pratica, ruoloExport = ruoloNormalizzato) => {
     if (!pratica) return;
 
-    const votiPratica = (votiPreventivi || []).filter((v) => v.segnalazione_id === pratica.id);
-    const favorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
-    const contrari = votiPratica.filter((v) => v.voto === 'contrario').length;
-    const indecisi = votiPratica.filter((v) => v.voto === 'indeciso').length;
-    const totale = votiPratica.length;
-    const quorum = totale ? Math.round((favorevoli / totale) * 100) : 0;
+    const ruoloPdf = String(ruoloExport || '').toLowerCase().trim();
+    const isAmministratore = ruoloPdf === 'amministratore';
+
+    const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(pratica.id));
+    const riepilogoAggregato = (votazioniRiepiloghi || []).find((item) => Number(item.segnalazione_id) === Number(pratica.id));
+
+    const favorevoli = Number(riepilogoAggregato?.favorevoli ?? votiPratica.filter((v) => v.voto === 'favorevole').length);
+    const contrari = Number(riepilogoAggregato?.contrari ?? votiPratica.filter((v) => v.voto === 'contrario').length);
+    const indecisi = Number(riepilogoAggregato?.indecisi ?? votiPratica.filter((v) => v.voto === 'indeciso').length);
+    const totale = Number(riepilogoAggregato?.totale_voti ?? votiPratica.length);
+    const totaleAventiDiritto = Number(riepilogoAggregato?.totale_aventi_diritto ?? totale);
+    const mancanti = Math.max(Number(riepilogoAggregato?.voti_mancanti ?? Math.max(totaleAventiDiritto - totale, 0)), 0);
+    const partecipazione = Number(riepilogoAggregato?.partecipazione_percentuale ?? (totaleAventiDiritto ? Math.round((totale / totaleAventiDiritto) * 100) : 0));
+    const quorum = Number(riepilogoAggregato?.consenso_percentuale ?? (totale ? Math.round((favorevoli / totale) * 100) : 0));
+    const completata = Boolean(riepilogoAggregato?.completata ?? (totaleAventiDiritto > 0 && totale >= totaleAventiDiritto));
 
     const reportWindow = window.open('', '_blank');
     if (!reportWindow) return;
@@ -3390,37 +3399,8 @@ export default function App() {
       ? votiPratica.map((v) => `<tr><td style="padding:8px;border:1px solid #ccc;">${v.email}</td><td style="padding:8px;border:1px solid #ccc;">${v.voto}</td></tr>`).join('')
       : '<tr><td colspan="2" style="padding:12px;border:1px solid #ccc;">Nessun voto registrato</td></tr>';
 
-    reportWindow.document.write(`
-      <html>
-        <head>
-          <title>Report votazioni - ${pratica.titolo}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 30px; background:#f8fafc; color:#0f172a; }
-            .page { max-width: 900px; margin:auto; background:white; padding:35px; border-radius:20px; }
-            .toolbar { display:flex; justify-content:flex-end; gap:10px; margin-bottom:20px; }
-            .btn { background:#047857; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:bold; cursor:pointer; }
-            table { width:100%; border-collapse:collapse; margin-top:20px; }
-            th, td { text-align:left; }
-            th { background:#ecfdf5; }
-            @media print { .toolbar { display:none; } body { background:white; padding:0; } }
-          </style>
-        </head>
-        <body>
-          <div class="toolbar">
-            <button class="btn" onclick="window.print()">Scarica PDF / Stampa</button>
-          </div>
-          <div class="page">
-            <h1>Condominio Senza Pensieri</h1>
-            <h2>Report votazioni condomini</h2>
-            <p><strong>Condominio:</strong> ${pratica.condominio}</p>
-            <p><strong>Pratica:</strong> ${pratica.titolo}</p>
-            <p><strong>Importo preventivo:</strong> ${formatEuro(pratica.importo_preventivo || 0)}</p>
-            <hr/>
-            <h3>Riepilogo votazioni</h3>
-            <p>Favorevoli: <strong>${favorevoli}</strong></p>
-            <p>Contrari: <strong>${contrari}</strong></p>
-            <p>Indecisi: <strong>${indecisi}</strong></p>
-            <p>Quorum favorevole: <strong>${quorum}%</strong></p>
+    const dettaglioAmministratore = isAmministratore
+      ? `
             <h3>Dettaglio voti</h3>
             <table>
               <thead>
@@ -3433,6 +3413,59 @@ export default function App() {
                 ${dettaglioVoti}
               </tbody>
             </table>
+        `
+      : `
+            <div class="privacy-note">
+              Report sintetico: per tutela della privacy non sono visibili nominativi, email e voti individuali.
+            </div>
+        `;
+
+    reportWindow.document.write(`
+      <html>
+        <head>
+          <title>Report votazioni - ${pratica.titolo}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; background:#f8fafc; color:#0f172a; }
+            .page { max-width: 900px; margin:auto; background:white; padding:35px; border-radius:20px; }
+            .toolbar { display:flex; justify-content:flex-end; gap:10px; margin-bottom:20px; }
+            .btn { background:#047857; color:white; border:none; padding:10px 16px; border-radius:10px; font-weight:bold; cursor:pointer; }
+            .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:20px 0; }
+            .card { border:1px solid #d1fae5; background:#ecfdf5; border-radius:14px; padding:14px; text-align:center; }
+            .card small { display:block; color:#64748b; font-weight:bold; text-transform:uppercase; font-size:10px; letter-spacing:.06em; }
+            .card strong { display:block; margin-top:6px; font-size:24px; color:#047857; }
+            .privacy-note { margin-top:24px; padding:14px; border-radius:14px; background:#f1f5f9; color:#475569; font-size:13px; font-weight:600; }
+            table { width:100%; border-collapse:collapse; margin-top:20px; }
+            th, td { text-align:left; }
+            th { background:#ecfdf5; }
+            .status { display:inline-block; margin-top:6px; padding:7px 12px; border-radius:999px; background:${completata ? '#dcfce7' : '#fef3c7'}; color:${completata ? '#047857' : '#92400e'}; font-weight:bold; font-size:12px; }
+            @media print { .toolbar { display:none; } body { background:white; padding:0; } .page { box-shadow:none; } }
+            @media (max-width: 700px) { .grid { grid-template-columns:repeat(2,1fr); } body { padding:12px; } .page { padding:22px; } }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <button class="btn" onclick="window.print()">Scarica PDF / Stampa</button>
+          </div>
+          <div class="page">
+            <h1>Condominio Senza Pensieri</h1>
+            <h2>${isAmministratore ? 'Report votazioni condomini' : 'Esito votazione'}</h2>
+            <p><strong>Condominio:</strong> ${pratica.condominio}</p>
+            <p><strong>Pratica:</strong> ${pratica.titolo}</p>
+            <p><strong>Importo preventivo:</strong> ${formatEuro(pratica.importo_preventivo || 0)}</p>
+            <p><strong>Stato votazione:</strong> <span class="status">${completata ? 'Completata' : 'In corso'}</span></p>
+            <hr/>
+            <h3>Riepilogo finale</h3>
+            <div class="grid">
+              <div class="card"><small>Favorevoli</small><strong>${favorevoli}</strong></div>
+              <div class="card"><small>Contrari</small><strong>${contrari}</strong></div>
+              <div class="card"><small>Indecisi</small><strong>${indecisi}</strong></div>
+              <div class="card"><small>Consenso</small><strong>${quorum}%</strong></div>
+              <div class="card"><small>Voti ricevuti</small><strong>${totale}</strong></div>
+              <div class="card"><small>Aventi diritto</small><strong>${totaleAventiDiritto}</strong></div>
+              <div class="card"><small>Mancanti</small><strong>${mancanti}</strong></div>
+              <div class="card"><small>Partecipazione</small><strong>${partecipazione}%</strong></div>
+            </div>
+            ${dettaglioAmministratore}
           </div>
         </body>
       </html>
