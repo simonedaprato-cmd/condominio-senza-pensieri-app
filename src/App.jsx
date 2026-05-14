@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.20';
-const APP_VERSION_LABEL = 'CSP v1.0.20';
+const APP_VERSION = '1.0.21';
+const APP_VERSION_LABEL = 'CSP v1.0.21';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3568,6 +3568,7 @@ export default function App() {
   const [votiPreventivi, setVotiPreventivi] = useState([]);
   const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
+  const [gestoreSection, setGestoreSection] = useState('pratiche');
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
@@ -4794,6 +4795,21 @@ export default function App() {
     );
   }
 
+  const gestoreSections = [
+    { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
+    { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche, contratti e report' },
+    { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
+    { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
+  ];
+
+  const renderGestoreSectionTitle = (title, subtitle) => (
+    <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Suite gestore</p>
+      <h2 className="mt-1 text-2xl font-black text-slate-900">{title}</h2>
+      <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
+    </div>
+  );
+
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
@@ -4818,26 +4834,50 @@ export default function App() {
           onLogout={logout}
         />
 
-        <ActionBar
-          condomini={condominiVisibili}
-          filtroCondominioId={filtroCondominioId}
-          onChangeFiltroCondominio={setFiltroCondominioId}
-          filtroStato={filtroStato}
-          onChangeFiltroStato={setFiltroStato}
-          searchTerm={searchTerm}
-          onChangeSearchTerm={setSearchTerm}
-          onRefresh={carica}
-          loading={loading}
-          ruolo={ruoloNormalizzato}
-          showArchiviate={showArchiviate}
-          onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
-          onOpenReportPremium={() => setShowReportSemestrale(true)}
-        />
+        {ruoloNormalizzato !== 'gestore' && (
+          <>
+            <ActionBar
+              condomini={condominiVisibili}
+              filtroCondominioId={filtroCondominioId}
+              onChangeFiltroCondominio={setFiltroCondominioId}
+              filtroStato={filtroStato}
+              onChangeFiltroStato={setFiltroStato}
+              searchTerm={searchTerm}
+              onChangeSearchTerm={setSearchTerm}
+              onRefresh={carica}
+              loading={loading}
+              ruolo={ruoloNormalizzato}
+              showArchiviate={showArchiviate}
+              onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
+              onOpenReportPremium={() => setShowReportSemestrale(true)}
+            />
 
-        <ArchivioReportPremium reports={reportVisibili} />
+            <ArchivioReportPremium reports={reportVisibili} />
+          </>
+        )}
 
         {ruoloNormalizzato === 'gestore' && (
-          <GestioneAnagraficheBox condomini={condomini} onSaved={carica} />
+          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {gestoreSections.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setGestoreSection(section.id)}
+                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
+                    gestoreSection === section.id
+                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  <span className="block text-sm font-black">{section.label}</span>
+                  <span className={`mt-1 block text-[11px] font-semibold ${gestoreSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
+                    {section.subtitle}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
 
         {ruoloNormalizzato === 'amministratore' && (
@@ -4867,30 +4907,45 @@ export default function App() {
           </div>
         )}
 
-        {ruoloNormalizzato !== 'condominio' && (
-          <div className="-mt-2">
-            <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
-          </div>
-        )}
-        {ruoloNormalizzato === 'gestore' && showArchiviate && (
-          <DashboardStorico segnalazioni={segnalazioniVisualizzate} />
-        )}
         {ruoloNormalizzato === 'amministratore' && (
-          <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
-        )}
-        {ruoloNormalizzato === 'gestore' && (
           <>
-            <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <DashboardAssemblea segnalazioni={segnalazioniVisualizzate} votiPreventivi={votiPreventivi} />
-              <DashboardEconomica segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} />
+            <div className="-mt-2">
+              <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
             </div>
+            <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'pratiche' && (
+          <>
+            {renderGestoreSectionTitle('Pratiche', 'Cruscotto operativo, flusso lavori, segnalazioni ed economia delle pratiche.')}
+            <ActionBar
+              condomini={condominiVisibili}
+              filtroCondominioId={filtroCondominioId}
+              onChangeFiltroCondominio={setFiltroCondominioId}
+              filtroStato={filtroStato}
+              onChangeFiltroStato={setFiltroStato}
+              searchTerm={searchTerm}
+              onChangeSearchTerm={setSearchTerm}
+              onRefresh={carica}
+              loading={loading}
+              ruolo={ruoloNormalizzato}
+              showArchiviate={showArchiviate}
+              onToggleArchiviate={() => setShowArchiviate((prev) => !prev)}
+              onOpenReportPremium={() => setShowReportSemestrale(true)}
+            />
+
+            <div className="-mt-2">
+              <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
+            </div>
+
+            <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
 
             <section className="space-y-3 pb-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold">Segnalazioni operative</h2>
-                  <p className="text-sm text-slate-500">Elenco pratiche filtrate, sempre in evidenza prima dei moduli commerciali.</p>
+                  <p className="text-sm text-slate-500">Elenco pratiche filtrate, sempre in evidenza per il lavoro quotidiano.</p>
                 </div>
                 <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
                   {loading ? 'Live...' : 'Aggiorna live'}
@@ -4908,25 +4963,50 @@ export default function App() {
               )}
             </section>
 
-            <GestioneLeadAmministratori onCreateLead={creaLeadAmministratore} />
-            <DashboardLeadAmministratori leadAmministratori={leadAmministratori} />
+            <DashboardEconomica segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} />
+            {showArchiviate && (
+              <DashboardStorico segnalazioni={segnalazioniVisualizzate} />
+            )}
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'condominio' && (
+          <>
+            {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
+            <GestioneAnagraficheBox condomini={condomini} onSaved={carica} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
               onRinnovaContratto={rinnovaContratto}
               onUpgradeContratto={upgradeContratto}
             />
-            <DashboardAbbonamenti contratti={contratti} />
             <DashboardPagamenti contratti={contratti} />
+            <DashboardAbbonamenti contratti={contratti} />
+            <DashboardAssemblea segnalazioni={segnalazioniVisualizzate} votiPreventivi={votiPreventivi} />
+            <ArchivioReportPremium reports={reportVisibili} />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'amministratori' && (
+          <>
+            {renderGestoreSectionTitle('Amministratori', 'CRM, lead, ranking, espansione e pipeline commerciale.')}
             <DashboardCRM contratti={contratti} condomini={condomini} />
-            <DashboardForecast contratti={contratti} />
+            <GestioneLeadAmministratori onCreateLead={creaLeadAmministratore} />
+            <DashboardLeadAmministratori leadAmministratori={leadAmministratori} />
             <DashboardRanking contratti={contratti} condomini={condomini} />
             <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'territorio' && (
+          <>
+            {renderGestoreSectionTitle('Territorio', 'Marginalità, Toscana, opportunità territoriali, lead locali e forecast.')}
             <DashboardMarginalita contratti={contratti} />
             <DashboardTerritorioToscana contratti={contratti} condomini={condomini} />
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
             <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
+            <DashboardForecast contratti={contratti} />
           </>
         )}
 
