@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.23';
-const APP_VERSION_LABEL = 'CSP v1.0.23';
+const APP_VERSION = '1.0.24';
+const APP_VERSION_LABEL = 'CSP v1.0.24';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1539,7 +1539,27 @@ function GestioneLeadAmministratori({ onCreateLead }) {
   const numeroCondomini = Number(form.numero_condomini || 0);
   const valorePotenziale = numeroCondomini * 12 * PIANI_ABBONAMENTO.premium.costo * 12;
 
-  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const update = (field, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (field === 'indirizzo' || field === 'citta') {
+        const indirizzo = field === 'indirizzo' ? value : next.indirizzo;
+        const citta = field === 'citta' ? value : next.citta;
+        const luogoAutomatico = [indirizzo, citta].filter(Boolean).join(', ');
+
+        if (!prev.luogo_incontro || prev.luogo_incontro === [prev.indirizzo, prev.citta].filter(Boolean).join(', ')) {
+          next.luogo_incontro = luogoAutomatico;
+        }
+      }
+
+      if (field === 'data_appuntamento' || field === 'ora_appuntamento') {
+        next.stato_pipeline = next.stato_pipeline === 'prospect' ? 'appuntamento_fissato' : next.stato_pipeline;
+      }
+
+      return next;
+    });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1603,9 +1623,15 @@ function GestioneLeadAmministratori({ onCreateLead }) {
           </select>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <input type="date" value={form.data_appuntamento} onChange={(e) => update('data_appuntamento', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
-          <input type="time" value={form.ora_appuntamento} onChange={(e) => update('ora_appuntamento', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
-          <input value={form.luogo_incontro} onChange={(e) => update('luogo_incontro', e.target.value)} placeholder="Luogo incontro" className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Prossimo incontro previsto
+            <input type="date" value={form.data_appuntamento} onChange={(e) => update('data_appuntamento', e.target.value)} className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-800" />
+          </label>
+          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Ora incontro
+            <input type="time" value={form.ora_appuntamento} onChange={(e) => update('ora_appuntamento', e.target.value)} className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-800" />
+          </label>
+          <input value={form.luogo_incontro} onChange={(e) => update('luogo_incontro', e.target.value)} placeholder="Luogo incontro automatico: indirizzo + città" className="rounded-2xl border border-slate-200 px-3 py-3" />
         </div>
         <textarea value={form.note} onChange={(e) => update('note', e.target.value)} placeholder="Note commerciali" className="min-h-24 w-full rounded-2xl border border-slate-200 px-3 py-3" />
         <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
@@ -1676,6 +1702,21 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
         next.valore_potenziale = numero * 12 * PIANI_ABBONAMENTO.premium.costo * 12;
       }
 
+      if (field === 'indirizzo' || field === 'citta') {
+        const indirizzo = field === 'indirizzo' ? value : next.indirizzo;
+        const citta = field === 'citta' ? value : next.citta;
+        const luogoAutomatico = [indirizzo, citta].filter(Boolean).join(', ');
+        const vecchioLuogoAutomatico = [prev.indirizzo, prev.citta].filter(Boolean).join(', ');
+
+        if (!prev.luogo_incontro || prev.luogo_incontro === vecchioLuogoAutomatico) {
+          next.luogo_incontro = luogoAutomatico;
+        }
+      }
+
+      if (field === 'data_appuntamento' || field === 'ora_appuntamento') {
+        next.stato_pipeline = next.stato_pipeline === 'prospect' ? 'appuntamento_fissato' : next.stato_pipeline;
+      }
+
       return next;
     });
   };
@@ -1711,7 +1752,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     const end = new Date(start.getTime() + 60 * 60 * 1000);
     const toGoogleDate = (date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
-    const location = lead.luogo_incontro || lead.indirizzo || [lead.citta, lead.provincia].filter(Boolean).join(', ');
+    const location = lead.luogo_incontro || [lead.indirizzo, lead.citta].filter(Boolean).join(', ') || [lead.citta, lead.provincia].filter(Boolean).join(', ');
     const details = [
       'Presentazione Condominio Senza Pensieri',
       '',
@@ -1803,9 +1844,15 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
             <input type="date" value={formLead.prossimo_followup || ''} onChange={(e) => aggiornaFormLead('prossimo_followup', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input value={formLead.citta} onChange={(e) => aggiornaFormLead('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input value={formLead.indirizzo} onChange={(e) => aggiornaFormLead('indirizzo', e.target.value)} placeholder="Indirizzo studio" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
-            <input type="date" value={formLead.data_appuntamento || ''} onChange={(e) => aggiornaFormLead('data_appuntamento', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
-            <input type="time" value={formLead.ora_appuntamento || ''} onChange={(e) => aggiornaFormLead('ora_appuntamento', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
-            <input value={formLead.luogo_incontro} onChange={(e) => aggiornaFormLead('luogo_incontro', e.target.value)} placeholder="Luogo incontro" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <label className="text-xs font-bold uppercase tracking-wide text-cyan-700">
+              Prossimo incontro previsto
+              <input type="date" value={formLead.data_appuntamento || ''} onChange={(e) => aggiornaFormLead('data_appuntamento', e.target.value)} className="mt-1 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800" />
+            </label>
+            <label className="text-xs font-bold uppercase tracking-wide text-cyan-700">
+              Ora incontro
+              <input type="time" value={formLead.ora_appuntamento || ''} onChange={(e) => aggiornaFormLead('ora_appuntamento', e.target.value)} className="mt-1 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800" />
+            </label>
+            <input value={formLead.luogo_incontro} onChange={(e) => aggiornaFormLead('luogo_incontro', e.target.value)} placeholder="Luogo incontro automatico: indirizzo + città" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input type="number" min="0" value={formLead.numero_condomini} onChange={(e) => aggiornaFormLead('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input type="number" min="0" value={formLead.valore_potenziale} onChange={(e) => aggiornaFormLead('valore_potenziale', e.target.value)} placeholder="Valore potenziale" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
           </div>
