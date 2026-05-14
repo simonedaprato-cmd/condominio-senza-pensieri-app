@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.24';
-const APP_VERSION_LABEL = 'CSP v1.0.24';
+const APP_VERSION = '1.0.25';
+const APP_VERSION_LABEL = 'CSP v1.0.25';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1654,6 +1654,8 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     luogo_incontro: '',
     citta: '',
     indirizzo: '',
+    telefono: '',
+    email: '',
     note: '',
     numero_condomini: '',
     valore_potenziale: '',
@@ -1687,6 +1689,8 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       luogo_incontro: lead.luogo_incontro || '',
       citta: lead.citta || '',
       indirizzo: lead.indirizzo || '',
+      telefono: lead.telefono || '',
+      email: lead.email || '',
       note: lead.note || '',
       numero_condomini: lead.numero_condomini || '',
       valore_potenziale: lead.valore_potenziale || '',
@@ -1732,6 +1736,8 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       luogo_incontro: formLead.luogo_incontro,
       citta: formLead.citta,
       indirizzo: formLead.indirizzo,
+      telefono: formLead.telefono,
+      email: formLead.email,
       note: formLead.note,
       numero_condomini: Number(formLead.numero_condomini || 0),
       valore_potenziale: Number(formLead.valore_potenziale || 0),
@@ -1844,6 +1850,8 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
             <input type="date" value={formLead.prossimo_followup || ''} onChange={(e) => aggiornaFormLead('prossimo_followup', e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input value={formLead.citta} onChange={(e) => aggiornaFormLead('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input value={formLead.indirizzo} onChange={(e) => aggiornaFormLead('indirizzo', e.target.value)} placeholder="Indirizzo studio" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input value={formLead.telefono} onChange={(e) => aggiornaFormLead('telefono', e.target.value)} placeholder="Telefono aggiornato" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input type="email" value={formLead.email} onChange={(e) => aggiornaFormLead('email', e.target.value)} placeholder="Email aggiornata" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <label className="text-xs font-bold uppercase tracking-wide text-cyan-700">
               Prossimo incontro previsto
               <input type="date" value={formLead.data_appuntamento || ''} onChange={(e) => aggiornaFormLead('data_appuntamento', e.target.value)} className="mt-1 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800" />
@@ -1854,7 +1862,14 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
             </label>
             <input value={formLead.luogo_incontro} onChange={(e) => aggiornaFormLead('luogo_incontro', e.target.value)} placeholder="Luogo incontro automatico: indirizzo + città" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
             <input type="number" min="0" value={formLead.numero_condomini} onChange={(e) => aggiornaFormLead('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
-            <input type="number" min="0" value={formLead.valore_potenziale} onChange={(e) => aggiornaFormLead('valore_potenziale', e.target.value)} placeholder="Valore potenziale" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <label className="rounded-2xl border border-cyan-200 bg-white px-3 py-2">
+              <span className="block text-[10px] font-black uppercase tracking-wide text-cyan-700">Valore potenziale</span>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-lg font-black text-cyan-700">€</span>
+                <input type="number" min="0" value={formLead.valore_potenziale} onChange={(e) => aggiornaFormLead('valore_potenziale', e.target.value)} placeholder="0" className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none" />
+              </div>
+              <span className="mt-1 block text-xs font-black text-cyan-700">{formatEuro(Number(formLead.valore_potenziale || 0))}</span>
+            </label>
           </div>
 
           <textarea value={formLead.note} onChange={(e) => aggiornaFormLead('note', e.target.value)} placeholder="Note dopo incontro, prossimi passi, obiezioni, richieste..." className="mt-3 min-h-28 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
@@ -1888,6 +1903,11 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
                   <p className="text-xs text-slate-500">{lead.provincia} • {lead.citta || 'Città n.d.'} • {labelStato(lead.stato_pipeline)} • {lead.numero_condomini || 0} condomini</p>
                   {lead.indirizzo && (
                     <p className="mt-1 text-xs font-semibold text-slate-500">📍 {lead.indirizzo}</p>
+                  )}
+                  {(lead.telefono || lead.email) && (
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {lead.telefono ? `☎ ${lead.telefono}` : ''}{lead.telefono && lead.email ? ' • ' : ''}{lead.email ? `✉ ${lead.email}` : ''}
+                    </p>
                   )}
                   {lead.data_appuntamento && (
                     <p className="mt-1 text-xs font-bold text-sky-700">
