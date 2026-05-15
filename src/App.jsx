@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.44';
-const APP_VERSION_LABEL = 'CSP v1.0.44';
+const APP_VERSION = '1.0.45';
+const APP_VERSION_LABEL = 'CSP v1.0.45';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3635,7 +3635,7 @@ function DashboardEconomica({ segnalazioni, condomini }) {
   );
 }
 
-function DashboardVendite({ segnalazioni, fatturePartner = [], provvigioniMaturate = [] }) {
+function DashboardEconomicaAmministratore({ segnalazioni, fatturePartner = [], provvigioniMaturate = [] }) {
   const preventivi = segnalazioni.filter((s) => Number(s.importo_preventivo || 0) > 0);
   const deliberati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
 
@@ -3645,18 +3645,31 @@ function DashboardVendite({ segnalazioni, fatturePartner = [], provvigioniMatura
 
   const fatturePagate = (fatturePartner || []).filter((f) => String(f.stato || '').toLowerCase() === 'pagata');
   const imponibilePagato = fatturePagate.reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
-  const provvigione = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0) || (imponibilePagato * 0.10);
+  const provvigioneDaLog = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0);
+  const provvigione = provvigioneDaLog || (imponibilePagato * 0.10);
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Vendite</p>
-      <h2 className="mt-1 text-xl font-bold">Dashboard vendite amministratore</h2>
-      <p className="mt-1 text-sm text-slate-500">Provvigione aggiornata solo su fatture pagate e calcolata sull’imponibile.</p>
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <DashboardStat label="Totale preventivi" value={formatEuro(totalePreventivi)} />
+    <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Dashboard economica</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">Quadro economico amministratore</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            La provvigione matura solo quando la fattura è pagata ed è calcolata sull’imponibile.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right">
+          <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Provvigione maturata</p>
+          <p className="mt-1 text-2xl font-black text-emerald-800">{formatEuro(provvigione)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <DashboardStat label="Totale preventivi" value={formatEuro(totalePreventivi)} tone="slate" />
         <DashboardStat label="Totale deliberato" value={formatEuro(totaleDeliberato)} tone="emerald" />
         <DashboardStat label="Da deliberare" value={formatEuro(daDeliberare)} tone="amber" />
-        <DashboardStat label="Provvigione maturata" value={formatEuro(provvigione)} tone="sky" />
+        <DashboardStat label="Imponibile pagato" value={formatEuro(imponibilePagato)} tone="sky" />
+        <DashboardStat label="Fatture pagate" value={fatturePagate.length} tone="emerald" />
       </div>
     </section>
   );
@@ -6920,6 +6933,30 @@ export default function App() {
           onLogout={logout}
         />
 
+        {ruoloNormalizzato === 'amministratore' && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-2">
+              {amministratoreSections.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setAmministratoreSection(section.id)}
+                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
+                    amministratoreSection === section.id
+                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  <span className="block text-sm font-black">{section.label}</span>
+                  <span className={`mt-1 block text-[11px] font-semibold ${amministratoreSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
+                    {section.subtitle}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {ruoloNormalizzato !== 'gestore' && (ruoloNormalizzato !== 'amministratore' || amministratoreSection === 'pratiche') && (
           <>
             <ActionBar
@@ -6966,30 +7003,6 @@ export default function App() {
           </section>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && (
-          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-2 gap-2">
-              {amministratoreSections.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setAmministratoreSection(section.id)}
-                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
-                    amministratoreSection === section.id
-                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
-                  }`}
-                >
-                  <span className="block text-sm font-black">{section.label}</span>
-                  <span className={`mt-1 block text-[11px] font-semibold ${amministratoreSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
-                    {section.subtitle}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
         {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
@@ -7022,20 +7035,22 @@ export default function App() {
             <div className="-mt-2">
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
             </div>
-            <DashboardVendite
-              segnalazioni={segnalazioniVisualizzate}
-              fatturePartner={fatturePartner}
-              provvigioniMaturate={provvigioniMaturate}
-            />
           </>
         )}
 
         {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'fatturazione' && (
-          <FatturazioneAmministratoreSuite
-            fatturePartner={fatturePartner}
-            condomini={condomini}
-            aziendePartner={aziendePartner}
-          />
+          <>
+            <DashboardEconomicaAmministratore
+              segnalazioni={segnalazioniVisualizzate}
+              fatturePartner={fatturePartner}
+              provvigioniMaturate={provvigioniMaturate}
+            />
+            <FatturazioneAmministratoreSuite
+              fatturePartner={fatturePartner}
+              condomini={condomini}
+              aziendePartner={aziendePartner}
+            />
+          </>
         )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'pratiche' && (
