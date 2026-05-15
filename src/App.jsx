@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.43';
-const APP_VERSION_LABEL = 'CSP v1.0.43';
+const APP_VERSION = '1.0.44';
+const APP_VERSION_LABEL = 'CSP v1.0.44';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3635,25 +3635,28 @@ function DashboardEconomica({ segnalazioni, condomini }) {
   );
 }
 
-function DashboardVendite({ segnalazioni }) {
+function DashboardVendite({ segnalazioni, fatturePartner = [], provvigioniMaturate = [] }) {
   const preventivi = segnalazioni.filter((s) => Number(s.importo_preventivo || 0) > 0);
   const deliberati = segnalazioni.filter((s) => s.stato_conversione === 'accettato');
 
   const totalePreventivi = preventivi.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
   const totaleDeliberato = deliberati.reduce((sum, s) => sum + Number(s.importo_preventivo || 0), 0);
   const daDeliberare = Math.max(totalePreventivi - totaleDeliberato, 0);
-  const provvigione = totaleDeliberato * 0.10;
+
+  const fatturePagate = (fatturePartner || []).filter((f) => String(f.stato || '').toLowerCase() === 'pagata');
+  const imponibilePagato = fatturePagate.reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
+  const provvigione = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0) || (imponibilePagato * 0.10);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Vendite</p>
       <h2 className="mt-1 text-xl font-bold">Dashboard vendite amministratore</h2>
-      <p className="mt-1 text-sm text-slate-500">Totale preventivi, deliberato, da deliberare e provvigione stimata al 10%.</p>
+      <p className="mt-1 text-sm text-slate-500">Provvigione aggiornata solo su fatture pagate e calcolata sull’imponibile.</p>
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <DashboardStat label="Totale preventivi" value={formatEuro(totalePreventivi)} />
         <DashboardStat label="Totale deliberato" value={formatEuro(totaleDeliberato)} tone="emerald" />
         <DashboardStat label="Da deliberare" value={formatEuro(daDeliberare)} tone="amber" />
-        <DashboardStat label="Provvigione 10%" value={formatEuro(provvigione)} tone="sky" />
+        <DashboardStat label="Provvigione maturata" value={formatEuro(provvigione)} tone="sky" />
       </div>
     </section>
   );
@@ -5362,6 +5365,7 @@ export default function App() {
   const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
   const [gestoreSection, setGestoreSection] = useState('pratiche');
+  const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
   const [aziendePartner, setAziendePartner] = useState([]);
@@ -6879,6 +6883,11 @@ export default function App() {
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
   ];
 
+  const amministratoreSections = [
+    { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
+    { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture, scadenze e PDF' },
+  ];
+
   const renderGestoreSectionTitle = (title, subtitle) => (
     <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Suite gestore</p>
@@ -6911,7 +6920,7 @@ export default function App() {
           onLogout={logout}
         />
 
-        {ruoloNormalizzato !== 'gestore' && (
+        {ruoloNormalizzato !== 'gestore' && (ruoloNormalizzato !== 'amministratore' || amministratoreSection === 'pratiche') && (
           <>
             <ActionBar
               condomini={condominiVisibili}
@@ -6958,6 +6967,30 @@ export default function App() {
         )}
 
         {ruoloNormalizzato === 'amministratore' && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-2">
+              {amministratoreSections.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setAmministratoreSection(section.id)}
+                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
+                    amministratoreSection === section.id
+                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  <span className="block text-sm font-black">{section.label}</span>
+                  <span className={`mt-1 block text-[11px] font-semibold ${amministratoreSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
+                    {section.subtitle}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
@@ -6984,18 +7017,25 @@ export default function App() {
           </div>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && (
+        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
           <>
             <div className="-mt-2">
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
             </div>
-            <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
-            <FatturazioneAmministratoreSuite
+            <DashboardVendite
+              segnalazioni={segnalazioniVisualizzate}
               fatturePartner={fatturePartner}
-              condomini={condomini}
-              aziendePartner={aziendePartner}
+              provvigioniMaturate={provvigioniMaturate}
             />
           </>
+        )}
+
+        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'fatturazione' && (
+          <FatturazioneAmministratoreSuite
+            fatturePartner={fatturePartner}
+            condomini={condomini}
+            aziendePartner={aziendePartner}
+          />
         )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'pratiche' && (
