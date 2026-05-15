@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.28';
-const APP_VERSION_LABEL = 'CSP v1.0.28';
+const APP_VERSION = '1.0.30';
+const APP_VERSION_LABEL = 'CSP v1.0.30';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2253,6 +2253,346 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
   );
 }
 
+
+function FatturazionePartnerSuite({
+  aziendePartner,
+  provvigioniPartner,
+  fatturePartner,
+  provvigioniMaturate,
+  condomini,
+  segnalazioni,
+  utentiSistema,
+  onCreateAziendaPartner,
+  onCreateFatturaPartner,
+  onUpdateFatturaPartner,
+}) {
+  const [aziendaForm, setAziendaForm] = useState({
+    ragione_sociale: '',
+    partita_iva: '',
+    email: '',
+    telefono: '',
+    referente: '',
+    tipo_attivita: 'Impresa edile',
+    citta: '',
+    provincia: 'Firenze',
+    percentuale_gestore: '',
+    note: '',
+  });
+
+  const [fatturaForm, setFatturaForm] = useState({
+    azienda_partner_id: '',
+    amministratore_email: '',
+    condominio_id: '',
+    segnalazione_id: '',
+    numero_fattura: '',
+    descrizione: '',
+    importo_imponibile: '',
+    iva: '',
+    totale: '',
+    file_url: '',
+    data_emissione: new Date().toISOString().slice(0, 10),
+    data_scadenza: '',
+    stato: 'bozza',
+    note: '',
+  });
+
+  const updateAzienda = (field, value) => setAziendaForm((prev) => ({ ...prev, [field]: value }));
+
+  const updateFattura = (field, value) => {
+    setFatturaForm((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (field === 'importo_imponibile' || field === 'iva') {
+        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
+        const iva = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + iva) * 100) / 100;
+      }
+
+      return next;
+    });
+  };
+
+  const amministratori = (utentiSistema || []).filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore');
+
+  const fatturatoTotale = (fatturePartner || []).reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
+  const fatturatoPagato = (fatturePartner || []).filter((f) => f.stato === 'pagata').reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
+  const fattureScadute = (fatturePartner || []).filter((f) => f.stato === 'scaduta').length;
+  const provvigioniGestore = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_gestore || 0), 0);
+  const provvigioniAmministratori = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0);
+
+  const creaAzienda = async (e) => {
+    e.preventDefault();
+    if (!aziendaForm.ragione_sociale.trim()) return;
+
+    await onCreateAziendaPartner({
+      ...aziendaForm,
+      percentuale_gestore: Number(aziendaForm.percentuale_gestore || 0),
+    });
+
+    setAziendaForm({
+      ragione_sociale: '',
+      partita_iva: '',
+      email: '',
+      telefono: '',
+      referente: '',
+      tipo_attivita: 'Impresa edile',
+      citta: '',
+      provincia: 'Firenze',
+      percentuale_gestore: '',
+      note: '',
+    });
+  };
+
+  const creaFattura = async (e) => {
+    e.preventDefault();
+    if (!fatturaForm.azienda_partner_id) return;
+
+    await onCreateFatturaPartner({
+      ...fatturaForm,
+      azienda_partner_id: Number(fatturaForm.azienda_partner_id),
+      condominio_id: fatturaForm.condominio_id ? Number(fatturaForm.condominio_id) : null,
+      segnalazione_id: fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+      importo_imponibile: Number(fatturaForm.importo_imponibile || 0),
+      iva: Number(fatturaForm.iva || 0),
+      totale: Number(fatturaForm.totale || 0),
+      data_scadenza: fatturaForm.data_scadenza || null,
+    });
+
+    setFatturaForm({
+      azienda_partner_id: '',
+      amministratore_email: '',
+      condominio_id: '',
+      segnalazione_id: '',
+      numero_fattura: '',
+      descrizione: '',
+      importo_imponibile: '',
+      iva: '',
+      totale: '',
+      file_url: '',
+      data_emissione: new Date().toISOString().slice(0, 10),
+      data_scadenza: '',
+      stato: 'bozza',
+      note: '',
+    });
+  };
+
+  const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
+  const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
+
+  const provvigioniPerAzienda = (aziendePartner || []).map((azienda) => {
+    const maturate = (provvigioniMaturate || []).filter((p) => Number(p.azienda_partner_id) === Number(azienda.id));
+    const totaleGestore = maturate.reduce((sum, p) => sum + Number(p.importo_gestore || 0), 0);
+    const totaleAmministratore = maturate.reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0);
+
+    return {
+      azienda,
+      totaleGestore,
+      totaleAmministratore,
+      fatture: (fatturePartner || []).filter((f) => Number(f.azienda_partner_id) === Number(azienda.id)).length,
+    };
+  });
+
+  return (
+    <section className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <DashboardStat label="Fatturato totale" value={formatEuro(fatturatoTotale)} tone="slate" />
+        <DashboardStat label="Fatturato pagato" value={formatEuro(fatturatoPagato)} tone="emerald" />
+        <DashboardStat label="Fatture scadute" value={fattureScadute} tone="red" />
+        <DashboardStat label="Provv. gestore" value={formatEuro(provvigioniGestore)} tone="sky" />
+        <DashboardStat label="Provv. amministratori" value={formatEuro(provvigioniAmministratori)} tone="amber" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
+          <h2 className="mt-1 text-xl font-bold">Nuova azienda partner</h2>
+          <p className="mt-1 text-sm text-slate-500">Inserisci l’azienda fatturante e la provvigione gestore valida da oggi.</p>
+
+          <form onSubmit={creaAzienda} className="mt-4 space-y-3">
+            <input value={aziendaForm.ragione_sociale} onChange={(e) => updateAzienda('ragione_sociale', e.target.value)} placeholder="Ragione sociale" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input value={aziendaForm.partita_iva} onChange={(e) => updateAzienda('partita_iva', e.target.value)} placeholder="Partita IVA" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.tipo_attivita} onChange={(e) => updateAzienda('tipo_attivita', e.target.value)} placeholder="Tipo attività" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.referente} onChange={(e) => updateAzienda('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.telefono} onChange={(e) => updateAzienda('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.email} onChange={(e) => updateAzienda('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="number" step="0.01" value={aziendaForm.percentuale_gestore} onChange={(e) => updateAzienda('percentuale_gestore', e.target.value)} placeholder="% provvigione gestore" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.citta} onChange={(e) => updateAzienda('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.provincia} onChange={(e) => updateAzienda('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 px-3 py-3" />
+            </div>
+            <textarea value={aziendaForm.note} onChange={(e) => updateAzienda('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">Salva azienda partner</button>
+          </form>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatture</p>
+          <h2 className="mt-1 text-xl font-bold">Nuova fattura partner</h2>
+          <p className="mt-1 text-sm text-slate-500">Collega fattura ad azienda partner, amministratore, condominio ed eventuale pratica.</p>
+
+          <form onSubmit={creaFattura} className="mt-4 space-y-3">
+            <select value={fatturaForm.azienda_partner_id} onChange={(e) => updateFattura('azienda_partner_id', e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
+              <option value="">Seleziona azienda partner</option>
+              {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+            </select>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <select value={fatturaForm.amministratore_email} onChange={(e) => updateFattura('amministratore_email', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                <option value="">Amministratore</option>
+                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
+              </select>
+              <select value={fatturaForm.condominio_id} onChange={(e) => updateFattura('condominio_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                <option value="">Condominio</option>
+                {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+              <select value={fatturaForm.segnalazione_id} onChange={(e) => updateFattura('segnalazione_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                <option value="">Pratica collegata</option>
+                {(segnalazioni || []).slice(0, 80).map((s) => <option key={s.id} value={s.id}>{s.titolo}</option>)}
+              </select>
+              <input value={fatturaForm.numero_fattura} onChange={(e) => updateFattura('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaForm.importo_imponibile} onChange={(e) => updateFattura('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaForm.iva} onChange={(e) => updateFattura('iva', e.target.value)} placeholder="IVA" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaForm.totale} onChange={(e) => updateFattura('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <select value={fatturaForm.stato} onChange={(e) => updateFattura('stato', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                <option value="bozza">Bozza</option>
+                <option value="inviata">Inviata</option>
+                <option value="pagata">Pagata</option>
+                <option value="scaduta">Scaduta</option>
+                <option value="annullata">Annullata</option>
+              </select>
+              <input type="date" value={fatturaForm.data_emissione} onChange={(e) => updateFattura('data_emissione', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="date" value={fatturaForm.data_scadenza} onChange={(e) => updateFattura('data_scadenza', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
+            </div>
+            <input value={fatturaForm.file_url} onChange={(e) => updateFattura('file_url', e.target.value)} placeholder="Link PDF fattura" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <textarea value={fatturaForm.descrizione} onChange={(e) => updateFattura('descrizione', e.target.value)} placeholder="Descrizione" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <button type="submit" className="w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva fattura</button>
+          </form>
+        </section>
+      </div>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Elenco fatture</p>
+            <h2 className="mt-1 text-xl font-bold">Fatture partner e pagamenti</h2>
+          </div>
+          <p className="text-xs font-bold text-slate-500">Segna “Pagata” per maturare automaticamente le provvigioni.</p>
+        </div>
+
+        <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[980px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Fattura</th>
+                <th className="px-3 py-3">Partner</th>
+                <th className="px-3 py-3">Condominio</th>
+                <th className="px-3 py-3">Amministratore</th>
+                <th className="px-3 py-3 text-right">Totale</th>
+                <th className="px-3 py-3">Stato</th>
+                <th className="px-3 py-3 text-right">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(fatturePartner || []).length === 0 ? (
+                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura inserita.</td></tr>
+              ) : (
+                fatturePartner.map((fattura) => (
+                  <tr key={fattura.id} className="border-t border-slate-100 align-top hover:bg-slate-50">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs text-slate-500">{fattura.data_emissione || 'n.d.'} • Scad. {fattura.data_scadenza || 'n.d.'}</p>
+                      {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-700">Apri PDF</a>}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-700">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-slate-600">{condominioById(fattura.condominio_id)?.nome || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-slate-600">{fattura.amministratore_email || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.totale || 0)}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                        fattura.stato === 'pagata' ? 'bg-emerald-100 text-emerald-700' :
+                        fattura.stato === 'scaduta' ? 'bg-red-100 text-red-700' :
+                        fattura.stato === 'inviata' ? 'bg-sky-100 text-sky-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {fattura.stato}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        {fattura.stato !== 'pagata' && (
+                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'pagata', pagata_il: new Date().toISOString().slice(0, 10) })} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">
+                            Pagata
+                          </button>
+                        )}
+                        {fattura.stato !== 'scaduta' && fattura.stato !== 'pagata' && (
+                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'scaduta' })} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">
+                            Scaduta
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Provvigioni maturate</p>
+          <h2 className="mt-1 text-xl font-bold">Riparto provvigionale</h2>
+          <div className="mt-4 max-h-[380px] overflow-auto csp-scroll">
+            {(provvigioniMaturate || []).length === 0 ? (
+              <EmptyState icon="€" title="Nessuna provvigione maturata" text="Le provvigioni compariranno quando una fattura sarà registrata come pagata." action="In attesa pagamenti" tone="slate" />
+            ) : (
+              <div className="space-y-2">
+                {provvigioniMaturate.map((p) => (
+                  <div key={p.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black text-slate-900">{aziendaById(p.azienda_partner_id)?.ragione_sociale || 'Partner'}</p>
+                        <p className="text-xs text-slate-500">{p.amministratore_email || 'Amministratore n.d.'} • {p.data_maturazione}</p>
+                      </div>
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black uppercase text-amber-700">{p.stato_liquidazione}</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <DashboardStat label="Fattura" value={formatEuro(p.totale_fattura || 0)} tone="slate" />
+                      <DashboardStat label="Gestore" value={formatEuro(p.importo_gestore || 0)} tone="sky" />
+                      <DashboardStat label="Amm. 10%" value={formatEuro(p.importo_amministratore || 0)} tone="amber" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-purple-700">Divisione per partner</p>
+          <h2 className="mt-1 text-xl font-bold">Provvigioni per azienda</h2>
+          <div className="mt-4 space-y-2">
+            {provvigioniPerAzienda.length === 0 ? (
+              <EmptyState icon="🏢" title="Nessuna azienda partner" text="Inserisci la prima azienda partner per attivare il monitoraggio economico." action="Partner da creare" tone="slate" />
+            ) : (
+              provvigioniPerAzienda.map((row) => (
+                <div key={row.azienda.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-black text-slate-900">{row.azienda.ragione_sociale}</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <DashboardStat label="Fatture" value={row.fatture} tone="slate" />
+                    <DashboardStat label="Gestore" value={formatEuro(row.totaleGestore)} tone="sky" />
+                    <DashboardStat label="Amm." value={formatEuro(row.totaleAmministratore)} tone="amber" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function DashboardCRM({ contratti, condomini }) {
   const attivi = contratti.filter((c) => c.stato === 'attivo');
 
@@ -4194,6 +4534,10 @@ export default function App() {
   const [gestoreSection, setGestoreSection] = useState('pratiche');
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
+  const [aziendePartner, setAziendePartner] = useState([]);
+  const [provvigioniPartner, setProvvigioniPartner] = useState([]);
+  const [fatturePartner, setFatturePartner] = useState([]);
+  const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -4459,6 +4803,38 @@ export default function App() {
 
       if (leadError && leadError.code !== 'PGRST116') throw leadError;
       setLeadAmministratori(leadData || []);
+
+      const { data: aziendePartnerData, error: aziendePartnerError } = await supabase
+        .from('aziende_partner')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (aziendePartnerError && aziendePartnerError.code !== 'PGRST116' && aziendePartnerError.code !== '42P01') throw aziendePartnerError;
+      setAziendePartner(aziendePartnerData || []);
+
+      const { data: provvigioniPartnerData, error: provvigioniPartnerError } = await supabase
+        .from('provvigioni_partner')
+        .select('*')
+        .order('valida_dal', { ascending: false });
+
+      if (provvigioniPartnerError && provvigioniPartnerError.code !== 'PGRST116' && provvigioniPartnerError.code !== '42P01') throw provvigioniPartnerError;
+      setProvvigioniPartner(provvigioniPartnerData || []);
+
+      const { data: fatturePartnerData, error: fatturePartnerError } = await supabase
+        .from('fatture_partner')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fatturePartnerError && fatturePartnerError.code !== 'PGRST116' && fatturePartnerError.code !== '42P01') throw fatturePartnerError;
+      setFatturePartner(fatturePartnerData || []);
+
+      const { data: provvigioniMaturateData, error: provvigioniMaturateError } = await supabase
+        .from('provvigioni_maturate')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (provvigioniMaturateError && provvigioniMaturateError.code !== 'PGRST116' && provvigioniMaturateError.code !== '42P01') throw provvigioniMaturateError;
+      setProvvigioniMaturate(provvigioniMaturateData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -5274,6 +5650,78 @@ export default function App() {
     }
   };
 
+  const creaAziendaPartner = async (azienda) => {
+    try {
+      const percentualeGestore = Number(azienda.percentuale_gestore || 0);
+      const payloadAzienda = { ...azienda };
+      delete payloadAzienda.percentuale_gestore;
+
+      const { data, error } = await supabase
+        .from('aziende_partner')
+        .insert(payloadAzienda)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data?.id) {
+        const { error: provvigioneError } = await supabase
+          .from('provvigioni_partner')
+          .insert({
+            azienda_partner_id: data.id,
+            percentuale_gestore: percentualeGestore,
+            valida_dal: new Date().toISOString().slice(0, 10),
+            attiva: true,
+          });
+
+        if (provvigioneError) throw provvigioneError;
+      }
+
+      setStatusMessage('Azienda partner salvata con provvigione gestore.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore creazione azienda partner: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const creaFatturaPartner = async (fattura) => {
+    try {
+      const { error } = await supabase
+        .from('fatture_partner')
+        .insert(fattura);
+
+      if (error) throw error;
+
+      setStatusMessage('Fattura partner salvata con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore creazione fattura: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const aggiornaFatturaPartner = async (fatturaId, updatePayload) => {
+    try {
+      const { error } = await supabase
+        .from('fatture_partner')
+        .update(updatePayload)
+        .eq('id', fatturaId);
+
+      if (error) throw error;
+
+      setFatturePartner((prev) => prev.map((fattura) => (
+        Number(fattura.id) === Number(fatturaId) ? { ...fattura, ...updatePayload } : fattura
+      )));
+
+      setStatusMessage('Fattura aggiornata con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento fattura: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -5444,6 +5892,7 @@ export default function App() {
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche, contratti e report' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
+    { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
   ];
 
   const renderGestoreSectionTitle = (title, subtitle) => (
@@ -5502,7 +5951,7 @@ export default function App() {
 
         {ruoloNormalizzato === 'gestore' && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
               {gestoreSections.map((section) => (
                 <button
                   key={section.id}
@@ -5651,6 +6100,24 @@ export default function App() {
             <DashboardProvinceOpportunita contratti={contratti} condomini={condomini} />
             <DashboardLeadCommercialeToscana contratti={contratti} condomini={condomini} />
             <DashboardForecast contratti={contratti} />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'fatturazione' && (
+          <>
+            {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture, pagamenti, provvigioni e liquidazioni.')}
+            <FatturazionePartnerSuite
+              aziendePartner={aziendePartner}
+              provvigioniPartner={provvigioniPartner}
+              fatturePartner={fatturePartner}
+              provvigioniMaturate={provvigioniMaturate}
+              condomini={condomini}
+              segnalazioni={segnalazioni}
+              utentiSistema={utentiSistema}
+              onCreateAziendaPartner={creaAziendaPartner}
+              onCreateFatturaPartner={creaFatturaPartner}
+              onUpdateFatturaPartner={aggiornaFatturaPartner}
+            />
           </>
         )}
 
