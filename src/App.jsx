@@ -2261,37 +2261,6 @@ function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePar
   const [searchFornitore, setSearchFornitore] = useState('');
   const [searchStato, setSearchStato] = useState('');
 
-  const creaFatturaProvvigioneAdmin = async (e) => {
-    e.preventDefault();
-
-    if (!adminProvvForm.amministratore_email || !adminProvvForm.azienda_partner_id || !adminProvvForm.numero_fattura) {
-      alert('Seleziona amministratore, fornitore e numero fattura.');
-      return;
-    }
-
-    await onCreateFatturaProvvigioneAmministratore({
-      ...adminProvvForm,
-      azienda_partner_id: Number(adminProvvForm.azienda_partner_id),
-      importo_imponibile: Number(adminProvvForm.importo_imponibile || 0),
-      iva: Number(adminProvvForm.iva || 0),
-      totale: Number(adminProvvForm.totale || 0),
-      data_fattura: adminProvvForm.data_fattura || new Date().toISOString().slice(0, 10),
-    });
-
-    setAdminProvvForm({
-      amministratore_email: '',
-      azienda_partner_id: '',
-      numero_fattura: '',
-      periodo: '',
-      data_fattura: new Date().toISOString().slice(0, 10),
-      importo_imponibile: '',
-      iva: '22',
-      totale: '',
-      file_url: '',
-      note: '',
-    });
-  };
-
   const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
   const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
 
@@ -2322,14 +2291,11 @@ function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePar
     })
     .sort((a, b) => String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || '')));
 
-  const fornitoriDaFatture = [...new Map(
-    (fatture || [])
-      .map((fattura) => {
-        const azienda = aziendaById(fattura.azienda_partner_id);
-        return azienda ? [Number(azienda.id), azienda] : null;
-      })
-      .filter(Boolean)
-  ).values()].sort((a, b) => String(a.ragione_sociale || '').localeCompare(String(b.ragione_sociale || '')));
+  const fornitoriIdsFatture = [...new Set((fatture || []).map((fattura) => Number(fattura.azienda_partner_id)).filter(Boolean))];
+
+  const fornitoriFiltro = (aziendePartner || [])
+    .filter((azienda) => fornitoriIdsFatture.length === 0 || fornitoriIdsFatture.includes(Number(azienda.id)))
+    .sort((a, b) => String(a.ragione_sociale || '').localeCompare(String(b.ragione_sociale || '')));
 
   const fattureFiltrate = fatture.filter((fattura) => {
     const condominio = condominioById(fattura.condominio_id)?.nome || '';
@@ -2418,7 +2384,7 @@ function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePar
           </select>
           <select value={searchFornitore} onChange={(e) => setSearchFornitore(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
             <option value="">Tutti i fornitori</option>
-            {fornitoriDaFatture.map((azienda) => <option key={azienda.id} value={azienda.ragione_sociale}>{azienda.ragione_sociale}</option>)}
+            {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.ragione_sociale}>{azienda.ragione_sociale}</option>)}
           </select>
           <select value={searchStato} onChange={(e) => setSearchStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
             <option value="">Tutti gli stati</option>
@@ -2496,7 +2462,6 @@ function FatturazionePartnerSuite({
   fatturePartner,
   provvigioniMaturate,
   fattureProvvigioniGestore,
-  fattureProvvigioniAmministratori,
   condomini,
   segnalazioni,
   utentiSistema,
@@ -2508,7 +2473,6 @@ function FatturazionePartnerSuite({
   onInviaFatturaPartner,
   onUploadFatturaPdf,
   onCreateFatturaProvvigioneGestore,
-  onCreateFatturaProvvigioneAmministratore,
 }) {
   const [aziendaForm, setAziendaForm] = useState({
     ragione_sociale: '',
@@ -2591,34 +2555,6 @@ function FatturazionePartnerSuite({
     file_url: '',
     note: '',
   });
-
-  const [adminProvvFiltroEmail, setAdminProvvFiltroEmail] = useState('');
-  const [adminProvvForm, setAdminProvvForm] = useState({
-    amministratore_email: '',
-    azienda_partner_id: '',
-    numero_fattura: '',
-    periodo: '',
-    data_fattura: new Date().toISOString().slice(0, 10),
-    importo_imponibile: '',
-    iva: '22',
-    totale: '',
-    file_url: '',
-    note: '',
-  });
-
-  const updateAdminProvvForm = (field, value) => {
-    setAdminProvvForm((prev) => {
-      const next = { ...prev, [field]: value };
-
-      if (field === 'importo_imponibile' || field === 'iva') {
-        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
-        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
-        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
-      }
-
-      return next;
-    });
-  };
 
   const updateMiaFattura = (field, value) => {
     setMiaFatturaForm((prev) => {
@@ -2781,15 +2717,6 @@ function FatturazionePartnerSuite({
   const amministratori = (utentiSistema || []).filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore');
   const praticheChiuse = (segnalazioni || []).filter((s) => String(s.stato || '').toLowerCase().trim() === 'chiusa');
 
-  const provvigioniMaturateFiltrateAdmin = (provvigioniMaturate || []).filter((p) => (
-    !adminProvvFiltroEmail || String(p.amministratore_email || '').toLowerCase() === adminProvvFiltroEmail.toLowerCase()
-  ));
-  const fattureProvvAdminFiltrate = (fattureProvvigioniAmministratori || []).filter((f) => (
-    !adminProvvFiltroEmail || String(f.amministratore_email || '').toLowerCase() === adminProvvFiltroEmail.toLowerCase()
-  ));
-  const provvigioniAdminTotali = provvigioniMaturateFiltrateAdmin.reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0);
-  const provvigioniAdminFatturate = fattureProvvAdminFiltrate.reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
-  const provvigioniAdminDaFatturare = Math.max(provvigioniAdminTotali - provvigioniAdminFatturate, 0);
 
   const fatturatoTotale = (fatturePartner || []).reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
   const fatturatoPagato = (fatturePartner || []).filter((f) => f.stato === 'pagata').reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
@@ -3308,84 +3235,6 @@ function FatturazionePartnerSuite({
                       <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
                       <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
                       <td className="px-3 py-3 text-right font-black text-violet-700">{formatEuro(fattura.totale || 0)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Provvigioni amministratori</p>
-            <h2 className="mt-1 text-xl font-bold">Fatture trimestrali amministratori</h2>
-            <p className="mt-1 text-sm text-slate-500">Registra le fatture di provvigione degli amministratori, pagate dai fornitori, divise per amministratore e fornitore.</p>
-          </div>
-          <select value={adminProvvFiltroEmail} onChange={(e) => setAdminProvvFiltroEmail(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold md:w-80">
-            <option value="">Tutti gli amministratori</option>
-            {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
-          </select>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <DashboardStat label="Provvigioni totali" value={formatEuro(provvigioniAdminTotali)} tone="sky" />
-          <DashboardStat label="Fatturate" value={formatEuro(provvigioniAdminFatturate)} tone="emerald" />
-          <DashboardStat label="Da fatturare" value={formatEuro(provvigioniAdminDaFatturare)} tone="amber" />
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <form onSubmit={creaFatturaProvvigioneAdmin} className="space-y-3 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
-            <p className="text-sm font-black text-indigo-800">Nuova fattura provvigione amministratore</p>
-            <select value={adminProvvForm.amministratore_email} onChange={(e) => updateAdminProvvForm('amministratore_email', e.target.value)} className="w-full rounded-2xl border border-indigo-200 bg-white px-3 py-3">
-              <option value="">Seleziona amministratore</option>
-              {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
-            </select>
-            <select value={adminProvvForm.azienda_partner_id} onChange={(e) => updateAdminProvvForm('azienda_partner_id', e.target.value)} className="w-full rounded-2xl border border-indigo-200 bg-white px-3 py-3">
-              <option value="">Fornitore che paga la provvigione</option>
-              {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
-            </select>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <input value={adminProvvForm.numero_fattura} onChange={(e) => updateAdminProvvForm('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-              <input value={adminProvvForm.periodo} onChange={(e) => updateAdminProvvForm('periodo', e.target.value)} placeholder="Periodo / trimestre" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-              <input type="date" value={adminProvvForm.data_fattura} onChange={(e) => updateAdminProvvForm('data_fattura', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-              <input type="number" step="0.01" value={adminProvvForm.importo_imponibile} onChange={(e) => updateAdminProvvForm('importo_imponibile', e.target.value)} placeholder="Imponibile provvigione" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-              <input type="number" step="0.01" value={adminProvvForm.iva} onChange={(e) => updateAdminProvvForm('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-              <input type="number" step="0.01" value={adminProvvForm.totale} onChange={(e) => updateAdminProvvForm('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-              <input value={adminProvvForm.file_url} onChange={(e) => updateAdminProvvForm('file_url', e.target.value)} placeholder="Link PDF opzionale" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 md:col-span-2" />
-            </div>
-            <textarea value={adminProvvForm.note} onChange={(e) => updateAdminProvvForm('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
-            <button type="submit" className="w-full rounded-2xl bg-indigo-700 px-4 py-3 font-black text-white">Salva fattura provvigione amministratore</button>
-          </form>
-
-          <div className="max-h-[520px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
-            <table className="min-w-[860px] w-full border-collapse text-sm">
-              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-3">Fattura</th>
-                  <th className="px-3 py-3">Amministratore</th>
-                  <th className="px-3 py-3">Fornitore</th>
-                  <th className="px-3 py-3 text-right">Imponibile</th>
-                  <th className="px-3 py-3 text-right">Totale</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fattureProvvAdminFiltrate.length === 0 ? (
-                  <tr><td colSpan="5" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione amministratore registrata.</td></tr>
-                ) : (
-                  fattureProvvAdminFiltrate.map((fattura) => (
-                    <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/40">
-                      <td className="px-3 py-3">
-                        <p className="font-black text-slate-900">{fattura.numero_fattura}</p>
-                        <p className="text-xs text-slate-500">{fattura.data_fattura} {fattura.periodo ? `• ${fattura.periodo}` : ''}</p>
-                        {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-black text-indigo-700">PDF</a>}
-                      </td>
-                      <td className="px-3 py-3 text-slate-600">{fattura.amministratore_email}</td>
-                      <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                      <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
-                      <td className="px-3 py-3 text-right font-black text-indigo-700">{formatEuro(fattura.totale || 0)}</td>
                     </tr>
                   ))
                 )}
@@ -5549,7 +5398,6 @@ export default function App() {
   const [fatturePartner, setFatturePartner] = useState([]);
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
-  const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -5877,14 +5725,6 @@ export default function App() {
 
       if (fattureProvvigioniError && fattureProvvigioniError.code !== 'PGRST116' && fattureProvvigioniError.code !== '42P01') throw fattureProvvigioniError;
       setFattureProvvigioniGestore(fattureProvvigioniData || []);
-
-      const { data: fattureProvvigioniAdminData, error: fattureProvvigioniAdminError } = await supabase
-        .from('fatture_provvigioni_amministratori')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (fattureProvvigioniAdminError && fattureProvvigioniAdminError.code !== 'PGRST116' && fattureProvvigioniAdminError.code !== '42P01') throw fattureProvvigioniAdminError;
-      setFattureProvvigioniAmministratori(fattureProvvigioniAdminData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -6895,22 +6735,6 @@ export default function App() {
     }
   };
 
-  const creaFatturaProvvigioneAmministratore = async (fatturaProvvigione) => {
-    try {
-      const { error } = await supabase
-        .from('fatture_provvigioni_amministratori')
-        .insert(fatturaProvvigione);
-
-      if (error) throw error;
-
-      setStatusMessage('Fattura provvigione amministratore salvata.');
-      await carica();
-    } catch (error) {
-      console.error(error);
-      alert('Errore creazione fattura provvigione amministratore: ' + (error.message || 'sconosciuto'));
-    }
-  };
-
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -7344,7 +7168,6 @@ export default function App() {
               fatturePartner={fatturePartner}
               provvigioniMaturate={provvigioniMaturate}
               fattureProvvigioniGestore={fattureProvvigioniGestore}
-              fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
               condomini={condomini}
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
@@ -7356,7 +7179,6 @@ export default function App() {
               onInviaFatturaPartner={inviaFatturaPartner}
               onUploadFatturaPdf={uploadFatturaPdf}
               onCreateFatturaProvvigioneGestore={creaFatturaProvvigioneGestore}
-              onCreateFatturaProvvigioneAmministratore={creaFatturaProvvigioneAmministratore}
             />
           </>
         )}
