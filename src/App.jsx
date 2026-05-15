@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.35';
-const APP_VERSION_LABEL = 'CSP v1.0.35';
+const APP_VERSION = '1.0.36';
+const APP_VERSION_LABEL = 'CSP v1.0.36';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2681,7 +2681,7 @@ function FatturazionePartnerSuite({
           </div>
         </section>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatture</p>
             <h2 className="mt-1 text-xl font-bold">Nuova fattura partner</h2>
@@ -2819,7 +2819,7 @@ function FatturazionePartnerSuite({
               <button type="submit" className="w-full rounded-2xl bg-violet-700 px-4 py-3 font-black text-white">Salva fattura provvigione</button>
             </form>
 
-            <div className="mt-4 max-h-[230px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+            <div className="mt-4 max-h-[420px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
               <table className="min-w-[620px] w-full border-collapse text-sm">
                 <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
                   <tr>
