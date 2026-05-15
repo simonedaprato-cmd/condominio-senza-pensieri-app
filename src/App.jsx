@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.31';
-const APP_VERSION_LABEL = 'CSP v1.0.31';
+const APP_VERSION = '1.0.32';
+const APP_VERSION_LABEL = 'CSP v1.0.32';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2267,6 +2267,7 @@ function FatturazionePartnerSuite({
   onCreateProvvigionePartner,
   onCreateFatturaPartner,
   onUpdateFatturaPartner,
+  onInviaFatturaPartner,
 }) {
   const [aziendaForm, setAziendaForm] = useState({
     ragione_sociale: '',
@@ -2374,8 +2375,8 @@ function FatturazionePartnerSuite({
 
       if (field === 'importo_imponibile' || field === 'iva') {
         const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
-        const iva = Number(field === 'iva' ? value : next.iva || 0);
-        next.totale = Math.round((imponibile + iva) * 100) / 100;
+        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
       }
 
       return next;
@@ -2616,7 +2617,7 @@ function FatturazionePartnerSuite({
               </select>
               <input value={fatturaForm.numero_fattura} onChange={(e) => updateFattura('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="number" step="0.01" value={fatturaForm.importo_imponibile} onChange={(e) => updateFattura('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input type="number" step="0.01" value={fatturaForm.iva} onChange={(e) => updateFattura('iva', e.target.value)} placeholder="IVA" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaForm.iva} onChange={(e) => updateFattura('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="number" step="0.01" value={fatturaForm.totale} onChange={(e) => updateFattura('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <select value={fatturaForm.stato} onChange={(e) => updateFattura('stato', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
                 <option value="bozza">Bozza</option>
@@ -2630,7 +2631,53 @@ function FatturazionePartnerSuite({
             </div>
             <input value={fatturaForm.file_url} onChange={(e) => updateFattura('file_url', e.target.value)} placeholder="Link PDF fattura" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
             <textarea value={fatturaForm.descrizione} onChange={(e) => updateFattura('descrizione', e.target.value)} placeholder="Descrizione" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
-            <button type="submit" className="w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva fattura</button>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <button type="submit" className="w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva fattura</button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!fatturaForm.azienda_partner_id || !fatturaForm.amministratore_email) {
+                    alert('Seleziona azienda partner e amministratore prima di inviare la fattura.');
+                    return;
+                  }
+
+                  const saved = await onCreateFatturaPartner({
+                    ...fatturaForm,
+                    azienda_partner_id: Number(fatturaForm.azienda_partner_id),
+                    condominio_id: fatturaForm.condominio_id ? Number(fatturaForm.condominio_id) : null,
+                    segnalazione_id: fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+                    importo_imponibile: Number(fatturaForm.importo_imponibile || 0),
+                    iva: Number(fatturaForm.iva || 0),
+                    totale: Number(fatturaForm.totale || 0),
+                    data_scadenza: fatturaForm.data_scadenza || null,
+                    stato: 'inviata',
+                  });
+
+                  if (saved?.id) {
+                    await onInviaFatturaPartner(saved.id);
+                    setFatturaForm({
+                      azienda_partner_id: '',
+                      amministratore_email: '',
+                      condominio_id: '',
+                      segnalazione_id: '',
+                      numero_fattura: '',
+                      descrizione: '',
+                      importo_imponibile: '',
+                      iva: '',
+                      totale: '',
+                      file_url: '',
+                      data_emissione: new Date().toISOString().slice(0, 10),
+                      data_scadenza: '',
+                      stato: 'bozza',
+                      note: '',
+                    });
+                  }
+                }}
+                className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white"
+              >
+                Invia fattura
+              </button>
+            </div>
           </form>
         </section>
       </div>
@@ -2684,6 +2731,11 @@ function FatturazionePartnerSuite({
                     </td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
+                        {fattura.stato !== 'inviata' && fattura.stato !== 'pagata' && (
+                          <button type="button" onClick={() => onInviaFatturaPartner(fattura.id)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
+                            Invia
+                          </button>
+                        )}
                         {fattura.stato !== 'pagata' && (
                           <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'pagata', pagata_il: new Date().toISOString().slice(0, 10) })} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">
                             Pagata
@@ -5903,17 +5955,21 @@ export default function App() {
 
   const creaFatturaPartner = async (fattura) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('fatture_partner')
-        .insert(fattura);
+        .insert(fattura)
+        .select()
+        .single();
 
       if (error) throw error;
 
       setStatusMessage('Fattura partner salvata con successo.');
       await carica();
+      return data;
     } catch (error) {
       console.error(error);
       alert('Errore creazione fattura: ' + (error.message || 'sconosciuto'));
+      return null;
     }
   };
 
@@ -5935,6 +5991,28 @@ export default function App() {
     } catch (error) {
       console.error(error);
       alert('Errore aggiornamento fattura: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const inviaFatturaPartner = async (fatturaId) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-fattura-partner', {
+        body: { fatturaId },
+      });
+
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Invio fattura non completato');
+
+      await supabase
+        .from('fatture_partner')
+        .update({ stato: 'inviata' })
+        .eq('id', fatturaId);
+
+      setStatusMessage('Fattura inviata via email e push all’amministratore.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore invio fattura: ' + (error.message || 'sconosciuto'));
     }
   };
 
@@ -6335,6 +6413,7 @@ export default function App() {
               onCreateProvvigionePartner={creaProvvigionePartner}
               onCreateFatturaPartner={creaFatturaPartner}
               onUpdateFatturaPartner={aggiornaFatturaPartner}
+              onInviaFatturaPartner={inviaFatturaPartner}
             />
           </>
         )}
