@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.40';
-const APP_VERSION_LABEL = 'CSP v1.0.40';
+const APP_VERSION = '1.0.41';
+const APP_VERSION_LABEL = 'CSP v1.0.41';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2450,6 +2450,31 @@ function FatturazionePartnerSuite({
   const mieProvvigioniFatturate = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
   const mieProvvigioniDaFatturare = Math.max(provvigioniGestore - mieProvvigioniFatturate, 0);
 
+  const oggiFatture = new Date();
+  oggiFatture.setHours(0, 0, 0, 0);
+  const limiteScadenzaFatture = new Date(oggiFatture);
+  limiteScadenzaFatture.setDate(limiteScadenzaFatture.getDate() + 15);
+
+  const fattureAperte = (fatturePartner || []).filter((fattura) => !['pagata', 'annullata'].includes(String(fattura.stato || '').toLowerCase()));
+
+  const fattureInScadenza = fattureAperte
+    .filter((fattura) => {
+      if (!fattura.data_scadenza) return false;
+      const scadenza = new Date(fattura.data_scadenza);
+      scadenza.setHours(0, 0, 0, 0);
+      return scadenza >= oggiFatture && scadenza <= limiteScadenzaFatture;
+    })
+    .sort((a, b) => String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || '')));
+
+  const fattureScaduteAperte = fattureAperte
+    .filter((fattura) => {
+      if (!fattura.data_scadenza) return false;
+      const scadenza = new Date(fattura.data_scadenza);
+      scadenza.setHours(0, 0, 0, 0);
+      return scadenza < oggiFatture;
+    })
+    .sort((a, b) => String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || '')));
+
   const creaAzienda = async (e) => {
     e.preventDefault();
     if (!aziendaForm.ragione_sociale.trim()) return;
@@ -2560,6 +2585,74 @@ function FatturazionePartnerSuite({
         <DashboardStat label="Fatture scadute" value={fattureScadute} tone="red" />
         <DashboardStat label="Provv. gestore" value={formatEuro(provvigioniGestore)} tone="sky" />
         <DashboardStat label="Provv. amministratori" value={formatEuro(provvigioniAmministratori)} tone="amber" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Controllo scadenze</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture in scadenza</h2>
+              <p className="mt-1 text-sm text-slate-600">Prossimi 15 giorni, escluse pagate e annullate.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-amber-700 shadow-sm">{fattureInScadenza.length}</span>
+          </div>
+
+          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
+            {fattureInScadenza.length === 0 ? (
+              <div className="rounded-2xl border border-amber-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza nei prossimi 15 giorni.</div>
+            ) : (
+              fattureInScadenza.map((fattura) => (
+                <div key={fattura.id} className="rounded-2xl border border-amber-100 bg-white p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
+                      <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || fattura.amministratore_email || 'n.d.'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-amber-700">{formatEuro(fattura.totale || 0)}</p>
+                      <p className="text-xs font-bold text-slate-500">Scad. {fattura.data_scadenza}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Controllo insoluti</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture scadute</h2>
+              <p className="mt-1 text-sm text-slate-600">Scadenza superata, escluse pagate e annullate.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-red-700 shadow-sm">{fattureScaduteAperte.length}</span>
+          </div>
+
+          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
+            {fattureScaduteAperte.length === 0 ? (
+              <div className="rounded-2xl border border-red-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura scaduta aperta.</div>
+            ) : (
+              fattureScaduteAperte.map((fattura) => (
+                <div key={fattura.id} className="rounded-2xl border border-red-100 bg-white p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
+                      <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || fattura.amministratore_email || 'n.d.'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-red-700">{formatEuro(fattura.totale || 0)}</p>
+                      <p className="text-xs font-bold text-red-600">Scad. {fattura.data_scadenza}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
