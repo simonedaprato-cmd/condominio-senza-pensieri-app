@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.27';
-const APP_VERSION_LABEL = 'CSP v1.0.27';
+const APP_VERSION = '1.0.28';
+const APP_VERSION_LABEL = 'CSP v1.0.28';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1531,8 +1531,9 @@ function GestioneLeadAmministratori({ onCreateLead }) {
     citta: '',
     indirizzo: '',
     numero_condomini: '',
+    numero_condomini_interessati: '',
     origine: 'LinkedIn',
-    stato_pipeline: 'prospect',
+    stato_pipeline: 'potenziale',
     data_appuntamento: '',
     ora_appuntamento: '',
     luogo_incontro: '',
@@ -1540,7 +1541,10 @@ function GestioneLeadAmministratori({ onCreateLead }) {
   });
 
   const numeroCondomini = Number(form.numero_condomini || 0);
-  const valorePotenziale = numeroCondomini * 12 * PIANI_ABBONAMENTO.premium.costo * 12;
+  const numeroCondominiInteressati = Number(form.numero_condomini_interessati || 0);
+  const VALORE_ANNUO_CONDOMINIO_CRM = 10 * 9.90 * 12;
+  const valorePotenziale = numeroCondominiInteressati * VALORE_ANNUO_CONDOMINIO_CRM;
+  const percentualeInteressati = numeroCondomini ? Math.round((numeroCondominiInteressati / numeroCondomini) * 100) : 0;
 
   const update = (field, value) => {
     setForm((prev) => {
@@ -1557,7 +1561,7 @@ function GestioneLeadAmministratori({ onCreateLead }) {
       }
 
       if (field === 'data_appuntamento' || field === 'ora_appuntamento') {
-        next.stato_pipeline = next.stato_pipeline === 'prospect' ? 'appuntamento_fissato' : next.stato_pipeline;
+        next.stato_pipeline = next.stato_pipeline === 'potenziale' ? 'presentazione_effettuata' : next.stato_pipeline;
       }
 
       return next;
@@ -1571,6 +1575,7 @@ function GestioneLeadAmministratori({ onCreateLead }) {
     await onCreateLead({
       ...form,
       numero_condomini: numeroCondomini,
+      numero_condomini_interessati: numeroCondominiInteressati,
       valore_potenziale: valorePotenziale,
     });
 
@@ -1583,8 +1588,9 @@ function GestioneLeadAmministratori({ onCreateLead }) {
       citta: '',
       indirizzo: '',
       numero_condomini: '',
+      numero_condomini_interessati: '',
       origine: 'LinkedIn',
-      stato_pipeline: 'prospect',
+      stato_pipeline: 'potenziale',
       data_appuntamento: '',
       ora_appuntamento: '',
       luogo_incontro: '',
@@ -1656,6 +1662,7 @@ function GestioneLeadAmministratori({ onCreateLead }) {
         if (!nomeStudio) continue;
 
         const numero = Number(getValue(row, ['numero_condomini', 'condomini', 'n_condomini']) || 0);
+        const numeroInteressati = Number(getValue(row, ['numero_condomini_interessati', 'condomini_interessati', 'interessati']) || 0);
         const citta = getValue(row, ['citta', 'comune']);
         const indirizzo = getValue(row, ['indirizzo', 'via']);
         const luogo = getValue(row, ['luogo_incontro', 'luogo']) || [indirizzo, citta].filter(Boolean).join(', ');
@@ -1675,7 +1682,7 @@ function GestioneLeadAmministratori({ onCreateLead }) {
           ora_appuntamento: getValue(row, ['ora_appuntamento', 'ora_incontro', 'ora']) || null,
           luogo_incontro: luogo,
           note: getValue(row, ['note', 'annotazioni']),
-          valore_potenziale: numero * 12 * PIANI_ABBONAMENTO.premium.costo * 12,
+          valore_potenziale: numeroInteressati * 10 * 9.90 * 12,
         });
 
         importati += 1;
@@ -1719,16 +1726,21 @@ function GestioneLeadAmministratori({ onCreateLead }) {
           <input value={form.indirizzo} onChange={(e) => update('indirizzo', e.target.value)} placeholder="Indirizzo studio" className="rounded-2xl border border-slate-200 px-3 py-3" />
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <input type="number" min="0" value={form.numero_condomini} onChange={(e) => update('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <input type="number" min="0" value={form.numero_condomini} onChange={(e) => update('numero_condomini', e.target.value)} placeholder="Condomini totali amministrati" className="rounded-2xl border border-slate-200 px-3 py-3" />
+          <input type="number" min="0" value={form.numero_condomini_interessati} onChange={(e) => update('numero_condomini_interessati', e.target.value)} placeholder="Nr. condomìni interessati" className="rounded-2xl border border-slate-200 px-3 py-3" />
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <select value={form.origine} onChange={(e) => update('origine', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
             <option>LinkedIn</option><option>Sito</option><option>Referral</option><option>Telefono</option><option>Email</option><option>Evento</option>
           </select>
           <select value={form.stato_pipeline} onChange={(e) => update('stato_pipeline', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
-            <option value="prospect">Nuovo</option>
-            <option value="contattato">Contattato</option>
-            <option value="appuntamento_fissato">Appuntamento fissato</option>
+            <option value="potenziale">Potenziale</option>
             <option value="presentazione_effettuata">Presentazione effettuata</option>
-            <option value="in_trattativa">In trattativa</option>
+            <option value="follow_up_richiesto">Follow up richiesto</option>
+            <option value="richiesta_preventivo">Richiesta preventivo</option>
+            <option value="preventivo_inviato">Preventivo inviato</option>
+            <option value="operativo">Operativo</option>
+            <option value="non_interessato">Non interessato</option>
           </select>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -1744,8 +1756,14 @@ function GestioneLeadAmministratori({ onCreateLead }) {
         </div>
         <textarea value={form.note} onChange={(e) => update('note', e.target.value)} placeholder="Note commerciali" className="min-h-24 w-full rounded-2xl border border-slate-200 px-3 py-3" />
         <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
-          <p className="text-sm font-bold text-cyan-800">Potenziale stimato Premium</p>
+          <p className="text-sm font-bold text-cyan-800">Potenziale guadagno annuo</p>
           <p className="mt-1 text-2xl font-black text-cyan-700">{formatEuro(valorePotenziale)}</p>
+          <p className="mt-1 text-xs font-semibold text-cyan-700">
+            Calcolo: {numeroCondominiInteressati} condomìni interessati × 10 famiglie × €9,90/mese × 12 mesi
+          </p>
+          <p className="mt-1 text-xs font-black text-cyan-800">
+            Incidenza interessati: {percentualeInteressati}%
+          </p>
         </div>
         <button type="submit" className="w-full rounded-2xl bg-cyan-700 px-4 py-3 font-bold text-white">Salva lead</button>
       </form>
@@ -1756,7 +1774,7 @@ function GestioneLeadAmministratori({ onCreateLead }) {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Import CSV</p>
             <h3 className="mt-1 text-lg font-black text-slate-900">Importa lista lead</h3>
             <p className="mt-1 text-xs font-semibold text-slate-500">
-              Intestazioni accettate: nome_studio, referente, telefono, email, provincia, citta, indirizzo, numero_condomini, origine, stato, data_appuntamento, ora_appuntamento, note.
+              Intestazioni accettate: nome_studio, referente, telefono, email, provincia, citta, indirizzo, numero_condomini, numero_condomini_interessati, origine, stato, data_appuntamento, ora_appuntamento, note.
             </p>
           </div>
           <label className="cursor-pointer rounded-xl bg-white px-3 py-2 text-xs font-black text-cyan-700 shadow-sm">
@@ -1768,7 +1786,7 @@ function GestioneLeadAmministratori({ onCreateLead }) {
         <textarea
           value={csvText}
           onChange={(e) => setCsvText(e.target.value)}
-          placeholder={"nome_studio;referente;telefono;email;provincia;citta;indirizzo;numero_condomini;origine;note\nStudio Rossi;Mario Rossi;333...;mail@studio.it;Firenze;Firenze;Via Roma 1;25;LinkedIn;Interessato a CSP"}
+          placeholder={"nome_studio;referente;telefono;email;provincia;citta;indirizzo;numero_condomini;numero_condomini_interessati;origine;note\nStudio Rossi;Mario Rossi;333...;mail@studio.it;Firenze;Firenze;Via Roma 1;25;8;LinkedIn;Interessato a CSP"}
           className="mt-3 min-h-32 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm"
         />
 
@@ -1797,28 +1815,32 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     email: '',
     note: '',
     numero_condomini: '',
+    numero_condomini_interessati: '',
     valore_potenziale: '',
   });
   const [leadSearch, setLeadSearch] = useState('');
   const [leadProvinciaFiltro, setLeadProvinciaFiltro] = useState('');
   const [leadStatoFiltro, setLeadStatoFiltro] = useState('');
 
+  const VALORE_ANNUO_CONDOMINIO_CRM = 10 * 9.90 * 12;
   const totale = leadAmministratori.length;
-  const clienti = leadAmministratori.filter((l) => l.stato_pipeline === 'cliente').length;
-  const trattative = leadAmministratori.filter((l) => ['trattativa', 'preventivo_inviato', 'in_trattativa', 'presentazione_effettuata'].includes(l.stato_pipeline)).length;
-  const valorePipeline = leadAmministratori.reduce((sum, l) => sum + Number(l.valore_potenziale || 0), 0);
-  const followupOggi = leadAmministratori.filter((l) => l.prossimo_followup && new Date(l.prossimo_followup) <= new Date()).length;
+  const presentazioni = leadAmministratori.filter((l) => l.stato_pipeline === 'presentazione_effettuata').length;
+  const preventivi = leadAmministratori.filter((l) => ['richiesta_preventivo', 'preventivo_inviato'].includes(l.stato_pipeline)).length;
+  const operativi = leadAmministratori.filter((l) => l.stato_pipeline === 'operativo').length;
+  const pipelineCondominiTotali = leadAmministratori.reduce((sum, l) => sum + Number(l.numero_condomini || 0), 0);
+  const pipelineCondominiInteressati = leadAmministratori.reduce((sum, l) => sum + Number(l.numero_condomini_interessati || 0), 0);
+  const percentualePipelineInteressati = pipelineCondominiTotali ? Math.round((pipelineCondominiInteressati / pipelineCondominiTotali) * 100) : 0;
+  const mediaCondominiInteressatiLead = totale ? Math.round((pipelineCondominiInteressati / totale) * 10) / 10 : 0;
+  const valorePipeline = pipelineCondominiInteressati * VALORE_ANNUO_CONDOMINIO_CRM;
 
   const statiLead = [
-    ['prospect', 'Nuovo'],
-    ['contattato', 'Contattato'],
-    ['appuntamento_fissato', 'Appuntamento fissato'],
+    ['potenziale', 'Potenziale'],
     ['presentazione_effettuata', 'Presentazione effettuata'],
-    ['follow_up', 'Follow-up richiesto'],
-    ['in_trattativa', 'In trattativa'],
+    ['follow_up_richiesto', 'Follow up richiesto'],
+    ['richiesta_preventivo', 'Richiesta preventivo'],
     ['preventivo_inviato', 'Preventivo inviato'],
-    ['cliente', 'Convertito'],
-    ['perso', 'Perso'],
+    ['operativo', 'Operativo'],
+    ['non_interessato', 'Non interessato'],
   ];
 
   const provinceDisponibili = [...new Set((leadAmministratori || []).map((lead) => lead.provincia).filter(Boolean))].sort();
@@ -1849,7 +1871,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
   const apriModificaLead = (lead) => {
     setLeadInModifica(lead);
     setFormLead({
-      stato_pipeline: lead.stato_pipeline || 'prospect',
+      stato_pipeline: lead.stato_pipeline || 'potenziale',
       prossimo_followup: lead.prossimo_followup ? String(lead.prossimo_followup).slice(0, 10) : '',
       data_appuntamento: lead.data_appuntamento ? String(lead.data_appuntamento).slice(0, 10) : '',
       ora_appuntamento: lead.ora_appuntamento ? String(lead.ora_appuntamento).slice(0, 5) : '',
@@ -1860,6 +1882,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       email: lead.email || '',
       note: lead.note || '',
       numero_condomini: lead.numero_condomini || '',
+      numero_condomini_interessati: lead.numero_condomini_interessati || '',
       valore_potenziale: lead.valore_potenziale || '',
     });
   };
@@ -1868,9 +1891,9 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     setFormLead((prev) => {
       const next = { ...prev, [field]: value };
 
-      if (field === 'numero_condomini') {
+      if (field === 'numero_condomini_interessati') {
         const numero = Number(value || 0);
-        next.valore_potenziale = numero * 12 * PIANI_ABBONAMENTO.premium.costo * 12;
+        next.valore_potenziale = numero * VALORE_ANNUO_CONDOMINIO_CRM;
       }
 
       if (field === 'indirizzo' || field === 'citta') {
@@ -1885,7 +1908,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       }
 
       if (field === 'data_appuntamento' || field === 'ora_appuntamento') {
-        next.stato_pipeline = next.stato_pipeline === 'prospect' ? 'appuntamento_fissato' : next.stato_pipeline;
+        next.stato_pipeline = next.stato_pipeline === 'potenziale' ? 'presentazione_effettuata' : next.stato_pipeline;
       }
 
       return next;
@@ -1907,6 +1930,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       email: formLead.email,
       note: formLead.note,
       numero_condomini: Number(formLead.numero_condomini || 0),
+      numero_condomini_interessati: Number(formLead.numero_condomini_interessati || 0),
       valore_potenziale: Number(formLead.valore_potenziale || 0),
     });
 
@@ -1935,8 +1959,9 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       `Email: ${lead.email || ''}`,
       `Città: ${lead.citta || ''}`,
       `Indirizzo: ${lead.indirizzo || ''}`,
-      `Condomìni gestiti: ${lead.numero_condomini || 0}`,
-      `Valore potenziale: ${formatEuro(lead.valore_potenziale || 0)}`,
+      `Condomìni totali amministrati: ${lead.numero_condomini || 0}`,
+      `Condomìni interessati: ${lead.numero_condomini_interessati || 0}`,
+      `Potenziale guadagno annuo: ${formatEuro((Number(lead.numero_condomini_interessati || 0) * VALORE_ANNUO_CONDOMINIO_CRM) || lead.valore_potenziale || 0)}`,
       '',
       `Note: ${lead.note || ''}`,
     ].join('\n');
@@ -1965,6 +1990,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
               indirizzo: formLead.indirizzo,
               note: formLead.note,
               numero_condomini: formLead.numero_condomini,
+              numero_condomini_interessati: formLead.numero_condomini_interessati,
               valore_potenziale: formLead.valore_potenziale,
             }
           : {}
@@ -1993,6 +2019,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       'citta',
       'indirizzo',
       'numero_condomini',
+      'numero_condomini_interessati',
       'stato_pipeline',
       'data_appuntamento',
       'ora_appuntamento',
@@ -2012,6 +2039,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
       lead.citta,
       lead.indirizzo,
       lead.numero_condomini,
+      lead.numero_condomini_interessati,
       lead.stato_pipeline,
       lead.data_appuntamento,
       lead.ora_appuntamento,
@@ -2036,14 +2064,22 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Lead Amministratori</p>
       <h2 className="mt-1 text-xl font-bold">Dashboard pipeline commerciale</h2>
-      <p className="mt-1 text-sm text-slate-500">Controllo prospect, trattative, follow-up e valore potenziale Toscana.</p>
+      <p className="mt-1 text-sm text-slate-500">Controllo pipeline, presentazioni, preventivi, operativi e valore annuo potenziale Toscana.</p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <DashboardStat label="Lead totali" value={totale} tone="slate" />
-        <DashboardStat label="Trattative" value={trattative} tone="amber" />
-        <DashboardStat label="Clienti" value={clienti} tone="emerald" />
-        <DashboardStat label="Follow-up" value={followupOggi} tone="red" />
+        <DashboardStat label="Presentazioni" value={presentazioni} tone="amber" />
+        <DashboardStat label="Preventivi" value={preventivi} tone="sky" />
+        <DashboardStat label="Operativi" value={operativi} tone="emerald" />
         <DashboardStat label="Valore pipeline" value={formatEuro(valorePipeline)} tone="sky" />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <DashboardStat label="Pipeline condomini totali" value={pipelineCondominiTotali} tone="slate" />
+        <DashboardStat label="Condomini interessati" value={pipelineCondominiInteressati} tone="emerald" />
+        <DashboardStat label="% condomini interessati" value={`${percentualePipelineInteressati}%`} tone="amber" />
+        <DashboardStat label="Media interessati / lead" value={mediaCondominiInteressatiLead} tone="cyan" />
+        <DashboardStat label="Pipeline 10 famiglie × €9,90" value={formatEuro(valorePipeline)} tone="emerald" />
       </div>
 
       {leadInModifica && (
@@ -2077,14 +2113,18 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
               <input type="time" value={formLead.ora_appuntamento || ''} onChange={(e) => aggiornaFormLead('ora_appuntamento', e.target.value)} className="mt-1 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800" />
             </label>
             <input value={formLead.luogo_incontro} onChange={(e) => aggiornaFormLead('luogo_incontro', e.target.value)} placeholder="Luogo incontro automatico: indirizzo + città" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
-            <input type="number" min="0" value={formLead.numero_condomini} onChange={(e) => aggiornaFormLead('numero_condomini', e.target.value)} placeholder="Condomini gestiti" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
-            <label className="rounded-2xl border border-cyan-200 bg-white px-3 py-2">
-              <span className="block text-[10px] font-black uppercase tracking-wide text-cyan-700">Valore potenziale</span>
+            <input type="number" min="0" value={formLead.numero_condomini} onChange={(e) => aggiornaFormLead('numero_condomini', e.target.value)} placeholder="Condomini totali amministrati" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <input type="number" min="0" value={formLead.numero_condomini_interessati} onChange={(e) => aggiornaFormLead('numero_condomini_interessati', e.target.value)} placeholder="Nr. condomìni interessati" className="rounded-2xl border border-cyan-200 bg-white px-3 py-3" />
+            <label className="rounded-2xl border border-cyan-200 bg-white px-3 py-2 md:col-span-2">
+              <span className="block text-[10px] font-black uppercase tracking-wide text-cyan-700">Potenziale guadagno annuo</span>
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-lg font-black text-cyan-700">€</span>
                 <input type="number" min="0" value={formLead.valore_potenziale} onChange={(e) => aggiornaFormLead('valore_potenziale', e.target.value)} placeholder="0" className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none" />
               </div>
               <span className="mt-1 block text-xs font-black text-cyan-700">{formatEuro(Number(formLead.valore_potenziale || 0))}</span>
+              <span className="mt-1 block text-[11px] font-semibold text-slate-500">
+                {Number(formLead.numero_condomini || 0) ? Math.round((Number(formLead.numero_condomini_interessati || 0) / Number(formLead.numero_condomini || 0)) * 100) : 0}% interessati • {Number(formLead.numero_condomini_interessati || 0)} condomìni × 10 famiglie × €9,90/mese × 12
+              </span>
             </label>
           </div>
 
@@ -2097,11 +2137,11 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
             <button type="button" onClick={() => apriGoogleCalendarLead(leadInModifica)} className="rounded-2xl bg-sky-700 px-4 py-3 text-sm font-black text-white">
               Crea evento Google Calendar
             </button>
-            <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'cliente')} className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white">
-              Segna convertito
+            <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'operativo')} className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white">
+              Segna operativo
             </button>
-            <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'perso')} className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white">
-              Segna perso
+            <button type="button" onClick={() => aggiornaFormLead('stato_pipeline', 'non_interessato')} className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white">
+              Non interessato
             </button>
           </div>
         </div>
@@ -2177,7 +2217,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
                       <span className="rounded-full bg-cyan-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-cyan-700">
                         {labelStato(lead.stato_pipeline)}
                       </span>
-                      <p className="mt-2 text-xs text-slate-500">{lead.numero_condomini || 0} condomìni</p>
+                      <p className="mt-2 text-xs text-slate-500">{lead.numero_condomini_interessati || 0}/{lead.numero_condomini || 0} interessati</p>
                     </td>
                     <td className="px-3 py-3">
                       {lead.data_appuntamento ? (
@@ -5201,7 +5241,7 @@ export default function App() {
     try {
       const { error } = await supabase.from('lead_amministratori').insert({
         ...lead,
-        stato_pipeline: lead.stato_pipeline || 'prospect',
+        stato_pipeline: lead.stato_pipeline || 'potenziale',
       });
 
       if (error) throw error;
