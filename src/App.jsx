@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.42';
-const APP_VERSION_LABEL = 'CSP v1.0.42';
+const APP_VERSION = '1.0.43';
+const APP_VERSION_LABEL = 'CSP v1.0.43';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2253,6 +2253,196 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
   );
 }
 
+
+
+function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePartner }) {
+  const [searchNumero, setSearchNumero] = useState('');
+  const [searchCondominio, setSearchCondominio] = useState('');
+  const [searchFornitore, setSearchFornitore] = useState('');
+  const [searchStato, setSearchStato] = useState('');
+
+  const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
+  const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
+
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+  const limite15 = new Date(oggi);
+  limite15.setDate(limite15.getDate() + 15);
+
+  const fatture = fatturePartner || [];
+  const totaleFatture = fatture.reduce((sum, f) => sum + Number(f.totale || 0), 0);
+  const fattureAperte = fatture.filter((f) => !['pagata', 'annullata'].includes(String(f.stato || '').toLowerCase()));
+
+  const fattureInScadenza = fattureAperte
+    .filter((f) => {
+      if (!f.data_scadenza) return false;
+      const scadenza = new Date(f.data_scadenza);
+      scadenza.setHours(0, 0, 0, 0);
+      return scadenza >= oggi && scadenza <= limite15;
+    })
+    .sort((a, b) => String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || '')));
+
+  const fattureScadute = fattureAperte
+    .filter((f) => {
+      if (!f.data_scadenza) return false;
+      const scadenza = new Date(f.data_scadenza);
+      scadenza.setHours(0, 0, 0, 0);
+      return scadenza < oggi;
+    })
+    .sort((a, b) => String(a.data_scadenza || '').localeCompare(String(b.data_scadenza || '')));
+
+  const fattureFiltrate = fatture.filter((fattura) => {
+    const condominio = condominioById(fattura.condominio_id)?.nome || '';
+    const fornitore = aziendaById(fattura.azienda_partner_id)?.ragione_sociale || '';
+    const matchNumero = !searchNumero || String(fattura.numero_fattura || fattura.id || '').toLowerCase().includes(searchNumero.toLowerCase().trim());
+    const matchCondominio = !searchCondominio || condominio.toLowerCase().includes(searchCondominio.toLowerCase().trim());
+    const matchFornitore = !searchFornitore || fornitore.toLowerCase().includes(searchFornitore.toLowerCase().trim());
+    const matchStato = !searchStato || String(fattura.stato || '') === searchStato;
+    return matchNumero && matchCondominio && matchFornitore && matchStato;
+  });
+
+  const renderMiniFattura = (fattura, tone = 'amber') => (
+    <div key={fattura.id} className={`rounded-2xl border bg-white p-3 ${tone === 'red' ? 'border-red-100' : 'border-amber-100'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+          <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Fornitore n.d.'}</p>
+          <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || 'Condominio n.d.'}</p>
+        </div>
+        <div className="text-right">
+          <p className={`font-black ${tone === 'red' ? 'text-red-700' : 'text-amber-700'}`}>{formatEuro(fattura.totale || 0)}</p>
+          <p className="text-xs font-bold text-slate-500">Scad. {fattura.data_scadenza || 'n.d.'}</p>
+        </div>
+      </div>
+      {fattura.file_url && (
+        <a href={fattura.file_url} target="_blank" rel="noreferrer" className={`mt-2 inline-block text-xs font-black ${tone === 'red' ? 'text-red-700' : 'text-amber-700'}`}>
+          Apri PDF
+        </a>
+      )}
+    </div>
+  );
+
+  return (
+    <section className="space-y-4">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatturazione</p>
+            <h2 className="mt-1 text-xl font-bold">Fatture amministratore</h2>
+            <p className="mt-1 text-sm text-slate-500">Consulta fatture, PDF, scadenze e stato dei pagamenti.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 md:min-w-[520px]">
+            <DashboardStat label="Totale fatture" value={formatEuro(totaleFatture)} tone="sky" />
+            <DashboardStat label="In scadenza" value={fattureInScadenza.length} tone="amber" />
+            <DashboardStat label="Scadute" value={fattureScadute.length} tone="red" />
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          <input value={searchNumero} onChange={(e) => setSearchNumero(e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <input value={searchCondominio} onChange={(e) => setSearchCondominio(e.target.value)} placeholder="Condominio" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <input value={searchFornitore} onChange={(e) => setSearchFornitore(e.target.value)} placeholder="Fornitore" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <select value={searchStato} onChange={(e) => setSearchStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutti gli stati</option>
+            <option value="bozza">Bozza</option>
+            <option value="inviata">Inviata</option>
+            <option value="pagata">Pagata</option>
+            <option value="scaduta">Scaduta</option>
+            <option value="annullata">Annullata</option>
+          </select>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="h-[420px] overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Prossimi 15 giorni</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture in scadenza</h2>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-amber-700 shadow-sm">{fattureInScadenza.length}</span>
+          </div>
+          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
+            {fattureInScadenza.length === 0 ? (
+              <div className="rounded-2xl border border-amber-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza.</div>
+            ) : fattureInScadenza.map((fattura) => renderMiniFattura(fattura, 'amber'))}
+          </div>
+        </section>
+
+        <section className="h-[420px] overflow-hidden rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Scadenza superata</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture scadute</h2>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-red-700 shadow-sm">{fattureScadute.length}</span>
+          </div>
+          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
+            {fattureScadute.length === 0 ? (
+              <div className="rounded-2xl border border-red-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura scaduta.</div>
+            ) : fattureScadute.map((fattura) => renderMiniFattura(fattura, 'red'))}
+          </div>
+        </section>
+      </div>
+
+      <section className="h-[560px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Archivio fatture</p>
+        <h2 className="mt-1 text-xl font-bold">Elenco fatture</h2>
+
+        <div className="mt-4 max-h-[450px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[920px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Fattura</th>
+                <th className="px-3 py-3">Condominio</th>
+                <th className="px-3 py-3">Fornitore</th>
+                <th className="px-3 py-3 text-right">Totale</th>
+                <th className="px-3 py-3">Scadenza</th>
+                <th className="px-3 py-3">Stato</th>
+                <th className="px-3 py-3 text-right">PDF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fattureFiltrate.length === 0 ? (
+                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura trovata.</td></tr>
+              ) : (
+                fattureFiltrate.map((fattura) => (
+                  <tr key={fattura.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs text-slate-500">{fattura.data_emissione || 'n.d.'}</p>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">{condominioById(fattura.condominio_id)?.nome || 'n.d.'}</td>
+                    <td className="px-3 py-3 font-semibold text-slate-700">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.totale || 0)}</td>
+                    <td className="px-3 py-3 text-slate-600">{fattura.data_scadenza || 'n.d.'}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                        fattura.stato === 'pagata' ? 'bg-emerald-100 text-emerald-700' :
+                        fattura.stato === 'scaduta' ? 'bg-red-100 text-red-700' :
+                        fattura.stato === 'inviata' ? 'bg-sky-100 text-sky-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {fattura.stato}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {fattura.file_url ? (
+                        <a href={fattura.file_url} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">Apri</a>
+                      ) : (
+                        <span className="text-xs text-slate-400">n.d.</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
+}
 
 function FatturazionePartnerSuite({
   aziendePartner,
@@ -6800,6 +6990,11 @@ export default function App() {
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
             </div>
             <DashboardVendite segnalazioni={segnalazioniVisualizzate} />
+            <FatturazioneAmministratoreSuite
+              fatturePartner={fatturePartner}
+              condomini={condomini}
+              aziendePartner={aziendePartner}
+            />
           </>
         )}
 
