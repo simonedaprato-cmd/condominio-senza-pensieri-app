@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.46';
-const APP_VERSION_LABEL = 'CSP v1.0.46';
+const APP_VERSION = '1.0.47';
+const APP_VERSION_LABEL = 'CSP v1.0.47';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2324,41 +2324,6 @@ function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePar
 
   return (
     <section className="space-y-4">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatturazione</p>
-            <h2 className="mt-1 text-xl font-bold">Fatture amministratore</h2>
-            <p className="mt-1 text-sm text-slate-500">Consulta fatture, PDF, scadenze e stato dei pagamenti.</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 md:min-w-[520px]">
-            <DashboardStat label="Totale fatture" value={formatEuro(totaleFatture)} tone="sky" />
-            <DashboardStat label="In scadenza" value={fattureInScadenza.length} tone="amber" />
-            <DashboardStat label="Scadute" value={fattureScadute.length} tone="red" />
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
-          <input value={searchNumero} onChange={(e) => setSearchNumero(e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
-          <select value={searchCondominio} onChange={(e) => setSearchCondominio(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
-            <option value="">Tutti i condomini</option>
-            {(condomini || []).map((condominio) => <option key={condominio.id} value={condominio.nome}>{condominio.nome}</option>)}
-          </select>
-          <select value={searchFornitore} onChange={(e) => setSearchFornitore(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
-            <option value="">Tutti i fornitori</option>
-            {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.ragione_sociale}>{azienda.ragione_sociale}</option>)}
-          </select>
-          <select value={searchStato} onChange={(e) => setSearchStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
-            <option value="">Tutti gli stati</option>
-            <option value="bozza">Bozza</option>
-            <option value="inviata">Inviata</option>
-            <option value="pagata">Pagata</option>
-            <option value="scaduta">Scaduta</option>
-            <option value="annullata">Annullata</option>
-          </select>
-        </div>
-      </section>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="h-[420px] overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
@@ -2390,6 +2355,41 @@ function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePar
           </div>
         </section>
       </div>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatturazione</p>
+            <h2 className="mt-1 text-xl font-bold">Fatturazione</h2>
+            <p className="mt-1 text-sm text-slate-500">Ricerca e riepilogo fatture per numero, condominio, fornitore e stato.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 md:min-w-[520px]">
+            <DashboardStat label="Totale fatture" value={formatEuro(totaleFatture)} tone="sky" />
+            <DashboardStat label="In scadenza" value={fattureInScadenza.length} tone="amber" />
+            <DashboardStat label="Scadute" value={fattureScadute.length} tone="red" />
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          <input value={searchNumero} onChange={(e) => setSearchNumero(e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <select value={searchCondominio} onChange={(e) => setSearchCondominio(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutti i condomini</option>
+            {(condomini || []).map((condominio) => <option key={condominio.id} value={condominio.nome}>{condominio.nome}</option>)}
+          </select>
+          <select value={searchFornitore} onChange={(e) => setSearchFornitore(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutti i fornitori</option>
+            {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.ragione_sociale}>{azienda.ragione_sociale}</option>)}
+          </select>
+          <select value={searchStato} onChange={(e) => setSearchStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutti gli stati</option>
+            <option value="bozza">Bozza</option>
+            <option value="inviata">Inviata</option>
+            <option value="pagata">Pagata</option>
+            <option value="scaduta">Scaduta</option>
+            <option value="annullata">Annullata</option>
+          </select>
+        </div>
+      </section>
 
       <section className="h-[560px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Archivio fatture</p>
