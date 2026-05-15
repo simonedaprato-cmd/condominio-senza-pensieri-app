@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.50';
-const APP_VERSION_LABEL = 'CSP v1.0.50';
+const APP_VERSION = '1.0.51';
+const APP_VERSION_LABEL = 'CSP v1.0.51';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3682,6 +3682,22 @@ function DashboardEconomicaAmministratore({ segnalazioni, fatturePartner = [], p
         <DashboardStat label="Da deliberare" value={formatEuro(daDeliberare)} tone="amber" />
         <DashboardStat label="Imponibile pagato" value={formatEuro(imponibilePagato)} tone="sky" />
         <DashboardStat label="Fatture pagate" value={fatturePagate.length} tone="emerald" />
+      </div>
+
+      <div className="mt-5 rounded-3xl border border-sky-100 bg-sky-50 p-4">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Provvigioni amministratore</p>
+        <h3 className="mt-1 text-lg font-black text-slate-900">Controllo provvigionale</h3>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <DashboardStat label="Provvigione maturata" value={formatEuro(provvigione)} tone="sky" />
+          <DashboardStat label="Base imponibile" value={formatEuro(imponibilePagato)} tone="emerald" />
+          <DashboardStat label="Aliquota" value="10%" tone="amber" />
+          <DashboardStat label="Fatture utili" value={fatturePagate.length} tone="slate" />
+        </div>
+
+        <p className="mt-3 text-xs font-semibold text-slate-500">
+          Le provvigioni vengono conteggiate esclusivamente sulle fatture saldate, al netto IVA.
+        </p>
       </div>
     </section>
   );
