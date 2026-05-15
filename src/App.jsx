@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.37';
-const APP_VERSION_LABEL = 'CSP v1.0.37';
+const APP_VERSION = '1.0.38';
+const APP_VERSION_LABEL = 'CSP v1.0.38';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -5004,6 +5004,28 @@ export default function App() {
     archiviata: isValoreVero(item.archiviata),
   };
   });
+
+  useEffect(() => {
+    if (!utente || !segnalazioni.length) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const praticaId = params.get('pratica') || params.get('segnalazione') || params.get('segnalazioneId');
+
+    if (!praticaId) return;
+
+    const pratica = segnalazioni.find((item) => Number(item.id) === Number(praticaId));
+
+    if (pratica) {
+      setDettaglioAperto(pratica);
+      params.delete('pratica');
+      params.delete('segnalazione');
+      params.delete('segnalazioneId');
+
+      const query = params.toString();
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState({}, document.title, nextUrl);
+    }
+  }, [utente, segnalazioni]);
 
   const carica = async () => {
     setLoading(true);
