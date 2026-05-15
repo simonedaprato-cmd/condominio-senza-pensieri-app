@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.45';
-const APP_VERSION_LABEL = 'CSP v1.0.45';
+const APP_VERSION = '1.0.46';
+const APP_VERSION_LABEL = 'CSP v1.0.46';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2340,8 +2340,14 @@ function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePar
 
         <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
           <input value={searchNumero} onChange={(e) => setSearchNumero(e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
-          <input value={searchCondominio} onChange={(e) => setSearchCondominio(e.target.value)} placeholder="Condominio" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
-          <input value={searchFornitore} onChange={(e) => setSearchFornitore(e.target.value)} placeholder="Fornitore" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <select value={searchCondominio} onChange={(e) => setSearchCondominio(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutti i condomini</option>
+            {(condomini || []).map((condominio) => <option key={condominio.id} value={condominio.nome}>{condominio.nome}</option>)}
+          </select>
+          <select value={searchFornitore} onChange={(e) => setSearchFornitore(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutti i fornitori</option>
+            {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.ragione_sociale}>{azienda.ragione_sociale}</option>)}
+          </select>
           <select value={searchStato} onChange={(e) => setSearchStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
             <option value="">Tutti gli stati</option>
             <option value="bozza">Bozza</option>
