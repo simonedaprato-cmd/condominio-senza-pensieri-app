@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.25';
-const APP_VERSION_LABEL = 'CSP v1.0.25';
+const APP_VERSION = '1.0.26';
+const APP_VERSION_LABEL = 'CSP v1.0.26';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1519,6 +1519,9 @@ function DashboardForecast({ contratti }) {
 }
 
 function GestioneLeadAmministratori({ onCreateLead }) {
+  const [csvText, setCsvText] = useState('');
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvMessage, setCsvMessage] = useState('');
   const [form, setForm] = useState({
     nome_studio: '',
     referente: '',
@@ -1589,6 +1592,112 @@ function GestioneLeadAmministratori({ onCreateLead }) {
     });
   };
 
+  const normalizzaChiaveCsv = (value) => String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[àá]/g, 'a')
+    .replace(/[èé]/g, 'e')
+    .replace(/[ìí]/g, 'i')
+    .replace(/[òó]/g, 'o')
+    .replace(/[ùú]/g, 'u');
+
+  const parseCsvLine = (line, separator) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === separator && !inQuotes) {
+        result.push(current.replace(/^"|"$/g, '').trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    result.push(current.replace(/^"|"$/g, '').trim());
+    return result;
+  };
+
+  const importaCsvLead = async () => {
+    const righe = csvText.split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
+
+    if (righe.length < 2) {
+      setCsvMessage('Inserisci almeno intestazione e una riga dati.');
+      return;
+    }
+
+    try {
+      setCsvImporting(true);
+      setCsvMessage('');
+
+      const separator = righe[0].includes(';') ? ';' : ',';
+      const headers = parseCsvLine(righe[0], separator).map(normalizzaChiaveCsv);
+
+      const getValue = (row, aliases) => {
+        for (const alias of aliases) {
+          const index = headers.indexOf(alias);
+          if (index >= 0) return row[index] || '';
+        }
+        return '';
+      };
+
+      let importati = 0;
+
+      for (const riga of righe.slice(1)) {
+        const row = parseCsvLine(riga, separator);
+        const nomeStudio = getValue(row, ['nome_studio', 'studio', 'cliente', 'amministratore', 'nome']);
+
+        if (!nomeStudio) continue;
+
+        const numero = Number(getValue(row, ['numero_condomini', 'condomini', 'n_condomini']) || 0);
+        const citta = getValue(row, ['citta', 'comune']);
+        const indirizzo = getValue(row, ['indirizzo', 'via']);
+        const luogo = getValue(row, ['luogo_incontro', 'luogo']) || [indirizzo, citta].filter(Boolean).join(', ');
+
+        await onCreateLead({
+          nome_studio: nomeStudio,
+          referente: getValue(row, ['referente', 'contatto']),
+          telefono: getValue(row, ['telefono', 'cellulare', 'phone']),
+          email: getValue(row, ['email', 'mail']),
+          provincia: getValue(row, ['provincia', 'prov']) || 'Firenze',
+          citta,
+          indirizzo,
+          numero_condomini: numero,
+          origine: getValue(row, ['origine', 'fonte']) || 'CSV',
+          stato_pipeline: getValue(row, ['stato_pipeline', 'stato']) || 'prospect',
+          data_appuntamento: getValue(row, ['data_appuntamento', 'appuntamento', 'data_incontro']) || null,
+          ora_appuntamento: getValue(row, ['ora_appuntamento', 'ora_incontro', 'ora']) || null,
+          luogo_incontro: luogo,
+          note: getValue(row, ['note', 'annotazioni']),
+          valore_potenziale: numero * 12 * PIANI_ABBONAMENTO.premium.costo * 12,
+        });
+
+        importati += 1;
+      }
+
+      setCsvText('');
+      setCsvMessage(`Import completato: ${importati} lead inseriti.`);
+    } catch (error) {
+      console.error(error);
+      setCsvMessage('Errore import CSV: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setCsvImporting(false);
+    }
+  };
+
+  const leggiFileCsv = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCsvText(String(reader.result || ''));
+    reader.readAsText(file);
+  };
+
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">CRM Lead</p>
@@ -1640,6 +1749,36 @@ function GestioneLeadAmministratori({ onCreateLead }) {
         </div>
         <button type="submit" className="w-full rounded-2xl bg-cyan-700 px-4 py-3 font-bold text-white">Salva lead</button>
       </form>
+
+      <div className="mt-5 rounded-3xl border border-cyan-100 bg-cyan-50 p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Import CSV</p>
+            <h3 className="mt-1 text-lg font-black text-slate-900">Importa lista lead</h3>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Intestazioni accettate: nome_studio, referente, telefono, email, provincia, citta, indirizzo, numero_condomini, origine, stato, data_appuntamento, ora_appuntamento, note.
+            </p>
+          </div>
+          <label className="cursor-pointer rounded-xl bg-white px-3 py-2 text-xs font-black text-cyan-700 shadow-sm">
+            Carica file CSV
+            <input type="file" accept=".csv,text/csv" onChange={(e) => leggiFileCsv(e.target.files?.[0])} className="hidden" />
+          </label>
+        </div>
+
+        <textarea
+          value={csvText}
+          onChange={(e) => setCsvText(e.target.value)}
+          placeholder={"nome_studio;referente;telefono;email;provincia;citta;indirizzo;numero_condomini;origine;note\nStudio Rossi;Mario Rossi;333...;mail@studio.it;Firenze;Firenze;Via Roma 1;25;LinkedIn;Interessato a CSP"}
+          className="mt-3 min-h-32 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm"
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={importaCsvLead} disabled={csvImporting} className="rounded-2xl bg-cyan-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50">
+            {csvImporting ? 'Import in corso...' : 'Importa CSV'}
+          </button>
+          {csvMessage && <p className="text-xs font-bold text-cyan-800">{csvMessage}</p>}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1660,6 +1799,9 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     numero_condomini: '',
     valore_potenziale: '',
   });
+  const [leadSearch, setLeadSearch] = useState('');
+  const [leadProvinciaFiltro, setLeadProvinciaFiltro] = useState('');
+  const [leadStatoFiltro, setLeadStatoFiltro] = useState('');
 
   const totale = leadAmministratori.length;
   const clienti = leadAmministratori.filter((l) => l.stato_pipeline === 'cliente').length;
@@ -1678,6 +1820,31 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
     ['cliente', 'Convertito'],
     ['perso', 'Perso'],
   ];
+
+  const provinceDisponibili = [...new Set((leadAmministratori || []).map((lead) => lead.provincia).filter(Boolean))].sort();
+
+  const leadFiltrati = (leadAmministratori || [])
+    .filter((lead) => {
+      const search = leadSearch.toLowerCase().trim();
+      const matchSearch = !search || [
+        lead.nome_studio,
+        lead.referente,
+        lead.email,
+        lead.telefono,
+        lead.citta,
+        lead.indirizzo,
+      ].some((value) => String(value || '').toLowerCase().includes(search));
+
+      const matchProvincia = !leadProvinciaFiltro || lead.provincia === leadProvinciaFiltro;
+      const matchStato = !leadStatoFiltro || lead.stato_pipeline === leadStatoFiltro;
+
+      return matchSearch && matchProvincia && matchStato;
+    })
+    .sort((a, b) => {
+      const dataA = a.data_appuntamento || a.prossimo_followup || '';
+      const dataB = b.data_appuntamento || b.prossimo_followup || '';
+      return String(dataA).localeCompare(String(dataB));
+    });
 
   const apriModificaLead = (lead) => {
     setLeadInModifica(lead);
@@ -1891,49 +2058,111 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
         </div>
       )}
 
-      <div className="mt-5 space-y-2">
-        {leadAmministratori.length === 0 ? (
-          <EmptyState icon="🚀" title="Nessun lead inserito" text="Aggiungi il primo lead per iniziare a costruire una pipeline commerciale ordinata e misurabile." action="Crea il primo lead" tone="emerald" />
-        ) : (
-          leadAmministratori.map((lead) => (
-            <div key={lead.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-bold text-slate-900">{lead.nome_studio}</p>
-                  <p className="text-xs text-slate-500">{lead.provincia} • {lead.citta || 'Città n.d.'} • {labelStato(lead.stato_pipeline)} • {lead.numero_condomini || 0} condomini</p>
-                  {lead.indirizzo && (
-                    <p className="mt-1 text-xs font-semibold text-slate-500">📍 {lead.indirizzo}</p>
-                  )}
-                  {(lead.telefono || lead.email) && (
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
-                      {lead.telefono ? `☎ ${lead.telefono}` : ''}{lead.telefono && lead.email ? ' • ' : ''}{lead.email ? `✉ ${lead.email}` : ''}
-                    </p>
-                  )}
-                  {lead.data_appuntamento && (
-                    <p className="mt-1 text-xs font-bold text-sky-700">
-                      Appuntamento: {new Date(lead.data_appuntamento).toLocaleDateString('it-IT')} {lead.ora_appuntamento ? `• ${String(lead.ora_appuntamento).slice(0, 5)}` : ''}
-                    </p>
-                  )}
-                  {lead.prossimo_followup && (
-                    <p className="mt-1 text-xs font-bold text-amber-700">Follow-up: {new Date(lead.prossimo_followup).toLocaleDateString('it-IT')}</p>
-                  )}
-                  {lead.note && (
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-500">{lead.note}</p>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                  <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
-                  <button type="button" onClick={() => apriModificaLead(lead)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
-                    Aggiorna
-                  </button>
-                  <button type="button" onClick={() => apriGoogleCalendarLead(lead)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
-                    Google Calendar
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+      <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Tabella lead</p>
+            <h3 className="mt-1 text-lg font-black text-slate-900">Elenco potenziali clienti</h3>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Ricerca per cliente, referente, città, telefono o email. Filtri rapidi per provincia e stato.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[620px]">
+            <input
+              value={leadSearch}
+              onChange={(e) => setLeadSearch(e.target.value)}
+              placeholder="Cerca cliente / referente..."
+              className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold"
+            />
+            <select value={leadProvinciaFiltro} onChange={(e) => setLeadProvinciaFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold">
+              <option value="">Tutte le province</option>
+              {provinceDisponibili.map((provincia) => <option key={provincia} value={provincia}>{provincia}</option>)}
+            </select>
+            <select value={leadStatoFiltro} onChange={(e) => setLeadStatoFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold">
+              <option value="">Tutti gli stati</option>
+              {statiLead.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+          {leadAmministratori.length === 0 ? (
+            <EmptyState icon="🚀" title="Nessun lead inserito" text="Aggiungi il primo lead o importa una lista CSV per costruire la pipeline commerciale." action="CRM pronto" tone="emerald" />
+          ) : leadFiltrati.length === 0 ? (
+            <EmptyState icon="🔎" title="Nessun lead trovato" text="Modifica ricerca o filtri per visualizzare altri potenziali clienti." action="Filtri attivi" tone="slate" />
+          ) : (
+            <table className="min-w-[980px] w-full border-collapse text-sm">
+              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Cliente</th>
+                  <th className="px-3 py-3">Provincia</th>
+                  <th className="px-3 py-3">Contatti</th>
+                  <th className="px-3 py-3">Stato</th>
+                  <th className="px-3 py-3">Incontro / Follow-up</th>
+                  <th className="px-3 py-3 text-right">Potenziale</th>
+                  <th className="px-3 py-3 text-right">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leadFiltrati.map((lead) => (
+                  <tr key={lead.id} className="border-t border-slate-100 align-top hover:bg-cyan-50/40">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{lead.nome_studio}</p>
+                      <p className="text-xs font-semibold text-slate-500">{lead.referente || 'Referente n.d.'}</p>
+                      {(lead.indirizzo || lead.citta) && (
+                        <p className="mt-1 text-xs text-slate-500">📍 {[lead.indirizzo, lead.citta].filter(Boolean).join(', ')}</p>
+                      )}
+                      {lead.note && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{lead.note}</p>}
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="font-bold text-slate-700">{lead.provincia || 'n.d.'}</p>
+                      <p className="text-xs text-slate-500">{lead.citta || ''}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="text-xs font-semibold text-slate-600">{lead.telefono || 'Telefono n.d.'}</p>
+                      <p className="text-xs font-semibold text-slate-600">{lead.email || 'Email n.d.'}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full bg-cyan-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-cyan-700">
+                        {labelStato(lead.stato_pipeline)}
+                      </span>
+                      <p className="mt-2 text-xs text-slate-500">{lead.numero_condomini || 0} condomìni</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      {lead.data_appuntamento ? (
+                        <p className="text-xs font-black text-sky-700">
+                          {new Date(lead.data_appuntamento).toLocaleDateString('it-IT')} {lead.ora_appuntamento ? `• ${String(lead.ora_appuntamento).slice(0, 5)}` : ''}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400">Incontro non fissato</p>
+                      )}
+                      {lead.prossimo_followup && (
+                        <p className="mt-1 text-xs font-bold text-amber-700">Follow-up: {new Date(lead.prossimo_followup).toLocaleDateString('it-IT')}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => apriModificaLead(lead)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                          Aggiorna
+                        </button>
+                        <button type="button" onClick={() => apriGoogleCalendarLead(lead)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
+                          Calendar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <p className="mt-3 text-xs font-semibold text-slate-500">
+          Lead visualizzati: {leadFiltrati.length}/{leadAmministratori.length}
+        </p>
       </div>
     </section>
   );
