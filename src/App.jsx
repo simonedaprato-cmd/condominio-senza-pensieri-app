@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.26';
-const APP_VERSION_LABEL = 'CSP v1.0.26';
+const APP_VERSION = '1.0.27';
+const APP_VERSION_LABEL = 'CSP v1.0.27';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1983,6 +1983,55 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
 
   const labelStato = (stato) => statiLead.find((item) => item[0] === stato)?.[1] || stato || 'n.d.';
 
+  const esportaLeadCsv = () => {
+    const headers = [
+      'nome_studio',
+      'referente',
+      'telefono',
+      'email',
+      'provincia',
+      'citta',
+      'indirizzo',
+      'numero_condomini',
+      'stato_pipeline',
+      'data_appuntamento',
+      'ora_appuntamento',
+      'prossimo_followup',
+      'origine',
+      'note',
+    ];
+
+    const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+    const rows = leadFiltrati.map((lead) => [
+      lead.nome_studio,
+      lead.referente,
+      lead.telefono,
+      lead.email,
+      lead.provincia,
+      lead.citta,
+      lead.indirizzo,
+      lead.numero_condomini,
+      lead.stato_pipeline,
+      lead.data_appuntamento,
+      lead.ora_appuntamento,
+      lead.prossimo_followup,
+      lead.origine,
+      lead.note,
+    ].map(escapeCsv).join(';'));
+
+    const csv = [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lead-amministratori-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Lead Amministratori</p>
@@ -2067,7 +2116,7 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
               Ricerca per cliente, referente, città, telefono o email. Filtri rapidi per provincia e stato.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[620px]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:w-[760px]">
             <input
               value={leadSearch}
               onChange={(e) => setLeadSearch(e.target.value)}
@@ -2082,16 +2131,19 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
               <option value="">Tutti gli stati</option>
               {statiLead.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
+            <button type="button" onClick={esportaLeadCsv} className="rounded-2xl bg-cyan-700 px-3 py-3 text-sm font-black text-white">
+              Esporta CSV
+            </button>
           </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <div className="mt-4 max-h-[620px] overflow-auto rounded-2xl border border-slate-200 bg-white csp-scroll">
           {leadAmministratori.length === 0 ? (
             <EmptyState icon="🚀" title="Nessun lead inserito" text="Aggiungi il primo lead o importa una lista CSV per costruire la pipeline commerciale." action="CRM pronto" tone="emerald" />
           ) : leadFiltrati.length === 0 ? (
             <EmptyState icon="🔎" title="Nessun lead trovato" text="Modifica ricerca o filtri per visualizzare altri potenziali clienti." action="Filtri attivi" tone="slate" />
           ) : (
-            <table className="min-w-[980px] w-full border-collapse text-sm">
+            <table className="min-w-[860px] w-full border-collapse text-sm">
               <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-3">Cliente</th>
@@ -2099,7 +2151,6 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
                   <th className="px-3 py-3">Contatti</th>
                   <th className="px-3 py-3">Stato</th>
                   <th className="px-3 py-3">Incontro / Follow-up</th>
-                  <th className="px-3 py-3 text-right">Potenziale</th>
                   <th className="px-3 py-3 text-right">Azioni</th>
                 </tr>
               </thead>
@@ -2140,16 +2191,10 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
                         <p className="mt-1 text-xs font-bold text-amber-700">Follow-up: {new Date(lead.prossimo_followup).toLocaleDateString('it-IT')}</p>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right">
-                      <p className="font-black text-cyan-700">{formatEuro(lead.valore_potenziale || 0)}</p>
-                    </td>
                     <td className="px-3 py-3">
                       <div className="flex justify-end gap-2">
                         <button type="button" onClick={() => apriModificaLead(lead)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
                           Aggiorna
-                        </button>
-                        <button type="button" onClick={() => apriGoogleCalendarLead(lead)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
-                          Calendar
                         </button>
                       </div>
                     </td>
