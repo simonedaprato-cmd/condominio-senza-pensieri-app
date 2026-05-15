@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.41';
-const APP_VERSION_LABEL = 'CSP v1.0.41';
+const APP_VERSION = '1.0.42';
+const APP_VERSION_LABEL = 'CSP v1.0.42';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2321,6 +2321,28 @@ function FatturazionePartnerSuite({
     note: '',
   });
 
+  const [fatturaSearchNumero, setFatturaSearchNumero] = useState('');
+  const [fatturaSearchPratica, setFatturaSearchPratica] = useState('');
+  const [fatturaSearchPartner, setFatturaSearchPartner] = useState('');
+  const [fatturaFiltroStato, setFatturaFiltroStato] = useState('');
+  const [fatturaInModifica, setFatturaInModifica] = useState(null);
+  const [fatturaEditForm, setFatturaEditForm] = useState({
+    azienda_partner_id: '',
+    amministratore_email: '',
+    condominio_id: '',
+    segnalazione_id: '',
+    numero_fattura: '',
+    descrizione: '',
+    importo_imponibile: '',
+    iva: '',
+    totale: '',
+    file_url: '',
+    data_emissione: '',
+    data_scadenza: '',
+    stato: '',
+    note: '',
+  });
+
   const [miaFatturaForm, setMiaFatturaForm] = useState({
     azienda_partner_id: '',
     numero_fattura: '',
@@ -2414,6 +2436,57 @@ function FatturazionePartnerSuite({
     });
   };
 
+  const updateFatturaEdit = (field, value) => {
+    setFatturaEditForm((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (field === 'importo_imponibile' || field === 'iva') {
+        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
+        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
+      }
+
+      return next;
+    });
+  };
+
+  const apriModificaFattura = (fattura) => {
+    setFatturaInModifica(fattura);
+    setFatturaEditForm({
+      azienda_partner_id: fattura.azienda_partner_id || '',
+      amministratore_email: fattura.amministratore_email || '',
+      condominio_id: fattura.condominio_id || '',
+      segnalazione_id: fattura.segnalazione_id || '',
+      numero_fattura: fattura.numero_fattura || '',
+      descrizione: fattura.descrizione || '',
+      importo_imponibile: fattura.importo_imponibile || '',
+      iva: fattura.iva || '',
+      totale: fattura.totale || '',
+      file_url: fattura.file_url || '',
+      data_emissione: fattura.data_emissione || '',
+      data_scadenza: fattura.data_scadenza || '',
+      stato: fattura.stato || 'bozza',
+      note: fattura.note || '',
+    });
+  };
+
+  const salvaModificaFattura = async () => {
+    if (!fatturaInModifica?.id) return;
+
+    await onUpdateFatturaPartner(fatturaInModifica.id, {
+      ...fatturaEditForm,
+      azienda_partner_id: Number(fatturaEditForm.azienda_partner_id || 0) || null,
+      condominio_id: fatturaEditForm.condominio_id ? Number(fatturaEditForm.condominio_id) : null,
+      segnalazione_id: fatturaEditForm.segnalazione_id ? Number(fatturaEditForm.segnalazione_id) : null,
+      importo_imponibile: Number(fatturaEditForm.importo_imponibile || 0),
+      iva: Number(fatturaEditForm.iva || 0),
+      totale: Number(fatturaEditForm.totale || 0),
+      data_scadenza: fatturaEditForm.data_scadenza || null,
+    });
+
+    setFatturaInModifica(null);
+  };
+
   const caricaPdfFattura = async (file) => {
     if (!file) return;
 
@@ -2429,6 +2502,7 @@ function FatturazionePartnerSuite({
       if (url) {
         updateFattura('file_url', url);
         setFatturaPdfName(file.name);
+        alert('Fattura caricata correttamente.');
       }
     } catch (error) {
       console.error(error);
@@ -2563,6 +2637,24 @@ function FatturazionePartnerSuite({
 
   const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
   const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
+  const segnalazioneById = (id) => (segnalazioni || []).find((s) => Number(s.id) === Number(id));
+
+  const fattureFiltrate = (fatturePartner || []).filter((fattura) => {
+    const partner = aziendaById(fattura.azienda_partner_id)?.ragione_sociale || '';
+    const pratica = segnalazioneById(fattura.segnalazione_id);
+    const praticaText = [
+      fattura.segnalazione_id,
+      pratica?.titolo,
+      pratica?.descrizione,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    const matchNumero = !fatturaSearchNumero || String(fattura.numero_fattura || fattura.id || '').toLowerCase().includes(fatturaSearchNumero.toLowerCase().trim());
+    const matchPratica = !fatturaSearchPratica || praticaText.includes(fatturaSearchPratica.toLowerCase().trim());
+    const matchPartner = !fatturaSearchPartner || partner.toLowerCase().includes(fatturaSearchPartner.toLowerCase().trim());
+    const matchStato = !fatturaFiltroStato || String(fattura.stato || '') === fatturaFiltroStato;
+
+    return matchNumero && matchPratica && matchPartner && matchStato;
+  });
 
   const provvigioniPerAzienda = (aziendePartner || []).map((azienda) => {
     const maturate = (provvigioniMaturate || []).filter((p) => Number(p.azienda_partner_id) === Number(azienda.id));
@@ -2588,7 +2680,7 @@ function FatturazionePartnerSuite({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+        <section className="h-[430px] overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Controllo scadenze</p>
@@ -2621,7 +2713,7 @@ function FatturazionePartnerSuite({
           </div>
         </section>
 
-        <section className="rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+        <section className="h-[430px] overflow-hidden rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Controllo insoluti</p>
@@ -2656,7 +2748,7 @@ function FatturazionePartnerSuite({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
           <h2 className="mt-1 text-xl font-bold">Nuova azienda partner</h2>
           <p className="mt-1 text-sm text-slate-500">Inserisci l’azienda fatturante e la provvigione gestore valida da oggi.</p>
@@ -2774,7 +2866,7 @@ function FatturazionePartnerSuite({
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatture</p>
           <h2 className="mt-1 text-xl font-bold">Nuova fattura partner</h2>
           <p className="mt-1 text-sm text-slate-500">Collega fattura ad azienda partner, amministratore, condominio ed eventuale pratica.</p>
@@ -2884,7 +2976,7 @@ function FatturazionePartnerSuite({
         </section>
       </div>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="h-[720px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-700">Le mie fatture</p>
@@ -2950,7 +3042,7 @@ function FatturazionePartnerSuite({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="h-[820px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Elenco fatture</p>
@@ -2959,24 +3051,85 @@ function FatturazionePartnerSuite({
           <p className="text-xs font-bold text-slate-500">Segna “Pagata” per maturare automaticamente le provvigioni.</p>
         </div>
 
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          <input value={fatturaSearchNumero} onChange={(e) => setFatturaSearchNumero(e.target.value)} placeholder="Cerca numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <input value={fatturaSearchPratica} onChange={(e) => setFatturaSearchPratica(e.target.value)} placeholder="Cerca pratica" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <input value={fatturaSearchPartner} onChange={(e) => setFatturaSearchPartner(e.target.value)} placeholder="Cerca partner" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <select value={fatturaFiltroStato} onChange={(e) => setFatturaFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutte le condizioni</option>
+            <option value="bozza">Bozza</option>
+            <option value="inviata">Inviata</option>
+            <option value="pagata">Pagata</option>
+            <option value="scaduta">Scaduta</option>
+            <option value="annullata">Annullata</option>
+          </select>
+        </div>
+
+        {fatturaInModifica && (
+          <div className="mt-4 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Dettagli fattura</p>
+                <h3 className="mt-1 text-lg font-black text-slate-900">{fatturaInModifica.numero_fattura || `Fattura #${fatturaInModifica.id}`}</h3>
+              </div>
+              <button type="button" onClick={() => setFatturaInModifica(null)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700">Chiudi</button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <select value={fatturaEditForm.azienda_partner_id} onChange={(e) => updateFatturaEdit('azienda_partner_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Partner</option>
+                {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+              </select>
+              <select value={fatturaEditForm.amministratore_email} onChange={(e) => updateFatturaEdit('amministratore_email', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Amministratore</option>
+                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
+              </select>
+              <select value={fatturaEditForm.condominio_id} onChange={(e) => updateFatturaEdit('condominio_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Condominio</option>
+                {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+              <select value={fatturaEditForm.segnalazione_id} onChange={(e) => updateFatturaEdit('segnalazione_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Pratica collegata</option>
+                {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>#{s.id} - {s.titolo}</option>)}
+              </select>
+              <input value={fatturaEditForm.numero_fattura} onChange={(e) => updateFatturaEdit('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <select value={fatturaEditForm.stato} onChange={(e) => updateFatturaEdit('stato', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="bozza">Bozza</option>
+                <option value="inviata">Inviata</option>
+                <option value="pagata">Pagata</option>
+                <option value="scaduta">Scaduta</option>
+                <option value="annullata">Annullata</option>
+              </select>
+              <input type="number" step="0.01" value={fatturaEditForm.importo_imponibile} onChange={(e) => updateFatturaEdit('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
+              <input type="number" step="0.01" value={fatturaEditForm.iva} onChange={(e) => updateFatturaEdit('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaEditForm.totale} onChange={(e) => updateFatturaEdit('totale', e.target.value)} placeholder="Valore fattura totale" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
+              <input type="date" value={fatturaEditForm.data_emissione || ''} onChange={(e) => updateFatturaEdit('data_emissione', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <input type="date" value={fatturaEditForm.data_scadenza || ''} onChange={(e) => updateFatturaEdit('data_scadenza', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <input value={fatturaEditForm.file_url} onChange={(e) => updateFatturaEdit('file_url', e.target.value)} placeholder="URL PDF" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-3" />
+            </div>
+            <textarea value={fatturaEditForm.descrizione} onChange={(e) => updateFatturaEdit('descrizione', e.target.value)} placeholder="Descrizione" className="mt-3 min-h-20 w-full rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+            <button type="button" onClick={salvaModificaFattura} className="mt-3 w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva dettagli fattura</button>
+          </div>
+        )}
+
         <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
-          <table className="min-w-[980px] w-full border-collapse text-sm">
+          <table className="min-w-[1040px] w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-3">Fattura</th>
                 <th className="px-3 py-3">Partner</th>
                 <th className="px-3 py-3">Condominio</th>
-                <th className="px-3 py-3">Amministratore</th>
-                <th className="px-3 py-3 text-right">Totale</th>
+                <th className="px-3 py-3">Pratica</th>
+                <th className="px-3 py-3 text-right min-w-[150px]">Totale</th>
                 <th className="px-3 py-3">Stato</th>
                 <th className="px-3 py-3 text-right">Azioni</th>
               </tr>
             </thead>
             <tbody>
-              {(fatturePartner || []).length === 0 ? (
-                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura inserita.</td></tr>
+              {fattureFiltrate.length === 0 ? (
+                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura trovata.</td></tr>
               ) : (
-                fatturePartner.map((fattura) => (
+                fattureFiltrate.map((fattura) => (
                   <tr key={fattura.id} className="border-t border-slate-100 align-top hover:bg-slate-50">
                     <td className="px-3 py-3">
                       <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
@@ -2985,8 +3138,8 @@ function FatturazionePartnerSuite({
                     </td>
                     <td className="px-3 py-3 font-semibold text-slate-700">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
                     <td className="px-3 py-3 text-slate-600">{condominioById(fattura.condominio_id)?.nome || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{fattura.amministratore_email || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.totale || 0)}</td>
+                    <td className="px-3 py-3 text-slate-600">{fattura.segnalazione_id ? `#${fattura.segnalazione_id}` : 'n.d.'}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900 min-w-[150px]">{formatEuro(fattura.totale || 0)}</td>
                     <td className="px-3 py-3">
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
                         fattura.stato === 'pagata' ? 'bg-emerald-100 text-emerald-700' :
@@ -2999,6 +3152,7 @@ function FatturazionePartnerSuite({
                     </td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => apriModificaFattura(fattura)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Modifica</button>
                         {fattura.stato !== 'inviata' && fattura.stato !== 'pagata' && (
                           <button type="button" onClick={() => onInviaFatturaPartner(fattura.id)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
                             Invia
