@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.39';
-const APP_VERSION_LABEL = 'CSP v1.0.39';
+const APP_VERSION = '1.0.40';
+const APP_VERSION_LABEL = 'CSP v1.0.40';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2259,6 +2259,7 @@ function FatturazionePartnerSuite({
   provvigioniPartner,
   fatturePartner,
   provvigioniMaturate,
+  fattureProvvigioniGestore,
   condomini,
   segnalazioni,
   utentiSistema,
@@ -2269,6 +2270,7 @@ function FatturazionePartnerSuite({
   onUpdateFatturaPartner,
   onInviaFatturaPartner,
   onUploadFatturaPdf,
+  onCreateFatturaProvvigioneGestore,
 }) {
   const [aziendaForm, setAziendaForm] = useState({
     ragione_sociale: '',
@@ -2318,6 +2320,31 @@ function FatturazionePartnerSuite({
     stato: 'bozza',
     note: '',
   });
+
+  const [miaFatturaForm, setMiaFatturaForm] = useState({
+    azienda_partner_id: '',
+    numero_fattura: '',
+    data_fattura: new Date().toISOString().slice(0, 10),
+    importo_imponibile: '',
+    iva: '22',
+    totale: '',
+    file_url: '',
+    note: '',
+  });
+
+  const updateMiaFattura = (field, value) => {
+    setMiaFatturaForm((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (field === 'importo_imponibile' || field === 'iva') {
+        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
+        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
+      }
+
+      return next;
+    });
+  };
 
   const updateAzienda = (field, value) => setAziendaForm((prev) => ({ ...prev, [field]: value }));
   const updateAziendaEdit = (field, value) => setAziendaEditForm((prev) => ({ ...prev, [field]: value }));
@@ -2420,6 +2447,8 @@ function FatturazionePartnerSuite({
   const fattureScadute = (fatturePartner || []).filter((f) => f.stato === 'scaduta').length;
   const provvigioniGestore = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_gestore || 0), 0);
   const provvigioniAmministratori = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0);
+  const mieProvvigioniFatturate = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
+  const mieProvvigioniDaFatturare = Math.max(provvigioniGestore - mieProvvigioniFatturate, 0);
 
   const creaAzienda = async (e) => {
     e.preventDefault();
@@ -2474,6 +2503,35 @@ function FatturazionePartnerSuite({
       data_emissione: new Date().toISOString().slice(0, 10),
       data_scadenza: '',
       stato: 'bozza',
+      note: '',
+    });
+  };
+
+  const creaMiaFatturaProvvigione = async (e) => {
+    e.preventDefault();
+
+    if (!miaFatturaForm.azienda_partner_id || !miaFatturaForm.numero_fattura) {
+      alert('Seleziona azienda partner e inserisci numero fattura.');
+      return;
+    }
+
+    await onCreateFatturaProvvigioneGestore({
+      ...miaFatturaForm,
+      azienda_partner_id: Number(miaFatturaForm.azienda_partner_id),
+      importo_imponibile: Number(miaFatturaForm.importo_imponibile || 0),
+      iva: Number(miaFatturaForm.iva || 0),
+      totale: Number(miaFatturaForm.totale || 0),
+      data_fattura: miaFatturaForm.data_fattura || new Date().toISOString().slice(0, 10),
+    });
+
+    setMiaFatturaForm({
+      azienda_partner_id: '',
+      numero_fattura: '',
+      data_fattura: new Date().toISOString().slice(0, 10),
+      importo_imponibile: '',
+      iva: '22',
+      totale: '',
+      file_url: '',
       note: '',
     });
   };
@@ -2732,6 +2790,72 @@ function FatturazionePartnerSuite({
           </form>
         </section>
       </div>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-700">Le mie fatture</p>
+            <h2 className="mt-1 text-xl font-bold">Fatture provvigioni gestore</h2>
+            <p className="mt-1 text-sm text-slate-500">Registra le fatture che emetti alle aziende partner per le tue provvigioni. Nessun invio automatico.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 md:min-w-[520px]">
+            <DashboardStat label="Provvigioni totali" value={formatEuro(provvigioniGestore)} tone="sky" />
+            <DashboardStat label="Fatturate" value={formatEuro(mieProvvigioniFatturate)} tone="emerald" />
+            <DashboardStat label="Da fatturare" value={formatEuro(mieProvvigioniDaFatturare)} tone="amber" />
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <form onSubmit={creaMiaFatturaProvvigione} className="space-y-3 rounded-3xl border border-violet-100 bg-violet-50 p-4">
+            <p className="text-sm font-black text-violet-800">Nuova fattura provvigione</p>
+            <select value={miaFatturaForm.azienda_partner_id} onChange={(e) => updateMiaFattura('azienda_partner_id', e.target.value)} className="w-full rounded-2xl border border-violet-200 bg-white px-3 py-3">
+              <option value="">Azienda partner da fatturare</option>
+              {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+            </select>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input value={miaFatturaForm.numero_fattura} onChange={(e) => updateMiaFattura('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="date" value={miaFatturaForm.data_fattura} onChange={(e) => updateMiaFattura('data_fattura', e.target.value)} className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={miaFatturaForm.importo_imponibile} onChange={(e) => updateMiaFattura('importo_imponibile', e.target.value)} placeholder="Imponibile provvigione" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={miaFatturaForm.iva} onChange={(e) => updateMiaFattura('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={miaFatturaForm.totale} onChange={(e) => updateMiaFattura('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input value={miaFatturaForm.file_url} onChange={(e) => updateMiaFattura('file_url', e.target.value)} placeholder="Link PDF opzionale" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+            </div>
+            <textarea value={miaFatturaForm.note} onChange={(e) => updateMiaFattura('note', e.target.value)} placeholder="Note fattura provvigione" className="min-h-20 w-full rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+            <button type="submit" className="w-full rounded-2xl bg-violet-700 px-4 py-3 font-black text-white">Salva fattura provvigione</button>
+          </form>
+
+          <div className="max-h-[430px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
+            <table className="min-w-[680px] w-full border-collapse text-sm">
+              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Fattura</th>
+                  <th className="px-3 py-3">Azienda</th>
+                  <th className="px-3 py-3 text-right">Imponibile</th>
+                  <th className="px-3 py-3 text-right">Totale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(fattureProvvigioniGestore || []).length === 0 ? (
+                  <tr><td colSpan="4" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione registrata.</td></tr>
+                ) : (
+                  fattureProvvigioniGestore.map((fattura) => (
+                    <tr key={fattura.id} className="border-t border-slate-100 hover:bg-violet-50/40">
+                      <td className="px-3 py-3">
+                        <p className="font-black text-slate-900">{fattura.numero_fattura}</p>
+                        <p className="text-xs text-slate-500">{fattura.data_fattura}</p>
+                        {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-black text-violet-700">PDF</a>}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                      <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
+                      <td className="px-3 py-3 text-right font-black text-violet-700">{formatEuro(fattura.totale || 0)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -4807,6 +4931,7 @@ export default function App() {
   const [provvigioniPartner, setProvvigioniPartner] = useState([]);
   const [fatturePartner, setFatturePartner] = useState([]);
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
+  const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -5126,6 +5251,14 @@ export default function App() {
 
       if (provvigioniMaturateError && provvigioniMaturateError.code !== 'PGRST116' && provvigioniMaturateError.code !== '42P01') throw provvigioniMaturateError;
       setProvvigioniMaturate(provvigioniMaturateData || []);
+
+      const { data: fattureProvvigioniData, error: fattureProvvigioniError } = await supabase
+        .from('fatture_provvigioni_gestore')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fattureProvvigioniError && fattureProvvigioniError.code !== 'PGRST116' && fattureProvvigioniError.code !== '42P01') throw fattureProvvigioniError;
+      setFattureProvvigioniGestore(fattureProvvigioniData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -6120,6 +6253,22 @@ export default function App() {
     }
   };
 
+  const creaFatturaProvvigioneGestore = async (fatturaProvvigione) => {
+    try {
+      const { error } = await supabase
+        .from('fatture_provvigioni_gestore')
+        .insert(fatturaProvvigione);
+
+      if (error) throw error;
+
+      setStatusMessage('Fattura provvigione gestore salvata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore creazione fattura provvigione: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -6509,6 +6658,7 @@ export default function App() {
               provvigioniPartner={provvigioniPartner}
               fatturePartner={fatturePartner}
               provvigioniMaturate={provvigioniMaturate}
+              fattureProvvigioniGestore={fattureProvvigioniGestore}
               condomini={condomini}
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
@@ -6519,6 +6669,7 @@ export default function App() {
               onUpdateFatturaPartner={aggiornaFatturaPartner}
               onInviaFatturaPartner={inviaFatturaPartner}
               onUploadFatturaPdf={uploadFatturaPdf}
+              onCreateFatturaProvvigioneGestore={creaFatturaProvvigioneGestore}
             />
           </>
         )}
