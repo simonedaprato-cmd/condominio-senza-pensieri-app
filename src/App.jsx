@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.30';
-const APP_VERSION_LABEL = 'CSP v1.0.30';
+const APP_VERSION = '1.0.31';
+const APP_VERSION_LABEL = 'CSP v1.0.31';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2263,6 +2263,8 @@ function FatturazionePartnerSuite({
   segnalazioni,
   utentiSistema,
   onCreateAziendaPartner,
+  onUpdateAziendaPartner,
+  onCreateProvvigionePartner,
   onCreateFatturaPartner,
   onUpdateFatturaPartner,
 }) {
@@ -2277,6 +2279,22 @@ function FatturazionePartnerSuite({
     provincia: 'Firenze',
     percentuale_gestore: '',
     note: '',
+  });
+
+  const [partnerSearch, setPartnerSearch] = useState('');
+  const [aziendaInModifica, setAziendaInModifica] = useState(null);
+  const [aziendaEditForm, setAziendaEditForm] = useState({
+    ragione_sociale: '',
+    partita_iva: '',
+    email: '',
+    telefono: '',
+    referente: '',
+    tipo_attivita: '',
+    citta: '',
+    provincia: '',
+    note: '',
+    attiva: true,
+    nuova_percentuale_gestore: '',
   });
 
   const [fatturaForm, setFatturaForm] = useState({
@@ -2297,6 +2315,58 @@ function FatturazionePartnerSuite({
   });
 
   const updateAzienda = (field, value) => setAziendaForm((prev) => ({ ...prev, [field]: value }));
+  const updateAziendaEdit = (field, value) => setAziendaEditForm((prev) => ({ ...prev, [field]: value }));
+
+  const apriModificaAzienda = (azienda) => {
+    setAziendaInModifica(azienda);
+    setAziendaEditForm({
+      ragione_sociale: azienda.ragione_sociale || '',
+      partita_iva: azienda.partita_iva || '',
+      email: azienda.email || '',
+      telefono: azienda.telefono || '',
+      referente: azienda.referente || '',
+      tipo_attivita: azienda.tipo_attivita || '',
+      citta: azienda.citta || '',
+      provincia: azienda.provincia || '',
+      note: azienda.note || '',
+      attiva: azienda.attiva !== false,
+      nuova_percentuale_gestore: '',
+    });
+  };
+
+  const salvaModificaAzienda = async () => {
+    if (!aziendaInModifica?.id) return;
+
+    const { nuova_percentuale_gestore, ...payload } = aziendaEditForm;
+    await onUpdateAziendaPartner(aziendaInModifica.id, payload);
+
+    if (nuova_percentuale_gestore !== '' && nuova_percentuale_gestore !== null) {
+      await onCreateProvvigionePartner(aziendaInModifica.id, Number(nuova_percentuale_gestore || 0));
+    }
+
+    setAziendaInModifica(null);
+  };
+
+  const provvigioneAttivaAzienda = (aziendaId) => {
+    return (provvigioniPartner || [])
+      .filter((p) => Number(p.azienda_partner_id) === Number(aziendaId) && p.attiva !== false)
+      .sort((a, b) => String(b.valida_dal || '').localeCompare(String(a.valida_dal || '')))[0];
+  };
+
+  const aziendeFiltrate = (aziendePartner || []).filter((azienda) => {
+    const search = partnerSearch.toLowerCase().trim();
+    if (!search) return true;
+    return [
+      azienda.ragione_sociale,
+      azienda.partita_iva,
+      azienda.email,
+      azienda.telefono,
+      azienda.referente,
+      azienda.tipo_attivita,
+      azienda.citta,
+      azienda.provincia,
+    ].some((value) => String(value || '').toLowerCase().includes(search));
+  });
 
   const updateFattura = (field, value) => {
     setFatturaForm((prev) => {
@@ -2423,6 +2493,102 @@ function FatturazionePartnerSuite({
             <textarea value={aziendaForm.note} onChange={(e) => updateAzienda('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
             <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">Salva azienda partner</button>
           </form>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Gestione fornitori</p>
+              <h2 className="mt-1 text-xl font-bold">Elenco aziende partner</h2>
+              <p className="mt-1 text-sm text-slate-500">Cerca, modifica dati, attiva/disattiva e aggiorna percentuale provvigione.</p>
+            </div>
+            <input
+              value={partnerSearch}
+              onChange={(e) => setPartnerSearch(e.target.value)}
+              placeholder="Cerca fornitore..."
+              className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold md:w-72"
+            />
+          </div>
+
+          {aziendaInModifica && (
+            <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Modifica fornitore</p>
+                  <h3 className="mt-1 text-lg font-black text-slate-900">{aziendaInModifica.ragione_sociale}</h3>
+                </div>
+                <button type="button" onClick={() => setAziendaInModifica(null)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700">
+                  Chiudi
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input value={aziendaEditForm.ragione_sociale} onChange={(e) => updateAziendaEdit('ragione_sociale', e.target.value)} placeholder="Ragione sociale" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.partita_iva} onChange={(e) => updateAziendaEdit('partita_iva', e.target.value)} placeholder="Partita IVA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.tipo_attivita} onChange={(e) => updateAziendaEdit('tipo_attivita', e.target.value)} placeholder="Tipo attività" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.referente} onChange={(e) => updateAziendaEdit('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.telefono} onChange={(e) => updateAziendaEdit('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.email} onChange={(e) => updateAziendaEdit('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.citta} onChange={(e) => updateAziendaEdit('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.provincia} onChange={(e) => updateAziendaEdit('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input type="number" step="0.01" value={aziendaEditForm.nuova_percentuale_gestore} onChange={(e) => updateAziendaEdit('nuova_percentuale_gestore', e.target.value)} placeholder="Nuova % provvigione gestore" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <label className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-sm font-bold text-slate-700">
+                  <input type="checkbox" checked={aziendaEditForm.attiva} onChange={(e) => updateAziendaEdit('attiva', e.target.checked)} />
+                  Azienda attiva
+                </label>
+              </div>
+              <textarea value={aziendaEditForm.note} onChange={(e) => updateAziendaEdit('note', e.target.value)} placeholder="Note" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              <button type="button" onClick={salvaModificaAzienda} className="mt-3 w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">
+                Salva modifiche fornitore
+              </button>
+            </div>
+          )}
+
+          <div className="mt-4 max-h-[360px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+            <table className="min-w-[760px] w-full border-collapse text-sm">
+              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Azienda</th>
+                  <th className="px-3 py-3">Referente</th>
+                  <th className="px-3 py-3">Provvigione</th>
+                  <th className="px-3 py-3">Stato</th>
+                  <th className="px-3 py-3 text-right">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aziendeFiltrate.length === 0 ? (
+                  <tr><td colSpan="5" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
+                ) : aziendeFiltrate.map((azienda) => {
+                  const provv = provvigioneAttivaAzienda(azienda.id);
+                  return (
+                    <tr key={azienda.id} className="border-t border-slate-100 hover:bg-emerald-50/40">
+                      <td className="px-3 py-3">
+                        <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
+                        <p className="text-xs text-slate-500">{azienda.tipo_attivita || 'Attività n.d.'} • {azienda.citta || ''} {azienda.provincia || ''}</p>
+                        <p className="text-xs text-slate-400">{azienda.partita_iva || 'P.IVA n.d.'}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-semibold text-slate-700">{azienda.referente || 'n.d.'}</p>
+                        <p className="text-xs text-slate-500">{azienda.telefono || ''}</p>
+                        <p className="text-xs text-slate-500">{azienda.email || ''}</p>
+                      </td>
+                      <td className="px-3 py-3 font-black text-emerald-700">{provv ? `${Number(provv.percentuale_gestore || 0)}%` : '0%'}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${azienda.attiva !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                          {azienda.attiva !== false ? 'Attiva' : 'Disattiva'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <button type="button" onClick={() => apriModificaAzienda(azienda)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                          Modifica
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -5685,6 +5851,56 @@ export default function App() {
     }
   };
 
+  const aggiornaAziendaPartner = async (aziendaId, updatePayload) => {
+    try {
+      const { error } = await supabase
+        .from('aziende_partner')
+        .update(updatePayload)
+        .eq('id', aziendaId);
+
+      if (error) throw error;
+
+      setAziendePartner((prev) => prev.map((azienda) => (
+        Number(azienda.id) === Number(aziendaId) ? { ...azienda, ...updatePayload } : azienda
+      )));
+
+      setStatusMessage('Fornitore aggiornato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento fornitore: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const creaProvvigionePartner = async (aziendaId, percentualeGestore) => {
+    try {
+      const oggi = new Date().toISOString().slice(0, 10);
+
+      await supabase
+        .from('provvigioni_partner')
+        .update({ attiva: false, valida_al: oggi })
+        .eq('azienda_partner_id', aziendaId)
+        .eq('attiva', true);
+
+      const { error } = await supabase
+        .from('provvigioni_partner')
+        .insert({
+          azienda_partner_id: aziendaId,
+          percentuale_gestore: Number(percentualeGestore || 0),
+          valida_dal: oggi,
+          attiva: true,
+        });
+
+      if (error) throw error;
+
+      setStatusMessage('Nuova provvigione fornitore salvata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento provvigione: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaFatturaPartner = async (fattura) => {
     try {
       const { error } = await supabase
@@ -6115,6 +6331,8 @@ export default function App() {
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
               onCreateAziendaPartner={creaAziendaPartner}
+              onUpdateAziendaPartner={aggiornaAziendaPartner}
+              onCreateProvvigionePartner={creaProvvigionePartner}
               onCreateFatturaPartner={creaFatturaPartner}
               onUpdateFatturaPartner={aggiornaFatturaPartner}
             />
