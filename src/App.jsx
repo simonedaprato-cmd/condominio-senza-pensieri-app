@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.32';
-const APP_VERSION_LABEL = 'CSP v1.0.32';
+const APP_VERSION = '1.0.33';
+const APP_VERSION_LABEL = 'CSP v1.0.33';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2268,6 +2268,7 @@ function FatturazionePartnerSuite({
   onCreateFatturaPartner,
   onUpdateFatturaPartner,
   onInviaFatturaPartner,
+  onUploadFatturaPdf,
 }) {
   const [aziendaForm, setAziendaForm] = useState({
     ragione_sociale: '',
@@ -2297,6 +2298,9 @@ function FatturazionePartnerSuite({
     attiva: true,
     nuova_percentuale_gestore: '',
   });
+
+  const [uploadingFatturaPdf, setUploadingFatturaPdf] = useState(false);
+  const [fatturaPdfName, setFatturaPdfName] = useState('');
 
   const [fatturaForm, setFatturaForm] = useState({
     azienda_partner_id: '',
@@ -2383,6 +2387,30 @@ function FatturazionePartnerSuite({
     });
   };
 
+  const caricaPdfFattura = async (file) => {
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Carica solo file PDF.');
+      return;
+    }
+
+    try {
+      setUploadingFatturaPdf(true);
+      const url = await onUploadFatturaPdf(file);
+
+      if (url) {
+        updateFattura('file_url', url);
+        setFatturaPdfName(file.name);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Errore caricamento PDF fattura: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setUploadingFatturaPdf(false);
+    }
+  };
+
   const amministratori = (utentiSistema || []).filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore');
 
   const fatturatoTotale = (fatturePartner || []).reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
@@ -2429,6 +2457,7 @@ function FatturazionePartnerSuite({
       data_scadenza: fatturaForm.data_scadenza || null,
     });
 
+    setFatturaPdfName('');
     setFatturaForm({
       azienda_partner_id: '',
       amministratore_email: '',
@@ -2629,7 +2658,26 @@ function FatturazionePartnerSuite({
               <input type="date" value={fatturaForm.data_emissione} onChange={(e) => updateFattura('data_emissione', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="date" value={fatturaForm.data_scadenza} onChange={(e) => updateFattura('data_scadenza', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3" />
             </div>
-            <input value={fatturaForm.file_url} onChange={(e) => updateFattura('file_url', e.target.value)} placeholder="Link PDF fattura" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">PDF fattura</p>
+              <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    {fatturaPdfName || (fatturaForm.file_url ? 'PDF fattura caricato' : 'Nessun PDF caricato')}
+                  </p>
+                  {fatturaForm.file_url && (
+                    <a href={fatturaForm.file_url} target="_blank" rel="noreferrer" className="text-xs font-black text-sky-700">
+                      Apri PDF caricato
+                    </a>
+                  )}
+                </div>
+                <label className={`cursor-pointer rounded-2xl px-4 py-3 text-sm font-black text-white ${uploadingFatturaPdf ? 'bg-slate-400' : 'bg-sky-700'}`}>
+                  {uploadingFatturaPdf ? 'Caricamento...' : 'Carica PDF'}
+                  <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaPdfFattura(e.target.files?.[0])} className="hidden" disabled={uploadingFatturaPdf} />
+                </label>
+              </div>
+              <input value={fatturaForm.file_url} onChange={(e) => updateFattura('file_url', e.target.value)} placeholder="URL PDF generato automaticamente" className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-500" />
+            </div>
             <textarea value={fatturaForm.descrizione} onChange={(e) => updateFattura('descrizione', e.target.value)} placeholder="Descrizione" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <button type="submit" className="w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva fattura</button>
@@ -2655,6 +2703,7 @@ function FatturazionePartnerSuite({
 
                   if (saved?.id) {
                     await onInviaFatturaPartner(saved.id);
+                    setFatturaPdfName('');
                     setFatturaForm({
                       azienda_partner_id: '',
                       amministratore_email: '',
@@ -5994,6 +6043,37 @@ export default function App() {
     }
   };
 
+  const uploadFatturaPdf = async (file) => {
+    try {
+      const safeName = String(file.name || 'fattura.pdf')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '-')
+        .toLowerCase();
+
+      const filePath = `fatture-partner/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('fatture')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/pdf',
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('fatture')
+        .getPublicUrl(filePath);
+
+      return data?.publicUrl || '';
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
   const inviaFatturaPartner = async (fatturaId) => {
     try {
       const { data, error } = await supabase.functions.invoke('notify-fattura-partner', {
@@ -6414,6 +6494,7 @@ export default function App() {
               onCreateFatturaPartner={creaFatturaPartner}
               onUpdateFatturaPartner={aggiornaFatturaPartner}
               onInviaFatturaPartner={inviaFatturaPartner}
+              onUploadFatturaPdf={uploadFatturaPdf}
             />
           </>
         )}
