@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.68';
-const APP_VERSION_LABEL = 'CSP v1.0.68';
+const APP_VERSION = '1.0.69';
+const APP_VERSION_LABEL = 'CSP v1.0.69';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2416,6 +2416,7 @@ function CapitolatoSenzaPensieriSuite({
   ruolo,
   userProfile,
   capitolati,
+  capitolatiEventi,
   condomini,
   utentiSistema,
   aziendePartner,
@@ -2638,6 +2639,11 @@ function CapitolatoSenzaPensieriSuite({
   const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.importo_presunto || 0), 0);
   const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
   const convertiteCaSP = capitolatiVisibili.filter((item) => item.stato === 'Convertita in CaSP').length;
+  const valoreAcquisito = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_aggiudicato || 0), 0);
+  const sopralluoghiImminenti = capitolatiVisibili.filter((item) => item.data_sopralluogo).length;
+  const assembleeImminenti = capitolatiVisibili.filter((item) => item.data_assemblea).length;
+  const presenzeRichieste = capitolatiVisibili.filter((item) => item.presenza_csp_richiesta).length;
+  const tassoConversione = capitolatiVisibili.length ? `${Math.round((convertiteCaSP / capitolatiVisibili.length) * 100)}%` : '0%';
 
   return (
     <section className="space-y-4">
@@ -2660,6 +2666,18 @@ function CapitolatoSenzaPensieriSuite({
               <DashboardStat label="Guadagno potenziale" value={formatEuro(valorePotenziale * 0.10)} tone="purple" />
             )}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">{isGestore ? 'Control Room Capitolati' : 'Agenda Capitolati'}</p>
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <DashboardStat label="Valore acquisito" value={formatEuro(valoreAcquisito)} tone="emerald" />
+          <DashboardStat label="Tasso conversione" value={tassoConversione} tone="purple" />
+          <DashboardStat label="Sopralluoghi" value={sopralluoghiImminenti} tone="sky" />
+          <DashboardStat label="Assemblee" value={assembleeImminenti} tone="amber" />
+          <DashboardStat label="Presenze CSP" value={presenzeRichieste} tone="red" />
+          <DashboardStat label={isGestore ? 'Partner attivi' : 'Guadagno acquisito'} value={isGestore ? new Set(capitolatiVisibili.filter(c => c.azienda_vincitrice_id).map(c => c.azienda_vincitrice_id)).size : formatEuro(valoreAcquisito * 0.1)} tone="slate" />
         </div>
       </section>
 
@@ -6317,6 +6335,7 @@ export default function App() {
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
+  const [capitolatiEventi, setCapitolatiEventi] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -6660,6 +6679,14 @@ export default function App() {
 
       if (capitolatiError && capitolatiError.code !== 'PGRST116' && capitolatiError.code !== '42P01') throw capitolatiError;
       setCapitolatiSenzaPensieri(capitolatiData || []);
+
+      const { data: capitolatiEventiData, error: capitolatiEventiError } = await supabase
+        .from('capitolati_eventi')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (capitolatiEventiError && capitolatiEventiError.code !== 'PGRST116' && capitolatiEventiError.code !== '42P01') throw capitolatiEventiError;
+      setCapitolatiEventi(capitolatiEventiData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -7663,6 +7690,20 @@ export default function App() {
     }
   };
 
+  const registraEventoCapitolato = async (capitolatoId, tipoEvento, descrizione, destinatario = 'sistema', canale = 'app') => {
+    try {
+      await supabase.from('capitolati_eventi').insert({
+        capitolato_id: capitolatoId,
+        tipo_evento: tipoEvento,
+        descrizione,
+        destinatario,
+        canale,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const creaCapitolatoSenzaPensieri = async (capitolato) => {
     try {
       const numeroPratica = capitolato.numero_pratica || `CASEP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
@@ -7675,9 +7716,15 @@ export default function App() {
 
       const { error } = await supabase
         .from('capitolati_senza_pensieri')
-        .insert(payload);
+        .insert(payload)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      if (data?.id) {
+        await registraEventoCapitolato(data.id, 'apertura', 'Nuovo capitolato aperto', 'gestore', 'app');
+      }
 
       setStatusMessage('Pratica Capitolato Senza Pensieri aperta correttamente.');
       await carica();
@@ -7697,6 +7744,14 @@ export default function App() {
         .eq('id', capitolatoId);
 
       if (error) throw error;
+
+      await registraEventoCapitolato(
+        capitolatoId,
+        'aggiornamento',
+        `Aggiornamento pratica: ${Object.keys(updatePayload).join(', ')}`,
+        'sistema',
+        'app'
+      );
 
       setStatusMessage('Capitolato Senza Pensieri aggiornato.');
       await carica();
@@ -8240,6 +8295,7 @@ export default function App() {
               ruolo={ruoloNormalizzato}
               userProfile={userProfile}
               capitolati={capitolatiSenzaPensieri}
+              capitolatiEventi={capitolatiEventi}
               condomini={condomini}
               utentiSistema={utentiSistema}
               aziendePartner={aziendePartner}
