@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.63';
-const APP_VERSION_LABEL = 'CSP v1.0.63';
+const APP_VERSION = '1.0.64';
+const APP_VERSION_LABEL = 'CSP v1.0.64';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2622,6 +2622,7 @@ function FatturazionePartnerSuite({
   condomini,
   segnalazioni,
   utentiSistema,
+  leadAmministratori,
   onCreateAziendaPartner,
   onUpdateAziendaPartner,
   onCreateProvvigionePartner,
@@ -2783,6 +2784,8 @@ function FatturazionePartnerSuite({
       totale: Number(fatturaProvvAdminForm.totale || 0),
     });
 
+    alert('Fattura provvigione amministratore caricata correttamente.');
+
     setFatturaProvvAdminForm({
       amministratore_email: '',
       amministratore_nome: '',
@@ -2943,7 +2946,37 @@ function FatturazionePartnerSuite({
     }
   };
 
-  const amministratori = (utentiSistema || []).filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore');
+  const amministratoriDaUtenti = (utentiSistema || [])
+    .filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore')
+    .map((u) => ({
+      email: u.email,
+      nome: u.nome || u.ragione_sociale || u.studio || u.nome_studio || '',
+    }));
+
+  const amministratoriDaLead = (leadAmministratori || [])
+    .filter((lead) => lead.email)
+    .map((lead) => ({
+      email: lead.email,
+      nome: lead.nome || lead.ragione_sociale || lead.studio || lead.nome_studio || lead.amministratore || lead.cliente || '',
+    }));
+
+  const amministratoriMap = new Map();
+
+  [...amministratoriDaUtenti, ...amministratoriDaLead].forEach((admin) => {
+    const email = String(admin.email || '').toLowerCase().trim();
+    if (!email) return;
+
+    const precedente = amministratoriMap.get(email) || {};
+    amministratoriMap.set(email, {
+      ...precedente,
+      ...admin,
+      email: admin.email,
+      nome: admin.nome || precedente.nome || admin.email,
+    });
+  });
+
+  const amministratori = [...amministratoriMap.values()]
+    .sort((a, b) => String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || '')));
   const praticheChiuse = (segnalazioni || []).filter((s) => String(s.stato || '').toLowerCase().trim() === 'chiusa');
 
 
@@ -7582,6 +7615,7 @@ export default function App() {
               condomini={condomini}
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
+              leadAmministratori={leadAmministratori}
               onCreateAziendaPartner={creaAziendaPartner}
               onUpdateAziendaPartner={aggiornaAziendaPartner}
               onCreateProvvigionePartner={creaProvvigionePartner}
