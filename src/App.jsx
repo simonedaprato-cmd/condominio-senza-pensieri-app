@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.59';
-const APP_VERSION_LABEL = 'CSP v1.0.59';
+const APP_VERSION = '1.0.60';
+const APP_VERSION_LABEL = 'CSP v1.0.60';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3016,7 +3016,7 @@ function FatturazionePartnerSuite({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="h-[880px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+        <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
           <h2 className="mt-1 text-xl font-bold">Nuova azienda partner</h2>
           <p className="mt-1 text-sm text-slate-500">Inserisci l’azienda fatturante e la provvigione gestore valida da oggi.</p>
@@ -3133,9 +3133,10 @@ function FatturazionePartnerSuite({
             </table>
           </div>
         </section>
+      </div>
 
-        <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatture</p>
+      <section className="h-[880px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatture</p>
           <h2 className="mt-1 text-xl font-bold">Nuova fattura partner</h2>
           <p className="mt-1 text-sm text-slate-500">Collega fattura ad azienda partner, amministratore, condominio ed eventuale pratica.</p>
 
@@ -3241,8 +3242,7 @@ function FatturazionePartnerSuite({
               </button>
             </div>
           </form>
-        </section>
-      </div>
+      </section>
 
       <section className="h-[720px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
