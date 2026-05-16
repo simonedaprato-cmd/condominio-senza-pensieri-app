@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.55';
-const APP_VERSION_LABEL = 'CSP v1.0.55';
+const APP_VERSION = '1.0.56';
+const APP_VERSION_LABEL = 'CSP v1.0.56';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2462,6 +2462,7 @@ function FatturazionePartnerSuite({
   fatturePartner,
   provvigioniMaturate,
   fattureProvvigioniGestore,
+  fattureProvvigioniAmministratori,
   condomini,
   segnalazioni,
   utentiSistema,
@@ -2725,6 +2726,10 @@ function FatturazionePartnerSuite({
   const provvigioniAmministratori = (provvigioniMaturate || []).reduce((sum, p) => sum + Number(p.importo_amministratore || 0), 0);
   const mieProvvigioniFatturate = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
   const mieProvvigioniDaFatturare = Math.max(provvigioniGestore - mieProvvigioniFatturate, 0);
+
+  const provvAdminTotali = (fattureProvvigioniAmministratori || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
+  const provvAdminPagate = (fattureProvvigioniAmministratori || []).filter((f) => String(f.stato || '') === 'pagata').reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
+  const provvAdminDaPagare = (fattureProvvigioniAmministratori || []).filter((f) => !['pagata','annullata'].includes(String(f.stato || ''))).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
 
   const oggiFatture = new Date();
   oggiFatture.setHours(0, 0, 0, 0);
@@ -3241,6 +3246,43 @@ function FatturazionePartnerSuite({
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section className="h-[640px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Provvigioni amministratori</p>
+            <h2 className="mt-1 text-xl font-bold">Controllo trimestrale</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-2 md:min-w-[560px]">
+            <DashboardStat label="Totali" value={formatEuro(provvAdminTotali)} tone="sky" />
+            <DashboardStat label="Pagate" value={formatEuro(provvAdminPagate)} tone="emerald" />
+            <DashboardStat label="Da pagare" value={formatEuro(provvAdminDaPagare)} tone="amber" />
+          </div>
+        </div>
+        <div className="mt-4 max-h-[480px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
+          <table className="min-w-[900px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr><th className="px-3 py-3">Fattura</th><th className="px-3 py-3">Amministratore</th><th className="px-3 py-3">Fornitore</th><th className="px-3 py-3">Periodo</th><th className="px-3 py-3 text-right">Imponibile</th><th className="px-3 py-3">Stato</th></tr>
+            </thead>
+            <tbody>
+              {(fattureProvvigioniAmministratori || []).length === 0 ? (
+                <tr><td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione amministratore presente.</td></tr>
+              ) : (
+                fattureProvvigioniAmministratori.map((fattura) => (
+                  <tr key={fattura.id} className="border-t border-slate-100">
+                    <td className="px-3 py-3">{fattura.numero_fattura || `#${fattura.id}`}</td>
+                    <td className="px-3 py-3">{fattura.amministratore_email}</td>
+                    <td className="px-3 py-3">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                    <td className="px-3 py-3">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-right">{formatEuro(fattura.importo_imponibile || 0)}</td>
+                    <td className="px-3 py-3">{fattura.stato || 'da_pagare'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -5414,6 +5456,7 @@ export default function App() {
   const [fatturePartner, setFatturePartner] = useState([]);
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
+  const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -5741,6 +5784,14 @@ export default function App() {
 
       if (fattureProvvigioniError && fattureProvvigioniError.code !== 'PGRST116' && fattureProvvigioniError.code !== '42P01') throw fattureProvvigioniError;
       setFattureProvvigioniGestore(fattureProvvigioniData || []);
+
+      const { data: fattureProvvigioniAmministratoriData, error: fattureProvvigioniAmministratoriError } = await supabase
+        .from('fatture_provvigioni_amministratori')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fattureProvvigioniAmministratoriError && fattureProvvigioniAmministratoriError.code !== 'PGRST116' && fattureProvvigioniAmministratoriError.code !== '42P01') throw fattureProvvigioniAmministratoriError;
+      setFattureProvvigioniAmministratori(fattureProvvigioniAmministratoriData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -7184,6 +7235,7 @@ export default function App() {
               fatturePartner={fatturePartner}
               provvigioniMaturate={provvigioniMaturate}
               fattureProvvigioniGestore={fattureProvvigioniGestore}
+              fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
               condomini={condomini}
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
