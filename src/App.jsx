@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.57';
-const APP_VERSION_LABEL = 'CSP v1.0.57';
+const APP_VERSION = '1.0.58';
+const APP_VERSION_LABEL = 'CSP v1.0.58';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2589,16 +2589,18 @@ function FatturazionePartnerSuite({
   const updateFatturaProvvAdmin = (field, value) => {
     setFatturaProvvAdminForm((prev) => {
       const next = { ...prev, [field]: value };
+
       if (field === 'importo_imponibile' || field === 'iva') {
         const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
         const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
         next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
       }
+
       return next;
     });
   };
 
-  const salvaFatturaProvvigioneAmministratore = async (e) => {
+  const salvaFatturaProvvAdmin = async (e) => {
     e.preventDefault();
 
     if (!fatturaProvvAdminForm.amministratore_email || !fatturaProvvAdminForm.azienda_partner_id) {
@@ -3313,6 +3315,7 @@ function FatturazionePartnerSuite({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Provvigioni amministratori</p>
             <h2 className="mt-1 text-xl font-bold">Controllo trimestrale</h2>
+            <p className="mt-1 text-sm text-slate-500">Gestione contabile interna dei riepiloghi fattura delle provvigioni amministratori.</p>
           </div>
           <div className="grid grid-cols-3 gap-2 md:min-w-[560px]">
             <DashboardStat label="Totali" value={formatEuro(provvAdminTotali)} tone="sky" />
@@ -3321,10 +3324,9 @@ function FatturazionePartnerSuite({
           </div>
         </div>
 
-        <form onSubmit={salvaFatturaProvvigioneAmministratore} className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4 space-y-3">
-          <p className="text-sm font-black text-indigo-800">Nuovo riepilogo fattura provvigione</p>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <form onSubmit={salvaFatturaProvvAdmin} className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+          <p className="text-sm font-black text-indigo-800">Nuovo riepilogo fattura</p>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
             <select value={fatturaProvvAdminForm.amministratore_email} onChange={(e) => updateFatturaProvvAdmin('amministratore_email', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
               <option value="">Amministratore</option>
               {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
@@ -3362,35 +3364,52 @@ function FatturazionePartnerSuite({
             </select>
           </div>
 
-          <textarea value={fatturaProvvAdminForm.note} onChange={(e) => updateFatturaProvvAdmin('note', e.target.value)} placeholder="Note contabili" className="w-full min-h-20 rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+          <textarea value={fatturaProvvAdminForm.note} onChange={(e) => updateFatturaProvvAdmin('note', e.target.value)} placeholder="Note contabili" className="mt-3 min-h-20 w-full rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
 
-          <button type="submit" className="w-full rounded-2xl bg-indigo-700 px-4 py-3 font-black text-white">
+          <button type="submit" className="mt-3 w-full rounded-2xl bg-indigo-700 px-4 py-3 font-black text-white">
             Salva riepilogo fattura
           </button>
         </form>
 
-      <section className="h-[640px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Provvigioni amministratori</p>
-            <h2 className="mt-1 text-xl font-bold">Controllo trimestrale</h2>
-          <div className="mt-4 max-h-[480px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
+        <div className="mt-4 max-h-[360px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
           <table className="min-w-[900px] w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <tr><th className="px-3 py-3">Fattura</th><th className="px-3 py-3">Amministratore</th><th className="px-3 py-3">Fornitore</th><th className="px-3 py-3">Periodo</th><th className="px-3 py-3 text-right">Imponibile</th><th className="px-3 py-3">Stato</th></tr>
+              <tr>
+                <th className="px-3 py-3">Fattura</th>
+                <th className="px-3 py-3">Amministratore</th>
+                <th className="px-3 py-3">Fornitore</th>
+                <th className="px-3 py-3">Periodo</th>
+                <th className="px-3 py-3 text-right">Imponibile</th>
+                <th className="px-3 py-3">Stato</th>
+              </tr>
             </thead>
             <tbody>
               {(fattureProvvigioniAmministratori || []).length === 0 ? (
-                <tr><td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione amministratore presente.</td></tr>
+                <tr>
+                  <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione amministratore presente.</td>
+                </tr>
               ) : (
                 fattureProvvigioniAmministratori.map((fattura) => (
-                  <tr key={fattura.id} className="border-t border-slate-100">
-                    <td className="px-3 py-3">{fattura.numero_fattura || `#${fattura.id}`}</td>
-                    <td className="px-3 py-3">{fattura.amministratore_email}</td>
-                    <td className="px-3 py-3">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                    <td className="px-3 py-3">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-right">{formatEuro(fattura.importo_imponibile || 0)}</td>
-                    <td className="px-3 py-3">{fattura.stato || 'da_pagare'}</td>
+                  <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/30">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
+                      <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">{fattura.amministratore_email}</td>
+                    <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                        fattura.stato === 'pagata'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : fattura.stato === 'annullata'
+                            ? 'bg-slate-200 text-slate-600'
+                            : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {fattura.stato || 'da_pagare'}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}
@@ -6923,11 +6942,11 @@ export default function App() {
 
       if (error) throw error;
 
-      setStatusMessage('Fattura provvigione amministratore registrata.');
+      setStatusMessage('Riepilogo fattura provvigione amministratore salvato.');
       await carica();
     } catch (error) {
       console.error(error);
-      alert('Errore creazione fattura provvigione amministratore: ' + (error.message || 'sconosciuto'));
+      alert('Errore salvataggio riepilogo fattura provvigione amministratore: ' + (error.message || 'sconosciuto'));
     }
   };
 
