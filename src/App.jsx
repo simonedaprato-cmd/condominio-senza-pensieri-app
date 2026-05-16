@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.56';
-const APP_VERSION_LABEL = 'CSP v1.0.56';
+const APP_VERSION = '1.0.57';
+const APP_VERSION_LABEL = 'CSP v1.0.57';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2474,6 +2474,7 @@ function FatturazionePartnerSuite({
   onInviaFatturaPartner,
   onUploadFatturaPdf,
   onCreateFatturaProvvigioneGestore,
+  onCreateFatturaProvvigioneAmministratore,
 }) {
   const [aziendaForm, setAziendaForm] = useState({
     ragione_sociale: '',
@@ -2557,6 +2558,20 @@ function FatturazionePartnerSuite({
     note: '',
   });
 
+  const [fatturaProvvAdminForm, setFatturaProvvAdminForm] = useState({
+    amministratore_email: '',
+    azienda_partner_id: '',
+    numero_fattura: '',
+    trimestre: '',
+    anno: String(new Date().getFullYear()),
+    data_fattura: new Date().toISOString().slice(0, 10),
+    importo_imponibile: '',
+    iva: '0',
+    totale: '',
+    stato: 'da_pagare',
+    note: '',
+  });
+
   const updateMiaFattura = (field, value) => {
     setMiaFatturaForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -2568,6 +2583,50 @@ function FatturazionePartnerSuite({
       }
 
       return next;
+    });
+  };
+
+  const updateFatturaProvvAdmin = (field, value) => {
+    setFatturaProvvAdminForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'importo_imponibile' || field === 'iva') {
+        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
+        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
+      }
+      return next;
+    });
+  };
+
+  const salvaFatturaProvvigioneAmministratore = async (e) => {
+    e.preventDefault();
+
+    if (!fatturaProvvAdminForm.amministratore_email || !fatturaProvvAdminForm.azienda_partner_id) {
+      alert('Seleziona amministratore e azienda partner.');
+      return;
+    }
+
+    await onCreateFatturaProvvigioneAmministratore({
+      ...fatturaProvvAdminForm,
+      azienda_partner_id: Number(fatturaProvvAdminForm.azienda_partner_id),
+      anno: Number(fatturaProvvAdminForm.anno || new Date().getFullYear()),
+      importo_imponibile: Number(fatturaProvvAdminForm.importo_imponibile || 0),
+      iva: Number(fatturaProvvAdminForm.iva || 0),
+      totale: Number(fatturaProvvAdminForm.totale || 0),
+    });
+
+    setFatturaProvvAdminForm({
+      amministratore_email: '',
+      azienda_partner_id: '',
+      numero_fattura: '',
+      trimestre: '',
+      anno: String(new Date().getFullYear()),
+      data_fattura: new Date().toISOString().slice(0, 10),
+      importo_imponibile: '',
+      iva: '0',
+      totale: '',
+      stato: 'da_pagare',
+      note: '',
     });
   };
 
@@ -3249,7 +3308,7 @@ function FatturazionePartnerSuite({
         </div>
       </section>
 
-      <section className="h-[640px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+      <section className="h-[880px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Provvigioni amministratori</p>
@@ -3261,7 +3320,61 @@ function FatturazionePartnerSuite({
             <DashboardStat label="Da pagare" value={formatEuro(provvAdminDaPagare)} tone="amber" />
           </div>
         </div>
-        <div className="mt-4 max-h-[480px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
+
+        <form onSubmit={salvaFatturaProvvigioneAmministratore} className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4 space-y-3">
+          <p className="text-sm font-black text-indigo-800">Nuovo riepilogo fattura provvigione</p>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <select value={fatturaProvvAdminForm.amministratore_email} onChange={(e) => updateFatturaProvvAdmin('amministratore_email', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+              <option value="">Amministratore</option>
+              {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
+            </select>
+
+            <select value={fatturaProvvAdminForm.azienda_partner_id} onChange={(e) => updateFatturaProvvAdmin('azienda_partner_id', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+              <option value="">Azienda partner</option>
+              {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+            </select>
+
+            <input value={fatturaProvvAdminForm.numero_fattura} onChange={(e) => updateFatturaProvvAdmin('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+            <select value={fatturaProvvAdminForm.trimestre} onChange={(e) => updateFatturaProvvAdmin('trimestre', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+              <option value="">Trimestre</option>
+              <option value="Q1">Q1</option>
+              <option value="Q2">Q2</option>
+              <option value="Q3">Q3</option>
+              <option value="Q4">Q4</option>
+            </select>
+
+            <input type="number" value={fatturaProvvAdminForm.anno} onChange={(e) => updateFatturaProvvAdmin('anno', e.target.value)} placeholder="Anno" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+            <input type="date" value={fatturaProvvAdminForm.data_fattura} onChange={(e) => updateFatturaProvvAdmin('data_fattura', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+            <input type="number" step="0.01" value={fatturaProvvAdminForm.importo_imponibile} onChange={(e) => updateFatturaProvvAdmin('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+            <input type="number" step="0.01" value={fatturaProvvAdminForm.iva} onChange={(e) => updateFatturaProvvAdmin('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+            <input type="number" step="0.01" value={fatturaProvvAdminForm.totale} onChange={(e) => updateFatturaProvvAdmin('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+            <select value={fatturaProvvAdminForm.stato} onChange={(e) => updateFatturaProvvAdmin('stato', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+              <option value="da_pagare">Da pagare</option>
+              <option value="pagata">Pagata</option>
+              <option value="annullata">Annullata</option>
+            </select>
+          </div>
+
+          <textarea value={fatturaProvvAdminForm.note} onChange={(e) => updateFatturaProvvAdmin('note', e.target.value)} placeholder="Note contabili" className="w-full min-h-20 rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+
+          <button type="submit" className="w-full rounded-2xl bg-indigo-700 px-4 py-3 font-black text-white">
+            Salva riepilogo fattura
+          </button>
+        </form>
+
+      <section className="h-[640px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Provvigioni amministratori</p>
+            <h2 className="mt-1 text-xl font-bold">Controllo trimestrale</h2>
+          <div className="mt-4 max-h-[480px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
           <table className="min-w-[900px] w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
               <tr><th className="px-3 py-3">Fattura</th><th className="px-3 py-3">Amministratore</th><th className="px-3 py-3">Fornitore</th><th className="px-3 py-3">Periodo</th><th className="px-3 py-3 text-right">Imponibile</th><th className="px-3 py-3">Stato</th></tr>
@@ -6802,6 +6915,22 @@ export default function App() {
     }
   };
 
+  const creaFatturaProvvigioneAmministratore = async (fatturaProvvigione) => {
+    try {
+      const { error } = await supabase
+        .from('fatture_provvigioni_amministratori')
+        .insert(fatturaProvvigione);
+
+      if (error) throw error;
+
+      setStatusMessage('Fattura provvigione amministratore registrata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore creazione fattura provvigione amministratore: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -7247,6 +7376,7 @@ export default function App() {
               onInviaFatturaPartner={inviaFatturaPartner}
               onUploadFatturaPdf={uploadFatturaPdf}
               onCreateFatturaProvvigioneGestore={creaFatturaProvvigioneGestore}
+              onCreateFatturaProvvigioneAmministratore={creaFatturaProvvigioneAmministratore}
             />
           </>
         )}
