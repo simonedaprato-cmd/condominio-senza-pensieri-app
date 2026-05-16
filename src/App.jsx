@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.61';
-const APP_VERSION_LABEL = 'CSP v1.0.61';
+const APP_VERSION = '1.0.62';
+const APP_VERSION_LABEL = 'CSP v1.0.62';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2254,6 +2254,162 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
 }
 
 
+
+
+function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmministratori, aziendePartner }) {
+  const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
+
+  const fatturePagate = (fatturePartner || []).filter((fattura) => String(fattura.stato || '').toLowerCase() === 'pagata');
+  const provvigioneMaturata = fatturePagate.reduce((sum, fattura) => sum + (Number(fattura.importo_imponibile || 0) * 0.10), 0);
+
+  const provvigioniFatturate = (fattureProvvigioniAmministratori || [])
+    .filter((fattura) => String(fattura.stato || '') !== 'annullata')
+    .reduce((sum, fattura) => sum + Number(fattura.importo_imponibile || 0), 0);
+
+  const provvigioniPagate = (fattureProvvigioniAmministratori || [])
+    .filter((fattura) => String(fattura.stato || '') === 'pagata')
+    .reduce((sum, fattura) => sum + Number(fattura.importo_imponibile || 0), 0);
+
+  const provvigioniDaFatturare = Math.max(provvigioneMaturata - provvigioniFatturate, 0);
+  const provvigioniDaIncassare = Math.max(provvigioniFatturate - provvigioniPagate, 0);
+
+  const fornitoriMap = new Map();
+
+  fatturePagate.forEach((fattura) => {
+    const id = Number(fattura.azienda_partner_id || 0);
+    if (!id) return;
+
+    const row = fornitoriMap.get(id) || {
+      azienda_partner_id: id,
+      azienda: aziendaById(id),
+      imponibilePagato: 0,
+      provvigioneMaturata: 0,
+      fatturato: 0,
+      pagato: 0,
+      daFatturare: 0,
+      daIncassare: 0,
+      fatturePagate: 0,
+    };
+
+    row.imponibilePagato += Number(fattura.importo_imponibile || 0);
+    row.provvigioneMaturata += Number(fattura.importo_imponibile || 0) * 0.10;
+    row.fatturePagate += 1;
+    fornitoriMap.set(id, row);
+  });
+
+  (fattureProvvigioniAmministratori || []).forEach((fattura) => {
+    const id = Number(fattura.azienda_partner_id || 0);
+    if (!id) return;
+
+    const row = fornitoriMap.get(id) || {
+      azienda_partner_id: id,
+      azienda: aziendaById(id),
+      imponibilePagato: 0,
+      provvigioneMaturata: 0,
+      fatturato: 0,
+      pagato: 0,
+      daFatturare: 0,
+      daIncassare: 0,
+      fatturePagate: 0,
+    };
+
+    if (String(fattura.stato || '') !== 'annullata') {
+      row.fatturato += Number(fattura.importo_imponibile || 0);
+    }
+
+    if (String(fattura.stato || '') === 'pagata') {
+      row.pagato += Number(fattura.importo_imponibile || 0);
+    }
+
+    fornitoriMap.set(id, row);
+  });
+
+  const righeFornitori = [...fornitoriMap.values()]
+    .map((row) => ({
+      ...row,
+      daFatturare: Math.max(row.provvigioneMaturata - row.fatturato, 0),
+      daIncassare: Math.max(row.fatturato - row.pagato, 0),
+    }))
+    .sort((a, b) => String(a.azienda?.ragione_sociale || '').localeCompare(String(b.azienda?.ragione_sociale || '')));
+
+  return (
+    <section className="space-y-4">
+      <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Guadagni</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Riepilogo provvigioni amministratore</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Vista riservata per controllare provvigioni maturate, fatturate e ancora da fatturare.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right">
+            <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Da fatturare</p>
+            <p className="mt-1 text-2xl font-black text-emerald-800">{formatEuro(provvigioniDaFatturare)}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <DashboardStat label="Maturate" value={formatEuro(provvigioneMaturata)} tone="sky" />
+          <DashboardStat label="Fatturate" value={formatEuro(provvigioniFatturate)} tone="emerald" />
+          <DashboardStat label="Da fatturare" value={formatEuro(provvigioniDaFatturare)} tone="amber" />
+          <DashboardStat label="Pagate" value={formatEuro(provvigioniPagate)} tone="emerald" />
+          <DashboardStat label="Da incassare" value={formatEuro(provvigioniDaIncassare)} tone="red" />
+        </div>
+      </section>
+
+      <section className="h-[620px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-purple-700">Suddivisione per fornitore</p>
+            <h2 className="mt-1 text-xl font-bold">Fatture da emettere per destinatario</h2>
+          </div>
+          <p className="text-xs font-bold text-slate-500">Usa questa vista per emettere le fatture corrette ai fornitori giusti.</p>
+        </div>
+
+        <div className="mt-4 max-h-[500px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[980px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Fornitore</th>
+                <th className="px-3 py-3 text-right">Imponibile pagato</th>
+                <th className="px-3 py-3 text-right">Maturate</th>
+                <th className="px-3 py-3 text-right">Fatturate</th>
+                <th className="px-3 py-3 text-right">Da fatturare</th>
+                <th className="px-3 py-3 text-right">Pagate</th>
+                <th className="px-3 py-3 text-right">Da incassare</th>
+              </tr>
+            </thead>
+            <tbody>
+              {righeFornitori.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                    Nessuna provvigione maturata disponibile.
+                  </td>
+                </tr>
+              ) : (
+                righeFornitori.map((row) => (
+                  <tr key={row.azienda_partner_id} className="border-t border-slate-100 hover:bg-emerald-50/30">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{row.azienda?.ragione_sociale || `Fornitore #${row.azienda_partner_id}`}</p>
+                      <p className="text-xs text-slate-500">{row.fatturePagate} fatture condominiali pagate</p>
+                    </td>
+                    <td className="px-3 py-3 text-right font-semibold text-slate-700">{formatEuro(row.imponibilePagato)}</td>
+                    <td className="px-3 py-3 text-right font-black text-sky-700">{formatEuro(row.provvigioneMaturata)}</td>
+                    <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(row.fatturato)}</td>
+                    <td className="px-3 py-3 text-right font-black text-amber-700">{formatEuro(row.daFatturare)}</td>
+                    <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(row.pagato)}</td>
+                    <td className="px-3 py-3 text-right font-black text-red-700">{formatEuro(row.daIncassare)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
+}
 
 function FatturazioneAmministratoreSuite({ fatturePartner, condomini, aziendePartner }) {
   const [searchNumero, setSearchNumero] = useState('');
@@ -7126,6 +7282,7 @@ export default function App() {
   const amministratoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture, scadenze e PDF' },
+    { id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' },
   ];
 
   const renderGestoreSectionTitle = (title, subtitle) => (
@@ -7162,7 +7319,7 @@ export default function App() {
 
         {ruoloNormalizzato === 'amministratore' && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               {amministratoreSections.map((section) => (
                 <button
                   key={section.id}
@@ -7266,18 +7423,19 @@ export default function App() {
         )}
 
         {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'fatturazione' && (
-          <>
-            <DashboardEconomicaAmministratore
-              segnalazioni={segnalazioniVisualizzate}
-              fatturePartner={fatturePartner}
-              provvigioniMaturate={provvigioniMaturate}
-            />
-            <FatturazioneAmministratoreSuite
-              fatturePartner={fatturePartner}
-              condomini={condomini}
-              aziendePartner={aziendePartner}
-            />
-          </>
+          <FatturazioneAmministratoreSuite
+            fatturePartner={fatturePartner}
+            condomini={condomini}
+            aziendePartner={aziendePartner}
+          />
+        )}
+
+        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'guadagni' && (
+          <GuadagniAmministratoreSuite
+            fatturePartner={fatturePartner}
+            fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
+            aziendePartner={aziendePartner}
+          />
         )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'pratiche' && (
