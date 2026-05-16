@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.60';
-const APP_VERSION_LABEL = 'CSP v1.0.60';
+const APP_VERSION = '1.0.61';
+const APP_VERSION_LABEL = 'CSP v1.0.61';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2947,194 +2947,6 @@ function FatturazionePartnerSuite({
         <DashboardStat label="Provv. amministratori" value={formatEuro(provvigioniAmministratori)} tone="amber" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="h-[430px] overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Controllo scadenze</p>
-              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture in scadenza</h2>
-              <p className="mt-1 text-sm text-slate-600">Prossimi 15 giorni, escluse pagate e annullate.</p>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-amber-700 shadow-sm">{fattureInScadenza.length}</span>
-          </div>
-
-          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
-            {fattureInScadenza.length === 0 ? (
-              <div className="rounded-2xl border border-amber-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza nei prossimi 15 giorni.</div>
-            ) : (
-              fattureInScadenza.map((fattura) => (
-                <div key={fattura.id} className="rounded-2xl border border-amber-100 bg-white p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
-                      <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
-                      <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || fattura.amministratore_email || 'n.d.'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-amber-700">{formatEuro(fattura.totale || 0)}</p>
-                      <p className="text-xs font-bold text-slate-500">Scad. {fattura.data_scadenza}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="h-[430px] overflow-hidden rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Controllo insoluti</p>
-              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture scadute</h2>
-              <p className="mt-1 text-sm text-slate-600">Scadenza superata, escluse pagate e annullate.</p>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-red-700 shadow-sm">{fattureScaduteAperte.length}</span>
-          </div>
-
-          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
-            {fattureScaduteAperte.length === 0 ? (
-              <div className="rounded-2xl border border-red-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura scaduta aperta.</div>
-            ) : (
-              fattureScaduteAperte.map((fattura) => (
-                <div key={fattura.id} className="rounded-2xl border border-red-100 bg-white p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
-                      <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
-                      <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || fattura.amministratore_email || 'n.d.'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-red-700">{formatEuro(fattura.totale || 0)}</p>
-                      <p className="text-xs font-bold text-red-600">Scad. {fattura.data_scadenza}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
-          <h2 className="mt-1 text-xl font-bold">Nuova azienda partner</h2>
-          <p className="mt-1 text-sm text-slate-500">Inserisci l’azienda fatturante e la provvigione gestore valida da oggi.</p>
-
-          <form onSubmit={creaAzienda} className="mt-4 space-y-3">
-            <input value={aziendaForm.ragione_sociale} onChange={(e) => updateAzienda('ragione_sociale', e.target.value)} placeholder="Ragione sociale" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <input value={aziendaForm.partita_iva} onChange={(e) => updateAzienda('partita_iva', e.target.value)} placeholder="Partita IVA" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input value={aziendaForm.tipo_attivita} onChange={(e) => updateAzienda('tipo_attivita', e.target.value)} placeholder="Tipo attività" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input value={aziendaForm.referente} onChange={(e) => updateAzienda('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input value={aziendaForm.telefono} onChange={(e) => updateAzienda('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input value={aziendaForm.email} onChange={(e) => updateAzienda('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input type="number" step="0.01" value={aziendaForm.percentuale_gestore} onChange={(e) => updateAzienda('percentuale_gestore', e.target.value)} placeholder="% provvigione gestore" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input value={aziendaForm.citta} onChange={(e) => updateAzienda('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 px-3 py-3" />
-              <input value={aziendaForm.provincia} onChange={(e) => updateAzienda('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 px-3 py-3" />
-            </div>
-            <textarea value={aziendaForm.note} onChange={(e) => updateAzienda('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
-            <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">Salva azienda partner</button>
-          </form>
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Gestione fornitori</p>
-              <h2 className="mt-1 text-xl font-bold">Elenco aziende partner</h2>
-              <p className="mt-1 text-sm text-slate-500">Cerca, modifica dati, attiva/disattiva e aggiorna percentuale provvigione.</p>
-            </div>
-            <input
-              value={partnerSearch}
-              onChange={(e) => setPartnerSearch(e.target.value)}
-              placeholder="Cerca fornitore..."
-              className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold md:w-72"
-            />
-          </div>
-
-          {aziendaInModifica && (
-            <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Modifica fornitore</p>
-                  <h3 className="mt-1 text-lg font-black text-slate-900">{aziendaInModifica.ragione_sociale}</h3>
-                </div>
-                <button type="button" onClick={() => setAziendaInModifica(null)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700">
-                  Chiudi
-                </button>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <input value={aziendaEditForm.ragione_sociale} onChange={(e) => updateAziendaEdit('ragione_sociale', e.target.value)} placeholder="Ragione sociale" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.partita_iva} onChange={(e) => updateAziendaEdit('partita_iva', e.target.value)} placeholder="Partita IVA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.tipo_attivita} onChange={(e) => updateAziendaEdit('tipo_attivita', e.target.value)} placeholder="Tipo attività" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.referente} onChange={(e) => updateAziendaEdit('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.telefono} onChange={(e) => updateAziendaEdit('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.email} onChange={(e) => updateAziendaEdit('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.citta} onChange={(e) => updateAziendaEdit('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={aziendaEditForm.provincia} onChange={(e) => updateAziendaEdit('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input type="number" step="0.01" value={aziendaEditForm.nuova_percentuale_gestore} onChange={(e) => updateAziendaEdit('nuova_percentuale_gestore', e.target.value)} placeholder="Nuova % provvigione gestore" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <label className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-sm font-bold text-slate-700">
-                  <input type="checkbox" checked={aziendaEditForm.attiva} onChange={(e) => updateAziendaEdit('attiva', e.target.checked)} />
-                  Azienda attiva
-                </label>
-              </div>
-              <textarea value={aziendaEditForm.note} onChange={(e) => updateAziendaEdit('note', e.target.value)} placeholder="Note" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-              <button type="button" onClick={salvaModificaAzienda} className="mt-3 w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">
-                Salva modifiche fornitore
-              </button>
-            </div>
-          )}
-
-          <div className="mt-4 max-h-[360px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
-            <table className="min-w-[760px] w-full border-collapse text-sm">
-              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-3">Azienda</th>
-                  <th className="px-3 py-3">Referente</th>
-                  <th className="px-3 py-3">Provvigione</th>
-                  <th className="px-3 py-3">Stato</th>
-                  <th className="px-3 py-3 text-right">Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {aziendeFiltrate.length === 0 ? (
-                  <tr><td colSpan="5" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
-                ) : aziendeFiltrate.map((azienda) => {
-                  const provv = provvigioneAttivaAzienda(azienda.id);
-                  return (
-                    <tr key={azienda.id} className="border-t border-slate-100 hover:bg-emerald-50/40">
-                      <td className="px-3 py-3">
-                        <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
-                        <p className="text-xs text-slate-500">{azienda.tipo_attivita || 'Attività n.d.'} • {azienda.citta || ''} {azienda.provincia || ''}</p>
-                        <p className="text-xs text-slate-400">{azienda.partita_iva || 'P.IVA n.d.'}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        <p className="font-semibold text-slate-700">{azienda.referente || 'n.d.'}</p>
-                        <p className="text-xs text-slate-500">{azienda.telefono || ''}</p>
-                        <p className="text-xs text-slate-500">{azienda.email || ''}</p>
-                      </td>
-                      <td className="px-3 py-3 font-black text-emerald-700">{provv ? `${Number(provv.percentuale_gestore || 0)}%` : '0%'}</td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${azienda.attiva !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
-                          {azienda.attiva !== false ? 'Attiva' : 'Disattiva'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <button type="button" onClick={() => apriModificaAzienda(azienda)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
-                          Modifica
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
       <section className="h-[880px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Fatture</p>
           <h2 className="mt-1 text-xl font-bold">Nuova fattura partner</h2>
@@ -3242,6 +3054,210 @@ function FatturazionePartnerSuite({
               </button>
             </div>
           </form>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="h-[430px] overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Controllo scadenze</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture in scadenza</h2>
+              <p className="mt-1 text-sm text-slate-600">Prossimi 15 giorni, escluse pagate e annullate.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-amber-700 shadow-sm">{fattureInScadenza.length}</span>
+          </div>
+
+          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
+            {fattureInScadenza.length === 0 ? (
+              <div className="rounded-2xl border border-amber-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza nei prossimi 15 giorni.</div>
+            ) : (
+              fattureInScadenza.map((fattura) => (
+                <div key={fattura.id} className="rounded-2xl border border-amber-100 bg-white p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
+                      <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || fattura.amministratore_email || 'n.d.'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-amber-700">{formatEuro(fattura.totale || 0)}</p>
+                      <p className="text-xs font-bold text-slate-500">Scad. {fattura.data_scadenza}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="h-[430px] overflow-hidden rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Controllo insoluti</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">Fatture scadute</h2>
+              <p className="mt-1 text-sm text-slate-600">Scadenza superata, escluse pagate e annullate.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-red-700 shadow-sm">{fattureScaduteAperte.length}</span>
+          </div>
+
+          <div className="mt-4 max-h-[300px] space-y-2 overflow-auto pr-1 csp-scroll">
+            {fattureScaduteAperte.length === 0 ? (
+              <div className="rounded-2xl border border-red-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura scaduta aperta.</div>
+            ) : (
+              fattureScaduteAperte.map((fattura) => (
+                <div key={fattura.id} className="rounded-2xl border border-red-100 bg-white p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs font-semibold text-slate-500">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
+                      <p className="text-xs text-slate-500">{condominioById(fattura.condominio_id)?.nome || fattura.amministratore_email || 'n.d.'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-red-700">{formatEuro(fattura.totale || 0)}</p>
+                      <p className="text-xs font-bold text-red-600">Scad. {fattura.data_scadenza}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      <section className="h-[820px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Elenco fatture</p>
+            <h2 className="mt-1 text-xl font-bold">Fatture partner e pagamenti</h2>
+          </div>
+          <p className="text-xs font-bold text-slate-500">Segna “Pagata” per maturare automaticamente le provvigioni.</p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          <input value={fatturaSearchNumero} onChange={(e) => setFatturaSearchNumero(e.target.value)} placeholder="Cerca numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <input value={fatturaSearchPratica} onChange={(e) => setFatturaSearchPratica(e.target.value)} placeholder="Cerca pratica" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <input value={fatturaSearchPartner} onChange={(e) => setFatturaSearchPartner(e.target.value)} placeholder="Cerca partner" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+          <select value={fatturaFiltroStato} onChange={(e) => setFatturaFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+            <option value="">Tutte le condizioni</option>
+            <option value="bozza">Bozza</option>
+            <option value="inviata">Inviata</option>
+            <option value="pagata">Pagata</option>
+            <option value="scaduta">Scaduta</option>
+            <option value="annullata">Annullata</option>
+          </select>
+        </div>
+
+        {fatturaInModifica && (
+          <div className="mt-4 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Dettagli fattura</p>
+                <h3 className="mt-1 text-lg font-black text-slate-900">{fatturaInModifica.numero_fattura || `Fattura #${fatturaInModifica.id}`}</h3>
+              </div>
+              <button type="button" onClick={() => setFatturaInModifica(null)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700">Chiudi</button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <select value={fatturaEditForm.azienda_partner_id} onChange={(e) => updateFatturaEdit('azienda_partner_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Partner</option>
+                {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+              </select>
+              <select value={fatturaEditForm.amministratore_email} onChange={(e) => updateFatturaEdit('amministratore_email', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Amministratore</option>
+                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
+              </select>
+              <select value={fatturaEditForm.condominio_id} onChange={(e) => updateFatturaEdit('condominio_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Condominio</option>
+                {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+              <select value={fatturaEditForm.segnalazione_id} onChange={(e) => updateFatturaEdit('segnalazione_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="">Pratica collegata</option>
+                {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>#{s.id} - {s.titolo}</option>)}
+              </select>
+              <input value={fatturaEditForm.numero_fattura} onChange={(e) => updateFatturaEdit('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <select value={fatturaEditForm.stato} onChange={(e) => updateFatturaEdit('stato', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                <option value="bozza">Bozza</option>
+                <option value="inviata">Inviata</option>
+                <option value="pagata">Pagata</option>
+                <option value="scaduta">Scaduta</option>
+                <option value="annullata">Annullata</option>
+              </select>
+              <input type="number" step="0.01" value={fatturaEditForm.importo_imponibile} onChange={(e) => updateFatturaEdit('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
+              <input type="number" step="0.01" value={fatturaEditForm.iva} onChange={(e) => updateFatturaEdit('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaEditForm.totale} onChange={(e) => updateFatturaEdit('totale', e.target.value)} placeholder="Valore fattura totale" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
+              <input type="date" value={fatturaEditForm.data_emissione || ''} onChange={(e) => updateFatturaEdit('data_emissione', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <input type="date" value={fatturaEditForm.data_scadenza || ''} onChange={(e) => updateFatturaEdit('data_scadenza', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              <input value={fatturaEditForm.file_url} onChange={(e) => updateFatturaEdit('file_url', e.target.value)} placeholder="URL PDF" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-3" />
+            </div>
+            <textarea value={fatturaEditForm.descrizione} onChange={(e) => updateFatturaEdit('descrizione', e.target.value)} placeholder="Descrizione" className="mt-3 min-h-20 w-full rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+            <button type="button" onClick={salvaModificaFattura} className="mt-3 w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva dettagli fattura</button>
+          </div>
+        )}
+
+        <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[1040px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Fattura</th>
+                <th className="px-3 py-3">Partner</th>
+                <th className="px-3 py-3">Condominio</th>
+                <th className="px-3 py-3">Pratica</th>
+                <th className="px-3 py-3 text-right min-w-[150px]">Totale</th>
+                <th className="px-3 py-3">Stato</th>
+                <th className="px-3 py-3 text-right">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fattureFiltrate.length === 0 ? (
+                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura trovata.</td></tr>
+              ) : (
+                fattureFiltrate.map((fattura) => (
+                  <tr key={fattura.id} className="border-t border-slate-100 align-top hover:bg-slate-50">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="text-xs text-slate-500">{fattura.data_emissione || 'n.d.'} • Scad. {fattura.data_scadenza || 'n.d.'}</p>
+                      {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-700">Apri PDF</a>}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-700">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-slate-600">{condominioById(fattura.condominio_id)?.nome || 'n.d.'}</td>
+                    <td className="px-3 py-3 text-slate-600">{fattura.segnalazione_id ? `#${fattura.segnalazione_id}` : 'n.d.'}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900 min-w-[150px]">{formatEuro(fattura.totale || 0)}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                        fattura.stato === 'pagata' ? 'bg-emerald-100 text-emerald-700' :
+                        fattura.stato === 'scaduta' ? 'bg-red-100 text-red-700' :
+                        fattura.stato === 'inviata' ? 'bg-sky-100 text-sky-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {fattura.stato}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => apriModificaFattura(fattura)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Modifica</button>
+                        {fattura.stato !== 'inviata' && fattura.stato !== 'pagata' && (
+                          <button type="button" onClick={() => onInviaFatturaPartner(fattura.id)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
+                            Invia
+                          </button>
+                        )}
+                        {fattura.stato !== 'pagata' && (
+                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'pagata', pagata_il: new Date().toISOString().slice(0, 10) })} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">
+                            Pagata
+                          </button>
+                        )}
+                        {fattura.stato !== 'scaduta' && fattura.stato !== 'pagata' && (
+                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'scaduta' })} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">
+                            Scaduta
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="h-[720px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
@@ -3418,142 +3434,6 @@ function FatturazionePartnerSuite({
         </div>
       </section>
 
-      <section className="h-[820px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Elenco fatture</p>
-            <h2 className="mt-1 text-xl font-bold">Fatture partner e pagamenti</h2>
-          </div>
-          <p className="text-xs font-bold text-slate-500">Segna “Pagata” per maturare automaticamente le provvigioni.</p>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
-          <input value={fatturaSearchNumero} onChange={(e) => setFatturaSearchNumero(e.target.value)} placeholder="Cerca numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
-          <input value={fatturaSearchPratica} onChange={(e) => setFatturaSearchPratica(e.target.value)} placeholder="Cerca pratica" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
-          <input value={fatturaSearchPartner} onChange={(e) => setFatturaSearchPartner(e.target.value)} placeholder="Cerca partner" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
-          <select value={fatturaFiltroStato} onChange={(e) => setFatturaFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
-            <option value="">Tutte le condizioni</option>
-            <option value="bozza">Bozza</option>
-            <option value="inviata">Inviata</option>
-            <option value="pagata">Pagata</option>
-            <option value="scaduta">Scaduta</option>
-            <option value="annullata">Annullata</option>
-          </select>
-        </div>
-
-        {fatturaInModifica && (
-          <div className="mt-4 rounded-3xl border border-sky-200 bg-sky-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Dettagli fattura</p>
-                <h3 className="mt-1 text-lg font-black text-slate-900">{fatturaInModifica.numero_fattura || `Fattura #${fatturaInModifica.id}`}</h3>
-              </div>
-              <button type="button" onClick={() => setFatturaInModifica(null)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700">Chiudi</button>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-              <select value={fatturaEditForm.azienda_partner_id} onChange={(e) => updateFatturaEdit('azienda_partner_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
-                <option value="">Partner</option>
-                {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
-              </select>
-              <select value={fatturaEditForm.amministratore_email} onChange={(e) => updateFatturaEdit('amministratore_email', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
-                <option value="">Amministratore</option>
-                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
-              </select>
-              <select value={fatturaEditForm.condominio_id} onChange={(e) => updateFatturaEdit('condominio_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
-                <option value="">Condominio</option>
-                {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-              <select value={fatturaEditForm.segnalazione_id} onChange={(e) => updateFatturaEdit('segnalazione_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
-                <option value="">Pratica collegata</option>
-                {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>#{s.id} - {s.titolo}</option>)}
-              </select>
-              <input value={fatturaEditForm.numero_fattura} onChange={(e) => updateFatturaEdit('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
-              <select value={fatturaEditForm.stato} onChange={(e) => updateFatturaEdit('stato', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
-                <option value="bozza">Bozza</option>
-                <option value="inviata">Inviata</option>
-                <option value="pagata">Pagata</option>
-                <option value="scaduta">Scaduta</option>
-                <option value="annullata">Annullata</option>
-              </select>
-              <input type="number" step="0.01" value={fatturaEditForm.importo_imponibile} onChange={(e) => updateFatturaEdit('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
-              <input type="number" step="0.01" value={fatturaEditForm.iva} onChange={(e) => updateFatturaEdit('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
-              <input type="number" step="0.01" value={fatturaEditForm.totale} onChange={(e) => updateFatturaEdit('totale', e.target.value)} placeholder="Valore fattura totale" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
-              <input type="date" value={fatturaEditForm.data_emissione || ''} onChange={(e) => updateFatturaEdit('data_emissione', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
-              <input type="date" value={fatturaEditForm.data_scadenza || ''} onChange={(e) => updateFatturaEdit('data_scadenza', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
-              <input value={fatturaEditForm.file_url} onChange={(e) => updateFatturaEdit('file_url', e.target.value)} placeholder="URL PDF" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-3" />
-            </div>
-            <textarea value={fatturaEditForm.descrizione} onChange={(e) => updateFatturaEdit('descrizione', e.target.value)} placeholder="Descrizione" className="mt-3 min-h-20 w-full rounded-2xl border border-sky-200 bg-white px-3 py-3" />
-            <button type="button" onClick={salvaModificaFattura} className="mt-3 w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva dettagli fattura</button>
-          </div>
-        )}
-
-        <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
-          <table className="min-w-[1040px] w-full border-collapse text-sm">
-            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-3">Fattura</th>
-                <th className="px-3 py-3">Partner</th>
-                <th className="px-3 py-3">Condominio</th>
-                <th className="px-3 py-3">Pratica</th>
-                <th className="px-3 py-3 text-right min-w-[150px]">Totale</th>
-                <th className="px-3 py-3">Stato</th>
-                <th className="px-3 py-3 text-right">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fattureFiltrate.length === 0 ? (
-                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura trovata.</td></tr>
-              ) : (
-                fattureFiltrate.map((fattura) => (
-                  <tr key={fattura.id} className="border-t border-slate-100 align-top hover:bg-slate-50">
-                    <td className="px-3 py-3">
-                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
-                      <p className="text-xs text-slate-500">{fattura.data_emissione || 'n.d.'} • Scad. {fattura.data_scadenza || 'n.d.'}</p>
-                      {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-700">Apri PDF</a>}
-                    </td>
-                    <td className="px-3 py-3 font-semibold text-slate-700">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{condominioById(fattura.condominio_id)?.nome || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{fattura.segnalazione_id ? `#${fattura.segnalazione_id}` : 'n.d.'}</td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900 min-w-[150px]">{formatEuro(fattura.totale || 0)}</td>
-                    <td className="px-3 py-3">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
-                        fattura.stato === 'pagata' ? 'bg-emerald-100 text-emerald-700' :
-                        fattura.stato === 'scaduta' ? 'bg-red-100 text-red-700' :
-                        fattura.stato === 'inviata' ? 'bg-sky-100 text-sky-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {fattura.stato}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => apriModificaFattura(fattura)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Modifica</button>
-                        {fattura.stato !== 'inviata' && fattura.stato !== 'pagata' && (
-                          <button type="button" onClick={() => onInviaFatturaPartner(fattura.id)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
-                            Invia
-                          </button>
-                        )}
-                        {fattura.stato !== 'pagata' && (
-                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'pagata', pagata_il: new Date().toISOString().slice(0, 10) })} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">
-                            Pagata
-                          </button>
-                        )}
-                        {fattura.stato !== 'scaduta' && fattura.stato !== 'pagata' && (
-                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'scaduta' })} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">
-                            Scaduta
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Provvigioni maturate</p>
@@ -3605,6 +3485,126 @@ function FatturazionePartnerSuite({
           </div>
         </section>
       </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
+          <h2 className="mt-1 text-xl font-bold">Nuova azienda partner</h2>
+          <p className="mt-1 text-sm text-slate-500">Inserisci l’azienda fatturante e la provvigione gestore valida da oggi.</p>
+
+          <form onSubmit={creaAzienda} className="mt-4 space-y-3">
+            <input value={aziendaForm.ragione_sociale} onChange={(e) => updateAzienda('ragione_sociale', e.target.value)} placeholder="Ragione sociale" className="w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input value={aziendaForm.partita_iva} onChange={(e) => updateAzienda('partita_iva', e.target.value)} placeholder="Partita IVA" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.tipo_attivita} onChange={(e) => updateAzienda('tipo_attivita', e.target.value)} placeholder="Tipo attività" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.referente} onChange={(e) => updateAzienda('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.telefono} onChange={(e) => updateAzienda('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.email} onChange={(e) => updateAzienda('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input type="number" step="0.01" value={aziendaForm.percentuale_gestore} onChange={(e) => updateAzienda('percentuale_gestore', e.target.value)} placeholder="% provvigione gestore" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.citta} onChange={(e) => updateAzienda('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 px-3 py-3" />
+              <input value={aziendaForm.provincia} onChange={(e) => updateAzienda('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 px-3 py-3" />
+            </div>
+            <textarea value={aziendaForm.note} onChange={(e) => updateAzienda('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
+            <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">Salva azienda partner</button>
+          </form>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Gestione fornitori</p>
+              <h2 className="mt-1 text-xl font-bold">Elenco aziende partner</h2>
+              <p className="mt-1 text-sm text-slate-500">Cerca, modifica dati, attiva/disattiva e aggiorna percentuale provvigione.</p>
+            </div>
+            <input
+              value={partnerSearch}
+              onChange={(e) => setPartnerSearch(e.target.value)}
+              placeholder="Cerca fornitore..."
+              className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold md:w-72"
+            />
+          </div>
+
+          {aziendaInModifica && (
+            <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Modifica fornitore</p>
+                  <h3 className="mt-1 text-lg font-black text-slate-900">{aziendaInModifica.ragione_sociale}</h3>
+                </div>
+                <button type="button" onClick={() => setAziendaInModifica(null)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700">
+                  Chiudi
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input value={aziendaEditForm.ragione_sociale} onChange={(e) => updateAziendaEdit('ragione_sociale', e.target.value)} placeholder="Ragione sociale" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.partita_iva} onChange={(e) => updateAziendaEdit('partita_iva', e.target.value)} placeholder="Partita IVA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.tipo_attivita} onChange={(e) => updateAziendaEdit('tipo_attivita', e.target.value)} placeholder="Tipo attività" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.referente} onChange={(e) => updateAziendaEdit('referente', e.target.value)} placeholder="Referente" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.telefono} onChange={(e) => updateAziendaEdit('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.email} onChange={(e) => updateAziendaEdit('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.citta} onChange={(e) => updateAziendaEdit('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaEditForm.provincia} onChange={(e) => updateAziendaEdit('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input type="number" step="0.01" value={aziendaEditForm.nuova_percentuale_gestore} onChange={(e) => updateAziendaEdit('nuova_percentuale_gestore', e.target.value)} placeholder="Nuova % provvigione gestore" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <label className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-sm font-bold text-slate-700">
+                  <input type="checkbox" checked={aziendaEditForm.attiva} onChange={(e) => updateAziendaEdit('attiva', e.target.checked)} />
+                  Azienda attiva
+                </label>
+              </div>
+              <textarea value={aziendaEditForm.note} onChange={(e) => updateAziendaEdit('note', e.target.value)} placeholder="Note" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              <button type="button" onClick={salvaModificaAzienda} className="mt-3 w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">
+                Salva modifiche fornitore
+              </button>
+            </div>
+          )}
+
+          <div className="mt-4 max-h-[360px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+            <table className="min-w-[760px] w-full border-collapse text-sm">
+              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Azienda</th>
+                  <th className="px-3 py-3">Referente</th>
+                  <th className="px-3 py-3">Provvigione</th>
+                  <th className="px-3 py-3">Stato</th>
+                  <th className="px-3 py-3 text-right">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aziendeFiltrate.length === 0 ? (
+                  <tr><td colSpan="5" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
+                ) : aziendeFiltrate.map((azienda) => {
+                  const provv = provvigioneAttivaAzienda(azienda.id);
+                  return (
+                    <tr key={azienda.id} className="border-t border-slate-100 hover:bg-emerald-50/40">
+                      <td className="px-3 py-3">
+                        <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
+                        <p className="text-xs text-slate-500">{azienda.tipo_attivita || 'Attività n.d.'} • {azienda.citta || ''} {azienda.provincia || ''}</p>
+                        <p className="text-xs text-slate-400">{azienda.partita_iva || 'P.IVA n.d.'}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-semibold text-slate-700">{azienda.referente || 'n.d.'}</p>
+                        <p className="text-xs text-slate-500">{azienda.telefono || ''}</p>
+                        <p className="text-xs text-slate-500">{azienda.email || ''}</p>
+                      </td>
+                      <td className="px-3 py-3 font-black text-emerald-700">{provv ? `${Number(provv.percentuale_gestore || 0)}%` : '0%'}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${azienda.attiva !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                          {azienda.attiva !== false ? 'Attiva' : 'Disattiva'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <button type="button" onClick={() => apriModificaAzienda(azienda)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                          Modifica
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
     </section>
   );
 }
