@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.67';
-const APP_VERSION_LABEL = 'CSP v1.0.67';
+const APP_VERSION = '1.0.68';
+const APP_VERSION_LABEL = 'CSP v1.0.68';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2418,6 +2418,7 @@ function CapitolatoSenzaPensieriSuite({
   capitolati,
   condomini,
   utentiSistema,
+  aziendePartner,
   onCreateCapitolato,
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
@@ -2429,6 +2430,7 @@ function CapitolatoSenzaPensieriSuite({
   const [uploadingDocId, setUploadingDocId] = useState(null);
   const [filtroStato, setFiltroStato] = useState('');
   const [filtroSearch, setFiltroSearch] = useState('');
+  const [conversioneDraft, setConversioneDraft] = useState({});
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
@@ -2487,6 +2489,37 @@ function CapitolatoSenzaPensieriSuite({
     });
 
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
+  const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
+
+  const updateConversioneDraft = (capitolatoId, field, value) => {
+    setConversioneDraft((prev) => ({
+      ...prev,
+      [capitolatoId]: {
+        ...(prev[capitolatoId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const convertiInCasp = async (item, aziendaId, valoreAggiudicato, noteConversione) => {
+    if (!aziendaId) {
+      alert('Seleziona azienda vincitrice prima della conversione CaSP.');
+      return;
+    }
+
+    await onUpdateCapitolato(item.id, {
+      azienda_vincitrice_id: Number(aziendaId),
+      azienda_vincitrice_nome: aziendaById(aziendaId)?.ragione_sociale || '',
+      valore_aggiudicato: Number(valoreAggiudicato || item.importo_presunto || 0),
+      note_conversione_casp: noteConversione || '',
+      convertita_casp: true,
+      data_conversione_casp: new Date().toISOString().slice(0, 10),
+      stato: 'Convertita in CaSP',
+    });
+
+    alert('Pratica convertita in CaSP correttamente.');
   };
 
   const updateForm = (field, value) => {
@@ -2735,7 +2768,7 @@ function CapitolatoSenzaPensieriSuite({
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-4">
+                <div className="mt-4 grid grid-cols-1 gap-3 2xl:grid-cols-5">
                   <div className="rounded-2xl border border-slate-200 bg-white p-3">
                     <p className="text-xs font-black uppercase tracking-wide text-slate-500">Stato pratica</p>
                     {isGestore ? (
@@ -2826,6 +2859,64 @@ function CapitolatoSenzaPensieriSuite({
                           <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(item, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${item.id}-offerta`} />
                         </label>
                       </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Conversione CaSP</p>
+
+                    {item.convertita_casp ? (
+                      <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
+                        <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-600">{item.azienda_vincitrice_nome || aziendaById(item.azienda_vincitrice_id)?.ragione_sociale || 'Azienda n.d.'}</p>
+                        <p className="text-xs text-slate-500">Valore aggiudicato: {formatEuro(item.valore_aggiudicato || item.importo_presunto || 0)}</p>
+                        <p className="text-xs text-slate-500">Data conversione: {item.data_conversione_casp || 'n.d.'}</p>
+                      </div>
+                    ) : isGestore ? (
+                      <div className="mt-2 space-y-2">
+                        <select
+                          value={conversioneDraft[item.id]?.azienda_vincitrice_id || item.azienda_vincitrice_id || ''}
+                          onChange={(e) => updateConversioneDraft(item.id, 'azienda_vincitrice_id', e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                        >
+                          <option value="">Azienda vincitrice</option>
+                          {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                        </select>
+
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={conversioneDraft[item.id]?.valore_aggiudicato ?? item.valore_aggiudicato ?? item.importo_presunto ?? ''}
+                          onChange={(e) => updateConversioneDraft(item.id, 'valore_aggiudicato', e.target.value)}
+                          placeholder="Valore aggiudicato"
+                          className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                        />
+
+                        <textarea
+                          value={conversioneDraft[item.id]?.note_conversione_casp ?? item.note_conversione_casp ?? ''}
+                          onChange={(e) => updateConversioneDraft(item.id, 'note_conversione_casp', e.target.value)}
+                          placeholder="Note conversione CaSP"
+                          className="min-h-14 w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const draft = conversioneDraft[item.id] || {};
+                            convertiInCasp(
+                              item,
+                              draft.azienda_vincitrice_id || item.azienda_vincitrice_id,
+                              draft.valore_aggiudicato ?? item.valore_aggiudicato ?? item.importo_presunto,
+                              draft.note_conversione_casp ?? item.note_conversione_casp
+                            );
+                          }}
+                          className="w-full rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white"
+                        >
+                          Converti in CaSP
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di aggiudicazione e conversione CaSP.</p>
                     )}
                   </div>
                 </div>
@@ -8151,6 +8242,7 @@ export default function App() {
               capitolati={capitolatiSenzaPensieri}
               condomini={condomini}
               utentiSistema={utentiSistema}
+              aziendePartner={aziendePartner}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
@@ -8165,6 +8257,7 @@ export default function App() {
             capitolati={capitolatiSenzaPensieri}
             condomini={condominiVisibili}
             utentiSistema={utentiSistema}
+            aziendePartner={aziendePartner}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
