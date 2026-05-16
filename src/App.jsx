@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.69';
-const APP_VERSION_LABEL = 'CSP v1.0.69';
+const APP_VERSION = '1.0.70';
+const APP_VERSION_LABEL = 'CSP v1.0.70';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2669,17 +2669,19 @@ function CapitolatoSenzaPensieriSuite({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">{isGestore ? 'Control Room Capitolati' : 'Agenda Capitolati'}</p>
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-6">
-          <DashboardStat label="Valore acquisito" value={formatEuro(valoreAcquisito)} tone="emerald" />
-          <DashboardStat label="Tasso conversione" value={tassoConversione} tone="purple" />
-          <DashboardStat label="Sopralluoghi" value={sopralluoghiImminenti} tone="sky" />
-          <DashboardStat label="Assemblee" value={assembleeImminenti} tone="amber" />
-          <DashboardStat label="Presenze CSP" value={presenzeRichieste} tone="red" />
-          <DashboardStat label={isGestore ? 'Partner attivi' : 'Guadagno acquisito'} value={isGestore ? new Set(capitolatiVisibili.filter(c => c.azienda_vincitrice_id).map(c => c.azienda_vincitrice_id)).size : formatEuro(valoreAcquisito * 0.1)} tone="slate" />
-        </div>
-      </section>
+      {isGestore && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Control Room Capitolati</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <DashboardStat label="Valore acquisito" value={formatEuro(valoreAcquisito)} tone="emerald" />
+            <DashboardStat label="Tasso conversione" value={tassoConversione} tone="purple" />
+            <DashboardStat label="Sopralluoghi" value={sopralluoghiImminenti} tone="sky" />
+            <DashboardStat label="Assemblee" value={assembleeImminenti} tone="amber" />
+            <DashboardStat label="Presenze CSP" value={presenzeRichieste} tone="red" />
+            <DashboardStat label="Partner attivi" value={new Set(capitolatiVisibili.filter(c => c.azienda_vincitrice_id).map(c => c.azienda_vincitrice_id)).size} tone="slate" />
+          </div>
+        </section>
+      )}
 
       {!isGestore && (
         <section className="h-[920px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
