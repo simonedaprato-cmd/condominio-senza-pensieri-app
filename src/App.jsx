@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.73';
-const APP_VERSION_LABEL = 'CSP v1.0.73';
+const APP_VERSION = '1.0.74';
+const APP_VERSION_LABEL = 'CSP v1.0.74';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2645,6 +2645,28 @@ function CapitolatoSenzaPensieriSuite({
   const presenzeRichieste = capitolatiVisibili.filter((item) => item.presenza_csp_richiesta).length;
   const tassoConversione = capitolatiVisibili.length ? `${Math.round((convertiteCaSP / capitolatiVisibili.length) * 100)}%` : '0%';
 
+  const partnerRanking = [...(aziendePartner || [])]
+    .map((azienda) => {
+      const capitolatiAzienda = capitolatiVisibili.filter((item) => Number(item.azienda_vincitrice_id) === Number(azienda.id));
+      const convertiti = capitolatiAzienda.filter((item) => item.convertita_casp || item.stato === 'Convertita in CaSP');
+      const valore = capitolatiAzienda.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.importo_presunto || 0), 0);
+      const valoreCasp = convertiti.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.importo_presunto || 0), 0);
+
+      return {
+        ...azienda,
+        capitolati: capitolatiAzienda.length,
+        convertiti: convertiti.length,
+        valore,
+        valoreCasp,
+        tasso: capitolatiAzienda.length ? Math.round((convertiti.length / capitolatiAzienda.length) * 100) : 0,
+      };
+    })
+    .filter((azienda) => azienda.capitolati > 0 || azienda.convertiti > 0)
+    .sort((a, b) => Number(b.valoreCasp || b.valore || 0) - Number(a.valoreCasp || a.valore || 0));
+
+  const topPartner = partnerRanking[0];
+  const aziendeConvertite = partnerRanking.filter((azienda) => azienda.convertiti > 0).length;
+
   return (
     <section className="space-y-4">
       <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
@@ -2679,6 +2701,66 @@ function CapitolatoSenzaPensieriSuite({
             <DashboardStat label="Assemblee" value={assembleeImminenti} tone="amber" />
             <DashboardStat label="Presenze CSP" value={presenzeRichieste} tone="red" />
             <DashboardStat label="Partner attivi" value={new Set(capitolatiVisibili.filter(c => c.azienda_vincitrice_id).map(c => c.azienda_vincitrice_id)).size} tone="slate" />
+          </div>
+        </section>
+      )}
+
+      {isGestore && (
+        <section className="rounded-3xl border border-purple-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-purple-700">Ranking partner CaSeP</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Aziende convertite e potenziale CaSP</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Classifica delle aziende vincitrici dei capitolati e delle conversioni verso CaSP.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:min-w-[420px]">
+              <DashboardStat label="Aziende convertite" value={aziendeConvertite} tone="purple" />
+              <DashboardStat label="Top partner" value={topPartner?.ragione_sociale || 'n.d.'} tone="emerald" />
+            </div>
+          </div>
+
+          <div className="mt-4 max-h-[360px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+            <table className="min-w-[920px] w-full border-collapse text-sm">
+              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Partner</th>
+                  <th className="px-3 py-3 text-right">Capitolati</th>
+                  <th className="px-3 py-3 text-right">Conversioni CaSP</th>
+                  <th className="px-3 py-3 text-right">Tasso</th>
+                  <th className="px-3 py-3 text-right">Valore lavori</th>
+                  <th className="px-3 py-3 text-right">Valore CaSP</th>
+                  <th className="px-3 py-3">Priorità commerciale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {partnerRanking.length === 0 ? (
+                  <tr><td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna azienda ancora collegata a capitolati convertiti.</td></tr>
+                ) : (
+                  partnerRanking.map((azienda, index) => (
+                    <tr key={azienda.id} className="border-t border-slate-100 hover:bg-purple-50/30">
+                      <td className="px-3 py-3">
+                        <p className="font-black text-slate-900">{index + 1}. {azienda.ragione_sociale}</p>
+                        <p className="text-xs text-slate-500">{azienda.email || azienda.telefono || 'contatto n.d.'}</p>
+                      </td>
+                      <td className="px-3 py-3 text-right font-black text-slate-700">{azienda.capitolati}</td>
+                      <td className="px-3 py-3 text-right font-black text-purple-700">{azienda.convertiti}</td>
+                      <td className="px-3 py-3 text-right font-black text-slate-900">{azienda.tasso}%</td>
+                      <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(azienda.valore)}</td>
+                      <td className="px-3 py-3 text-right font-black text-purple-700">{formatEuro(azienda.valoreCasp)}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          azienda.convertiti >= 2 ? 'bg-emerald-100 text-emerald-700' :
+                          azienda.convertiti === 1 ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {azienda.convertiti >= 2 ? 'Proporre annuale' : azienda.convertiti === 1 ? 'Follow-up CaSP' : 'Monitorare'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
