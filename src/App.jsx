@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.64';
-const APP_VERSION_LABEL = 'CSP v1.0.64';
+const APP_VERSION = '1.0.65';
+const APP_VERSION_LABEL = 'CSP v1.0.65';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2400,6 +2400,322 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
                     <td className="px-3 py-3 text-right font-black text-amber-700">{formatEuro(row.daFatturare)}</td>
                     <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(row.pagato)}</td>
                     <td className="px-3 py-3 text-right font-black text-red-700">{formatEuro(row.daIncassare)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+
+function CapitolatoSenzaPensieriSuite({
+  ruolo,
+  userProfile,
+  capitolati,
+  condomini,
+  utentiSistema,
+  onCreateCapitolato,
+  onUpdateCapitolato,
+  onUploadCapitolatoPdf,
+}) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isGestore = ruoloNorm === 'gestore';
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [capitolatoPdfName, setCapitolatoPdfName] = useState('');
+  const [filtroStato, setFiltroStato] = useState('');
+  const [filtroSearch, setFiltroSearch] = useState('');
+
+  const amministratoreEmail = userProfile?.email || '';
+  const amministratoreNome = userProfile?.nome || userProfile?.email || '';
+
+  const [form, setForm] = useState({
+    condominio_id: '',
+    condominio_nome: '',
+    titolo: '',
+    categoria: 'Facciate e coperture',
+    indirizzo: '',
+    citta: '',
+    provincia: '',
+    importo_presunto: '',
+    priorita: 'Media',
+    note: '',
+    capitolato_pdf_url: '',
+    tecnico_nome: '',
+    tecnico_studio: '',
+    tecnico_email: '',
+    tecnico_telefono: '',
+    tecnico_note: '',
+  });
+
+  const stati = [
+    'Nuovo capitolato',
+    'Sopralluogo programmato',
+    'Sopralluogo effettuato',
+    'Relazione inviata',
+    'Offerta inviata',
+    'Assemblea programmata',
+    'Presenza CSP richiesta',
+    'Aggiudicata',
+    'Convertita in CaSP',
+    'Non aggiudicata',
+  ];
+
+  const updateForm = (field, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+
+      if (field === 'condominio_id') {
+        const condominio = (condomini || []).find((c) => Number(c.id) === Number(value));
+        next.condominio_nome = condominio?.nome || '';
+        next.indirizzo = condominio?.indirizzo || prev.indirizzo || '';
+      }
+
+      return next;
+    });
+  };
+
+  const caricaPdf = async (file) => {
+    if (!file) return;
+    try {
+      setUploadingPdf(true);
+      const url = await onUploadCapitolatoPdf(file);
+      setForm((prev) => ({ ...prev, capitolato_pdf_url: url }));
+      setCapitolatoPdfName(file.name);
+      alert('Capitolato PDF caricato correttamente.');
+    } catch (error) {
+      console.error(error);
+      alert('Errore caricamento capitolato PDF: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const apriPratica = async (e) => {
+    e.preventDefault();
+
+    if (!form.titolo || !form.condominio_nome) {
+      alert('Inserisci titolo pratica e condominio.');
+      return;
+    }
+
+    const payload = {
+      ...form,
+      condominio_id: form.condominio_id ? Number(form.condominio_id) : null,
+      amministratore_email: amministratoreEmail,
+      amministratore_nome: amministratoreNome,
+      importo_presunto: Number(form.importo_presunto || 0),
+      stato: 'Nuovo capitolato',
+    };
+
+    const result = await onCreateCapitolato(payload);
+
+    if (result?.success) {
+      alert('Pratica Capitolato Senza Pensieri aperta correttamente.');
+      setForm({
+        condominio_id: '',
+        condominio_nome: '',
+        titolo: '',
+        categoria: 'Facciate e coperture',
+        indirizzo: '',
+        citta: '',
+        provincia: '',
+        importo_presunto: '',
+        priorita: 'Media',
+        note: '',
+        capitolato_pdf_url: '',
+        tecnico_nome: '',
+        tecnico_studio: '',
+        tecnico_email: '',
+        tecnico_telefono: '',
+        tecnico_note: '',
+      });
+      setCapitolatoPdfName('');
+    }
+  };
+
+  const capitolatiVisibili = (capitolati || [])
+    .filter((item) => isGestore || String(item.amministratore_email || '').toLowerCase() === String(amministratoreEmail || '').toLowerCase())
+    .filter((item) => !filtroStato || item.stato === filtroStato)
+    .filter((item) => {
+      const haystack = [
+        item.numero_pratica,
+        item.titolo,
+        item.condominio_nome,
+        item.amministratore_nome,
+        item.tecnico_nome,
+        item.tecnico_studio,
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      return !filtroSearch || haystack.includes(filtroSearch.toLowerCase().trim());
+    });
+
+  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.importo_presunto || 0), 0);
+  const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
+  const convertiteCaSP = capitolatiVisibili.filter((item) => item.stato === 'Convertita in CaSP').length;
+
+  return (
+    <section className="space-y-4">
+      <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Capitolato Senza Pensieri</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Grandi lavori e ponte verso CaSP</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Pratiche riservate amministratore ↔ gestore, senza accesso ai condòmini.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:min-w-[520px] md:grid-cols-4">
+            <DashboardStat label="Capitolati" value={capitolatiVisibili.length} tone="sky" />
+            <DashboardStat label="Valore potenziale" value={formatEuro(valorePotenziale)} tone="emerald" />
+            <DashboardStat label="Priorità alta" value={altePriorita} tone="amber" />
+            <DashboardStat label="Convertite CaSP" value={convertiteCaSP} tone="purple" />
+          </div>
+        </div>
+      </section>
+
+      {!isGestore && (
+        <section className="h-[920px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Nuovo capitolato</p>
+          <h2 className="mt-1 text-xl font-bold">Apri pratica Capitolato</h2>
+          <p className="mt-1 text-sm text-slate-500">Carica il capitolato e crea una scheda tecnica completa del condominio e del tecnico incaricato.</p>
+
+          <form onSubmit={apriPratica} className="mt-4 space-y-4">
+            <div className="rounded-3xl border border-sky-100 bg-sky-50 p-4">
+              <p className="text-sm font-black text-sky-800">Scheda condominio e lavori</p>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <input value={form.titolo} onChange={(e) => updateForm('titolo', e.target.value)} placeholder="Titolo pratica" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
+                <select value={form.priorita} onChange={(e) => updateForm('priorita', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                  <option value="Bassa">Priorità bassa</option>
+                  <option value="Media">Priorità media</option>
+                  <option value="Alta">Priorità alta</option>
+                </select>
+                <select value={form.condominio_id} onChange={(e) => updateForm('condominio_id', e.target.value)} className="rounded-2xl border border-sky-200 bg-white px-3 py-3">
+                  <option value="">Seleziona condominio</option>
+                  {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+                <input value={form.condominio_nome} onChange={(e) => updateForm('condominio_nome', e.target.value)} placeholder="Nome condominio" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+                <input value={form.categoria} onChange={(e) => updateForm('categoria', e.target.value)} placeholder="Categoria lavori" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+                <input value={form.indirizzo} onChange={(e) => updateForm('indirizzo', e.target.value)} placeholder="Indirizzo" className="rounded-2xl border border-sky-200 bg-white px-3 py-3 md:col-span-2" />
+                <input value={form.citta} onChange={(e) => updateForm('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+                <input value={form.provincia} onChange={(e) => updateForm('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+                <input type="number" step="0.01" value={form.importo_presunto} onChange={(e) => updateForm('importo_presunto', e.target.value)} placeholder="Importo presunto lavori" className="rounded-2xl border border-sky-200 bg-white px-3 py-3" />
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-sm font-black text-emerald-800">Tecnico incaricato alla redazione del capitolato</p>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input value={form.tecnico_nome} onChange={(e) => updateForm('tecnico_nome', e.target.value)} placeholder="Nome tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_studio} onChange={(e) => updateForm('tecnico_studio', e.target.value)} placeholder="Studio / società" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_email} onChange={(e) => updateForm('tecnico_email', e.target.value)} placeholder="Email tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_telefono} onChange={(e) => updateForm('tecnico_telefono', e.target.value)} placeholder="Telefono tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              </div>
+              <textarea value={form.tecnico_note} onChange={(e) => updateForm('tecnico_note', e.target.value)} placeholder="Note tecniche" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">PDF capitolato</p>
+              <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    {capitolatoPdfName || (form.capitolato_pdf_url ? 'PDF capitolato caricato' : 'Nessun PDF caricato')}
+                  </p>
+                  {form.capitolato_pdf_url && (
+                    <a href={form.capitolato_pdf_url} target="_blank" rel="noreferrer" className="text-xs font-black text-sky-700">Apri PDF caricato</a>
+                  )}
+                </div>
+                <label className={`cursor-pointer rounded-2xl px-4 py-3 text-sm font-black text-white ${uploadingPdf ? 'bg-slate-400' : 'bg-sky-700'}`}>
+                  {uploadingPdf ? 'Caricamento...' : 'Carica capitolato PDF'}
+                  <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaPdf(e.target.files?.[0])} className="hidden" disabled={uploadingPdf} />
+                </label>
+              </div>
+            </div>
+
+            <textarea value={form.note} onChange={(e) => updateForm('note', e.target.value)} placeholder="Note amministratore" className="min-h-24 w-full rounded-2xl border border-slate-200 px-3 py-3" />
+
+            <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">
+              Apri pratica Capitolato
+            </button>
+          </form>
+        </section>
+      )}
+
+      <section className="h-[720px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Archivio capitolati</p>
+            <h2 className="mt-1 text-xl font-bold">Pratiche grandi lavori</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <input value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} placeholder="Cerca pratica, condominio, tecnico" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
+            <select value={filtroStato} onChange={(e) => setFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold">
+              <option value="">Tutti gli stati</option>
+              {stati.map((stato) => <option key={stato} value={stato}>{stato}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4 max-h-[610px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[1180px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Pratica</th>
+                <th className="px-3 py-3">Condominio</th>
+                <th className="px-3 py-3">Tecnico</th>
+                <th className="px-3 py-3 text-right">Importo</th>
+                <th className="px-3 py-3">Priorità</th>
+                <th className="px-3 py-3">Stato</th>
+                <th className="px-3 py-3 text-right">PDF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capitolatiVisibili.length === 0 ? (
+                <tr><td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessun capitolato presente.</td></tr>
+              ) : (
+                capitolatiVisibili.map((item) => (
+                  <tr key={item.id} className="border-t border-slate-100 hover:bg-emerald-50/30">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{item.numero_pratica || `#${item.id}`}</p>
+                      <p className="text-xs text-slate-500">{item.titolo}</p>
+                      {isGestore && <p className="text-xs text-slate-400">{item.amministratore_nome || item.amministratore_email}</p>}
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold text-slate-700">{item.condominio_nome || 'n.d.'}</p>
+                      <p className="text-xs text-slate-500">{item.indirizzo || ''} {item.citta || ''}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold text-slate-700">{item.tecnico_nome || 'n.d.'}</p>
+                      <p className="text-xs text-slate-500">{item.tecnico_email || ''}</p>
+                      <p className="text-xs text-slate-500">{item.tecnico_telefono || ''}</p>
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(item.importo_presunto || 0)}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                        item.priorita === 'Alta' ? 'bg-red-100 text-red-700' :
+                        item.priorita === 'Bassa' ? 'bg-slate-100 text-slate-600' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {item.priorita || 'Media'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {isGestore ? (
+                        <select value={item.stato || 'Nuovo capitolato'} onChange={(e) => onUpdateCapitolato(item.id, { stato: e.target.value })} className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-black">
+                          {stati.map((stato) => <option key={stato} value={stato}>{stato}</option>)}
+                        </select>
+                      ) : (
+                        <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {item.capitolato_pdf_url ? (
+                        <a href={item.capitolato_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">Apri</a>
+                      ) : <span className="text-xs text-slate-400">n.d.</span>}
+                    </td>
                   </tr>
                 ))
               )}
@@ -5798,6 +6114,7 @@ export default function App() {
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
+  const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -6133,6 +6450,14 @@ export default function App() {
 
       if (fattureProvvigioniAmministratoriError && fattureProvvigioniAmministratoriError.code !== 'PGRST116' && fattureProvvigioniAmministratoriError.code !== '42P01') throw fattureProvvigioniAmministratoriError;
       setFattureProvvigioniAmministratori(fattureProvvigioniAmministratoriData || []);
+
+      const { data: capitolatiData, error: capitolatiError } = await supabase
+        .from('capitolati_senza_pensieri')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (capitolatiError && capitolatiError.code !== 'PGRST116' && capitolatiError.code !== '42P01') throw capitolatiError;
+      setCapitolatiSenzaPensieri(capitolatiData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -7105,6 +7430,80 @@ export default function App() {
     }
   };
 
+  const uploadCapitolatoPdf = async (file) => {
+    try {
+      const safeName = String(file.name || 'capitolato.pdf')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '-')
+        .toLowerCase();
+
+      const filePath = `capitolati-senza-pensieri/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('fatture')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/pdf',
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('fatture')
+        .getPublicUrl(filePath);
+
+      return data?.publicUrl || '';
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
+  const creaCapitolatoSenzaPensieri = async (capitolato) => {
+    try {
+      const numeroPratica = capitolato.numero_pratica || `CASEP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+
+      const payload = {
+        ...capitolato,
+        numero_pratica: numeroPratica,
+        stato: capitolato.stato || 'Nuovo capitolato',
+      };
+
+      const { error } = await supabase
+        .from('capitolati_senza_pensieri')
+        .insert(payload);
+
+      if (error) throw error;
+
+      setStatusMessage('Pratica Capitolato Senza Pensieri aperta correttamente.');
+      await carica();
+      return { success: true, numero_pratica: numeroPratica };
+    } catch (error) {
+      console.error(error);
+      alert('Errore apertura capitolato: ' + (error.message || 'sconosciuto'));
+      return { success: false };
+    }
+  };
+
+  const aggiornaCapitolatoSenzaPensieri = async (capitolatoId, updatePayload) => {
+    try {
+      const { error } = await supabase
+        .from('capitolati_senza_pensieri')
+        .update(updatePayload)
+        .eq('id', capitolatoId);
+
+      if (error) throw error;
+
+      setStatusMessage('Capitolato Senza Pensieri aggiornato.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento capitolato: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const inviaFatturaPartner = async (fatturaId) => {
     try {
       const { data, error } = await supabase.functions.invoke('notify-fattura-partner', {
@@ -7347,12 +7746,14 @@ export default function App() {
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
+    { id: 'capitolato', label: 'Capitolato', subtitle: 'Grandi lavori e CaSP' },
   ];
 
   const amministratoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture, scadenze e PDF' },
     { id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' },
+    { id: 'capitolato', label: 'Capitolato', subtitle: 'Grandi lavori e CaSP' },
   ];
 
   const renderGestoreSectionTitle = (title, subtitle) => (
@@ -7628,6 +8029,35 @@ export default function App() {
               onUpdateFatturaProvvigioneAmministratore={aggiornaFatturaProvvigioneAmministratore}
             />
           </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'capitolato' && (
+          <>
+            {renderGestoreSectionTitle('Capitolato Senza Pensieri', 'Grandi lavori, capitolati, tecnici incaricati e conversione verso CaSP.')}
+            <CapitolatoSenzaPensieriSuite
+              ruolo={ruoloNormalizzato}
+              userProfile={userProfile}
+              capitolati={capitolatiSenzaPensieri}
+              condomini={condomini}
+              utentiSistema={utentiSistema}
+              onCreateCapitolato={creaCapitolatoSenzaPensieri}
+              onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
+              onUploadCapitolatoPdf={uploadCapitolatoPdf}
+            />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'capitolato' && (
+          <CapitolatoSenzaPensieriSuite
+            ruolo={ruoloNormalizzato}
+            userProfile={userProfile}
+            capitolati={capitolatiSenzaPensieri}
+            condomini={condominiVisibili}
+            utentiSistema={utentiSistema}
+            onCreateCapitolato={creaCapitolatoSenzaPensieri}
+            onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
+            onUploadCapitolatoPdf={uploadCapitolatoPdf}
+          />
         )}
 
         {ruoloNormalizzato === 'condominio' && (
