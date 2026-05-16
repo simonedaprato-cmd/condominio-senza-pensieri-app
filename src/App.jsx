@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.66';
-const APP_VERSION_LABEL = 'CSP v1.0.66';
+const APP_VERSION = '1.0.67';
+const APP_VERSION_LABEL = 'CSP v1.0.67';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2465,6 +2465,30 @@ function CapitolatoSenzaPensieriSuite({
     'Non aggiudicata',
   ];
 
+  const buildGoogleCalendarUrl = (item) => {
+    const title = `Assemblea Capitolato Senza Pensieri - ${item.condominio_nome || item.titolo || 'Condominio'}`;
+    const details = [
+      `Pratica: ${item.numero_pratica || item.id}`,
+      `Titolo: ${item.titolo || ''}`,
+      `Tecnico: ${item.tecnico_nome || 'n.d.'}`,
+      `Richiesta presenza CSP: ${item.presenza_csp_richiesta ? 'Sì' : 'No'}`,
+    ].join('\n');
+
+    const date = item.data_assemblea || new Date().toISOString().slice(0, 10);
+    const cleanDate = String(date).replaceAll('-', '');
+    const location = item.luogo_assemblea || item.indirizzo || '';
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: title,
+      dates: `${cleanDate}T180000/${cleanDate}T200000`,
+      details,
+      location,
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
   const updateForm = (field, value) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -2506,7 +2530,7 @@ function CapitolatoSenzaPensieriSuite({
         : { offerta_pdf_url: url, stato: 'Offerta inviata' };
 
       await onUpdateCapitolato(item.id, payload);
-      alert(`${tipo === 'relazione' ? 'Relazione tecnica' : 'Offerta'} caricata correttamente.`);
+      alert(`${tipo === 'relazione' ? 'Relazione tecnica PDF' : 'Offerta PDF'} caricata correttamente.`);
     } catch (error) {
       console.error(error);
       alert('Errore caricamento documento: ' + (error.message || 'sconosciuto'));
@@ -2597,7 +2621,11 @@ function CapitolatoSenzaPensieriSuite({
             <DashboardStat label="Capitolati" value={capitolatiVisibili.length} tone="sky" />
             <DashboardStat label="Valore potenziale" value={formatEuro(valorePotenziale)} tone="emerald" />
             <DashboardStat label="Priorità alta" value={altePriorita} tone="amber" />
-            <DashboardStat label="Convertite CaSP" value={convertiteCaSP} tone="purple" />
+            {isGestore ? (
+              <DashboardStat label="Convertite CaSP" value={convertiteCaSP} tone="purple" />
+            ) : (
+              <DashboardStat label="Guadagno potenziale" value={formatEuro(valorePotenziale * 0.10)} tone="purple" />
+            )}
           </div>
         </div>
       </section>
@@ -2707,7 +2735,7 @@ function CapitolatoSenzaPensieriSuite({
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-4">
                   <div className="rounded-2xl border border-slate-200 bg-white p-3">
                     <p className="text-xs font-black uppercase tracking-wide text-slate-500">Stato pratica</p>
                     {isGestore ? (
@@ -2729,6 +2757,54 @@ function CapitolatoSenzaPensieriSuite({
                     ) : (
                       <p className="mt-2 text-xs font-semibold text-slate-600">{item.data_sopralluogo || 'Da programmare'}</p>
                     )}
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Assemblea</p>
+                    <div className="mt-2 space-y-2">
+                      <input
+                        type="date"
+                        value={item.data_assemblea || ''}
+                        onChange={(e) => aggiornaWorkflowTecnico(item, { data_assemblea: e.target.value || null, stato: e.target.value ? 'Assemblea programmata' : item.stato })}
+                        className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                        disabled={isGestore}
+                      />
+                      <input
+                        value={item.luogo_assemblea || ''}
+                        onChange={(e) => aggiornaWorkflowTecnico(item, { luogo_assemblea: e.target.value })}
+                        placeholder="Luogo assemblea"
+                        className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
+                        disabled={isGestore}
+                      />
+
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href={buildGoogleCalendarUrl(item)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white"
+                        >
+                          Google Calendar
+                        </a>
+
+                        {!item.presenza_csp_richiesta ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await aggiornaWorkflowTecnico(item, { presenza_csp_richiesta: true, stato: 'Presenza CSP richiesta' });
+                              alert('Richiesta presenza CSP inviata correttamente.');
+                            }}
+                            className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
+                          >
+                            Richiedi presenza CSP
+                          </button>
+                        ) : (
+                          <span className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">
+                            Presenza CSP richiesta
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-white p-3">
