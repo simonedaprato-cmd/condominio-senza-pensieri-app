@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.62';
-const APP_VERSION_LABEL = 'CSP v1.0.62';
+const APP_VERSION = '1.0.63';
+const APP_VERSION_LABEL = 'CSP v1.0.63';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2631,6 +2631,7 @@ function FatturazionePartnerSuite({
   onUploadFatturaPdf,
   onCreateFatturaProvvigioneGestore,
   onCreateFatturaProvvigioneAmministratore,
+  onUpdateFatturaProvvigioneAmministratore,
 }) {
   const [aziendaForm, setAziendaForm] = useState({
     ragione_sociale: '',
@@ -2716,6 +2717,7 @@ function FatturazionePartnerSuite({
 
   const [fatturaProvvAdminForm, setFatturaProvvAdminForm] = useState({
     amministratore_email: '',
+    amministratore_nome: '',
     azienda_partner_id: '',
     numero_fattura: '',
     trimestre: '',
@@ -2746,6 +2748,11 @@ function FatturazionePartnerSuite({
     setFatturaProvvAdminForm((prev) => {
       const next = { ...prev, [field]: value };
 
+      if (field === 'amministratore_email') {
+        const admin = amministratori.find((u) => String(u.email || '').toLowerCase() === String(value || '').toLowerCase());
+        next.amministratore_nome = admin?.nome || value || '';
+      }
+
       if (field === 'importo_imponibile' || field === 'iva') {
         const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
         const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
@@ -2764,8 +2771,11 @@ function FatturazionePartnerSuite({
       return;
     }
 
+    const adminSelezionato = amministratori.find((u) => String(u.email || '').toLowerCase() === String(fatturaProvvAdminForm.amministratore_email || '').toLowerCase());
+
     await onCreateFatturaProvvigioneAmministratore({
       ...fatturaProvvAdminForm,
+      amministratore_nome: fatturaProvvAdminForm.amministratore_nome || adminSelezionato?.nome || fatturaProvvAdminForm.amministratore_email,
       azienda_partner_id: Number(fatturaProvvAdminForm.azienda_partner_id),
       anno: Number(fatturaProvvAdminForm.anno || new Date().getFullYear()),
       importo_imponibile: Number(fatturaProvvAdminForm.importo_imponibile || 0),
@@ -2775,6 +2785,7 @@ function FatturazionePartnerSuite({
 
     setFatturaProvvAdminForm({
       amministratore_email: '',
+      amministratore_nome: '',
       azienda_partner_id: '',
       numero_fattura: '',
       trimestre: '',
@@ -3116,7 +3127,7 @@ function FatturazionePartnerSuite({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <select value={fatturaForm.amministratore_email} onChange={(e) => updateFattura('amministratore_email', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
                 <option value="">Amministratore</option>
-                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
+                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome ? `${u.nome} — ${u.email}` : u.email}</option>)}
               </select>
               <select value={fatturaForm.condominio_id} onChange={(e) => updateFattura('condominio_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
                 <option value="">Condominio</option>
@@ -3567,20 +3578,29 @@ function FatturazionePartnerSuite({
                       <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
                       <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
                     </td>
-                    <td className="px-3 py-3 text-slate-600">{fattura.amministratore_email}</td>
+                    <td className="px-3 py-3 text-slate-600">
+                      <p className="font-bold text-slate-800">{fattura.amministratore_nome || fattura.amministratore_email}</p>
+                      <p className="text-xs text-slate-500">{fattura.amministratore_email}</p>
+                    </td>
                     <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
                     <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
                     <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
                     <td className="px-3 py-3">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
-                        fattura.stato === 'pagata'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : fattura.stato === 'annullata'
-                            ? 'bg-slate-200 text-slate-600'
-                            : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {fattura.stato || 'da_pagare'}
-                      </span>
+                      <select
+                        value={fattura.stato || 'da_pagare'}
+                        onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
+                        className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-wide ${
+                          fattura.stato === 'pagata'
+                            ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                            : fattura.stato === 'annullata'
+                              ? 'border-slate-200 bg-slate-100 text-slate-600'
+                              : 'border-amber-200 bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        <option value="da_pagare">Da pagare</option>
+                        <option value="pagata">Pagata</option>
+                        <option value="annullata">Annullata</option>
+                      </select>
                     </td>
                   </tr>
                 ))
@@ -7106,6 +7126,23 @@ export default function App() {
     }
   };
 
+  const aggiornaFatturaProvvigioneAmministratore = async (fatturaId, updatePayload) => {
+    try {
+      const { error } = await supabase
+        .from('fatture_provvigioni_amministratori')
+        .update(updatePayload)
+        .eq('id', fatturaId);
+
+      if (error) throw error;
+
+      setStatusMessage('Fattura provvigione amministratore aggiornata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento fattura provvigione amministratore: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
       const { error } = await supabase.from('contratti_condominio').insert({
@@ -7554,6 +7591,7 @@ export default function App() {
               onUploadFatturaPdf={uploadFatturaPdf}
               onCreateFatturaProvvigioneGestore={creaFatturaProvvigioneGestore}
               onCreateFatturaProvvigioneAmministratore={creaFatturaProvvigioneAmministratore}
+              onUpdateFatturaProvvigioneAmministratore={aggiornaFatturaProvvigioneAmministratore}
             />
           </>
         )}
