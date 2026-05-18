@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.86';
-const APP_VERSION_LABEL = 'CSP v1.0.86';
+const APP_VERSION = '1.0.87';
+const APP_VERSION_LABEL = 'CSP v1.0.87';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2494,6 +2494,39 @@ function CapitolatoSenzaPensieriSuite({
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
 
+  const eseguiCampagnaConsigliata = async (azienda, tipoCampagna) => {
+    try {
+      if (!azienda?.id) {
+        alert('Azienda non valida.');
+        return;
+      }
+
+      if (!azienda.email) {
+        alert('Azienda senza email: completa l’anagrafica partner prima dell’invio.');
+        return;
+      }
+
+      setSendingCampaignId(azienda.id);
+
+      const { error } = await supabase.functions.invoke('campaign-partner-casp', {
+        body: {
+          azienda_id: azienda.id,
+          tipo_campagna: tipoCampagna,
+        },
+      });
+
+      if (error) throw error;
+
+      alert('Campagna consigliata inviata correttamente.');
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert('Errore invio campagna consigliata: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setSendingCampaignId(null);
+    }
+  };
+
   const updateConversioneDraft = (capitolatoId, field, value) => {
     setConversioneDraft((prev) => ({
       ...prev,
@@ -3340,6 +3373,7 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
   const [search, setSearch] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('');
   const [esitoFiltro, setEsitoFiltro] = useState('');
+  const [sendingCampaignId, setSendingCampaignId] = useState(null);
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
 
@@ -3609,12 +3643,13 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
                 <th className="px-3 py-3">Canale</th>
                 <th className="px-3 py-3">Priorità</th>
                 <th className="px-3 py-3">Stato operativo</th>
+                <th className="px-3 py-3 text-right">Azione</th>
               </tr>
             </thead>
             <tbody>
               {partnerEconomici.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                  <td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
                     Nessun partner disponibile.
                   </td>
                 </tr>
@@ -3683,6 +3718,20 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
                       <td className="px-3 py-3 text-emerald-700 font-black">
                         {priorita === 'Alta' ? 'Invio immediato consigliato' : priorita === 'Media' ? 'Monitorare / programmare' : 'Nurturing'}
                       </td>
+                      <td className="px-3 py-3 text-right">
+                        {campagna === 'Contatto diretto' ? (
+                          <span className="rounded-xl bg-slate-200 px-3 py-2 text-xs font-black text-slate-500">Contatto manuale</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => eseguiCampagnaConsigliata(row.azienda, campagna === 'Annuale' ? 'annuale' : campagna === 'Premium' ? 'premium' : 'followup')}
+                            disabled={sendingCampaignId === row.aziendaId}
+                            className={`rounded-xl px-3 py-2 text-xs font-black text-white ${sendingCampaignId === row.aziendaId ? 'bg-slate-400' : 'bg-emerald-700'}`}
+                          >
+                            {sendingCampaignId === row.aziendaId ? 'Invio...' : 'Esegui campagna'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })
@@ -3690,6 +3739,14 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Esecuzione semi-automatica</p>
+        <h2 className="mt-1 text-xl font-black text-slate-900">Campagna consigliata pronta all’invio</h2>
+        <p className="mt-1 text-sm font-semibold text-slate-600">
+          Il pulsante “Esegui campagna” usa la edge <strong>campaign-partner-casp</strong>, registra l’invio in archivio e mantiene separata la logica dalla sezione CaSeP.
+        </p>
       </section>
 
       <section className="h-[760px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
