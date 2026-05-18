@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.98';
-const APP_VERSION_LABEL = 'CSP v1.0.98';
+const APP_VERSION = '1.0.99';
+const APP_VERSION_LABEL = 'CSP v1.0.99';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9027,7 +9027,11 @@ export default function App() {
 
       if (data?.id) {
         await registraEventoCapitolato(data.id, 'apertura', 'Nuovo capitolato aperto', 'gestore', 'app');
-        const notifyResult = await inviaNotificaCapitolato('nuovo_capitolato', data);
+        console.log('[CaSeP notify] TRIGGER REALE creazione capitolato -> notify-capitolato', data);
+        const notifyResult = await inviaNotificaCapitolato('nuovo_capitolato', data, {
+          trigger: 'creaCapitolatoSenzaPensieri',
+          created_from_app: true,
+        });
         console.log('[CaSeP notify] nuovo_capitolato result', notifyResult);
       }
 
@@ -9077,7 +9081,12 @@ export default function App() {
                     : 'aggiornamento';
 
       if (data?.id) {
-        const notifyResult = await inviaNotificaCapitolato(eventType, data, { updatePayload });
+        console.log('[CaSeP notify] TRIGGER REALE update capitolato -> notify-capitolato', eventType, data, updatePayload);
+        const notifyResult = await inviaNotificaCapitolato(eventType, data, {
+          updatePayload,
+          trigger: 'aggiornaCapitolatoSenzaPensieri',
+          updated_from_app: true,
+        });
         console.log('[CaSeP notify] update result', eventType, notifyResult);
       }
 
