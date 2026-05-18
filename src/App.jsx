@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.87';
-const APP_VERSION_LABEL = 'CSP v1.0.87';
+const APP_VERSION = '1.0.88';
+const APP_VERSION_LABEL = 'CSP v1.0.88';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3747,6 +3747,103 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
         <p className="mt-1 text-sm font-semibold text-slate-600">
           Il pulsante “Esegui campagna” usa la edge <strong>campaign-partner-casp</strong>, registra l’invio in archivio e mantiene separata la logica dalla sezione CaSeP.
         </p>
+      </section>
+
+      <section className="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-rose-700">Full Commercial Control</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">Controllo commerciale avanzato</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Gestione VIP, blacklist, saturazione commerciale e priorità territoriale partner.
+          </p>
+        </div>
+
+        <div className="mt-4 max-h-[480px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[1180px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Partner</th>
+                <th className="px-3 py-3">Classe</th>
+                <th className="px-3 py-3">Stato</th>
+                <th className="px-3 py-3">Territorio</th>
+                <th className="px-3 py-3">Rischio saturazione</th>
+                <th className="px-3 py-3">Azione consigliata</th>
+              </tr>
+            </thead>
+            <tbody>
+              {partnerEconomici.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                    Nessun partner disponibile.
+                  </td>
+                </tr>
+              ) : (
+                partnerEconomici.map((row) => {
+                  const classe =
+                    row.valore >= 15000 ? 'VIP'
+                    : row.valore >= 5000 ? 'Core'
+                    : 'Standard';
+
+                  const stato =
+                    row.ultimoEsito === 'errore'
+                      ? 'Blacklist osservazione'
+                      : row.valore >= 15000
+                        ? 'Partner strategico'
+                        : 'Attivo';
+
+                  const territorio = row.azienda?.provincia || row.azienda?.citta || 'Da assegnare';
+
+                  const saturazione =
+                    row.campagne >= 6 ? 'Alta'
+                    : row.campagne >= 3 ? 'Media'
+                    : 'Bassa';
+
+                  const azione =
+                    stato === 'Blacklist osservazione'
+                      ? 'Verifica manuale'
+                      : classe === 'VIP'
+                        ? 'Gestione prioritaria diretta'
+                        : saturazione === 'Alta'
+                          ? 'Ridurre pressione commerciale'
+                          : 'Espansione controllata';
+
+                  return (
+                    <tr key={`control-${row.aziendaId}`} className="border-t border-slate-100 hover:bg-rose-50/30">
+                      <td className="px-3 py-3 font-black text-slate-900">
+                        {row.azienda?.ragione_sociale || `Azienda #${row.aziendaId}`}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          classe === 'VIP'
+                            ? 'bg-purple-100 text-purple-700'
+                            : classe === 'Core'
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {classe}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-slate-700">{stato}</td>
+                      <td className="px-3 py-3 text-slate-600">{territorio}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          saturazione === 'Alta'
+                            ? 'bg-red-100 text-red-700'
+                            : saturazione === 'Media'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {saturazione}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-rose-700">{azione}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="h-[760px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
