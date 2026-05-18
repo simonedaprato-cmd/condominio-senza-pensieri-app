@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.74';
-const APP_VERSION_LABEL = 'CSP v1.0.74';
+const APP_VERSION = '1.0.75';
+const APP_VERSION_LABEL = 'CSP v1.0.75';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2666,6 +2666,9 @@ function CapitolatoSenzaPensieriSuite({
 
   const topPartner = partnerRanking[0];
   const aziendeConvertite = partnerRanking.filter((azienda) => azienda.convertiti > 0).length;
+  const partnerDaOnboardare = partnerRanking.filter((azienda) => azienda.convertiti >= 1);
+  const partnerDaAnnuale = partnerRanking.filter((azienda) => azienda.convertiti >= 2);
+  const valorePartnerDaAnnuale = partnerDaAnnuale.reduce((sum, azienda) => sum + Number(azienda.valoreCasp || 0), 0);
 
   return (
     <section className="space-y-4">
@@ -2761,6 +2764,87 @@ function CapitolatoSenzaPensieriSuite({
                 )}
               </tbody>
             </table>
+          </div>
+        </section>
+      )}
+
+      {isGestore && (
+        <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Onboarding CaSP aziende</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Candidati proposta commerciale</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Aziende che hanno già sperimentato CaSP tramite Capitolato Senza Pensieri e sono pronte per follow-up o proposta annuale.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 md:min-w-[560px]">
+              <DashboardStat label="Da contattare" value={partnerDaOnboardare.length} tone="amber" />
+              <DashboardStat label="Proposta annuale" value={partnerDaAnnuale.length} tone="emerald" />
+              <DashboardStat label="Valore target" value={formatEuro(valorePartnerDaAnnuale)} tone="purple" />
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {partnerDaOnboardare.length === 0 ? (
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                Nessuna azienda ancora pronta per onboarding CaSP.
+              </div>
+            ) : (
+              partnerDaOnboardare.map((azienda) => {
+                const propostaAnnuale = azienda.convertiti >= 2;
+                const subject = propostaAnnuale
+                  ? `Proposta CaSP annuale - ${azienda.ragione_sociale}`
+                  : `Follow-up CaSP - ${azienda.ragione_sociale}`;
+
+                const body = propostaAnnuale
+                  ? `Buongiorno, dopo le prime conversioni positive su Capitolato Senza Pensieri, vorrei proporvi l'utilizzo annuale di Cantiere Senza Pensieri come strumento ufficiale per la gestione dei vostri cantieri condominiali.`
+                  : `Buongiorno, dopo il primo utilizzo di Cantiere Senza Pensieri, vorrei fissare un breve confronto per raccogliere il vostro feedback e valutare insieme le prossime opportunità.`;
+
+                const mailto = azienda.email
+                  ? `mailto:${azienda.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+                  : '';
+
+                return (
+                  <div key={azienda.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                          {propostaAnnuale ? 'Proposta annuale consigliata' : 'Follow-up consigliato'}
+                        </p>
+                        <h3 className="mt-1 text-lg font-black text-slate-900">{azienda.ragione_sociale}</h3>
+                        <p className="text-xs font-semibold text-slate-500">{azienda.email || 'email n.d.'} {azienda.telefono ? `• ${azienda.telefono}` : ''}</p>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                        propostaAnnuale ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {propostaAnnuale ? 'Annuale' : 'Follow-up'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <DashboardStat label="Conversioni" value={azienda.convertiti} tone="purple" />
+                      <DashboardStat label="Valore CaSP" value={formatEuro(azienda.valoreCasp)} tone="emerald" />
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {mailto ? (
+                        <a href={mailto} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">
+                          Prepara email
+                        </a>
+                      ) : (
+                        <span className="rounded-xl bg-slate-200 px-3 py-2 text-xs font-black text-slate-500">Email non presente</span>
+                      )}
+                      {azienda.telefono && (
+                        <a href={`https://wa.me/39${String(azienda.telefono).replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                          WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
       )}
