@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.90';
-const APP_VERSION_LABEL = 'CSP v1.0.90';
+const APP_VERSION = '1.0.91';
+const APP_VERSION_LABEL = 'CSP v1.0.91';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -4011,6 +4011,66 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
               })()}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-yellow-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-yellow-300">Ammigo Central Command</p>
+            <h2 className="mt-2 text-3xl font-black">Centrale operativa ecosistema</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-300">
+              Supervisione unificata di CSP, CaSeP, CaSP e Campagne commerciali con controllo strategico globale.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-5 text-right">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Enterprise Index</p>
+            <p className="mt-2 text-4xl font-black text-yellow-300">
+              {Math.min(999, aziendeContattate + campagne.length + partnerEconomici.length + premium * 5)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <div className="rounded-3xl bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Fatturato potenziale</p>
+            <p className="mt-2 text-2xl font-black text-emerald-300">{formatEuro(valorePipelineCampagne)}</p>
+          </div>
+          <div className="rounded-3xl bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Forecast annuale</p>
+            <p className="mt-2 text-2xl font-black text-sky-300">{formatEuro(forecastMedio * 12)}</p>
+          </div>
+          <div className="rounded-3xl bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Partner attivi</p>
+            <p className="mt-2 text-2xl font-black text-purple-300">{aziendeContattate}</p>
+          </div>
+          <div className="rounded-3xl bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Top territori</p>
+            <p className="mt-2 text-lg font-black text-cyan-300">{partnerEconomici[0]?.azienda?.provincia || partnerEconomici[0]?.azienda?.citta || 'n.d.'}</p>
+          </div>
+          <div className="rounded-3xl bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Top partner</p>
+            <p className="mt-2 truncate text-lg font-black text-white">{topValorePartner?.azienda?.ragione_sociale || 'n.d.'}</p>
+          </div>
+          <div className="rounded-3xl bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Campagne premium</p>
+            <p className="mt-2 text-2xl font-black text-amber-300">{premium}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-300">Direzione CSP</p>
+            <p className="mt-2 text-sm font-semibold text-emerald-100">Motore acquisizione amministratori e pipeline primaria.</p>
+          </div>
+          <div className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-sky-300">Direzione CaSeP / CaSP</p>
+            <p className="mt-2 text-sm font-semibold text-sky-100">Capitolati, conversione grandi lavori e governance cantieri.</p>
+          </div>
+          <div className="rounded-3xl border border-purple-300/20 bg-purple-300/10 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-purple-300">Direzione Campaign</p>
+            <p className="mt-2 text-sm font-semibold text-purple-100">Espansione partner, automazione e crescita territoriale.</p>
+          </div>
         </div>
       </section>
 
