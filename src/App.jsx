@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.88';
-const APP_VERSION_LABEL = 'CSP v1.0.88';
+const APP_VERSION = '1.0.89';
+const APP_VERSION_LABEL = 'CSP v1.0.89';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3843,6 +3843,65 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-900/10 bg-slate-950 p-5 text-white shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Executive Master Dashboard</p>
+            <h2 className="mt-1 text-2xl font-black">Indice globale di crescita</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-300">
+              Vista direzionale dell’ecosistema commerciale: campagne, partner, forecast e priorità strategiche.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4 text-right">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Growth Index</p>
+            <p className="mt-1 text-3xl font-black text-emerald-300">
+              {Math.min(100, Math.round((aziendeContattate * 8) + (inviate * 4) + (premium * 10) + (annuali * 7)))}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Forecast 12 mesi</p>
+            <p className="mt-2 text-2xl font-black text-emerald-300">{formatEuro(forecastMedio * 12)}</p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Pipeline campagne</p>
+            <p className="mt-2 text-2xl font-black text-sky-300">{formatEuro(valorePipelineCampagne)}</p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Partner attivi</p>
+            <p className="mt-2 text-2xl font-black text-purple-300">{aziendeContattate}</p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Campagne premium</p>
+            <p className="mt-2 text-2xl font-black text-amber-300">{premium}</p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-300">Top partner</p>
+            <p className="mt-2 truncate text-lg font-black text-white">{topValorePartner?.azienda?.ragione_sociale || 'n.d.'}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-300">Scenario prudente</p>
+            <p className="mt-2 text-2xl font-black">{formatEuro(forecastConservativo * 12)}</p>
+            <p className="mt-1 text-xs text-emerald-100/80">Stima annuale con conversione bassa.</p>
+          </div>
+          <div className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-sky-300">Scenario medio</p>
+            <p className="mt-2 text-2xl font-black">{formatEuro(forecastMedio * 12)}</p>
+            <p className="mt-1 text-xs text-sky-100/80">Stima annuale realistica su pipeline attiva.</p>
+          </div>
+          <div className="rounded-3xl border border-purple-300/20 bg-purple-300/10 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-purple-300">Scenario espansivo</p>
+            <p className="mt-2 text-2xl font-black">{formatEuro(forecastAmbizioso * 12)}</p>
+            <p className="mt-1 text-xs text-purple-100/80">Stima annuale con alta conversione partner.</p>
+          </div>
         </div>
       </section>
 
