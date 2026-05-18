@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.85';
-const APP_VERSION_LABEL = 'CSP v1.0.85';
+const APP_VERSION = '1.0.86';
+const APP_VERSION_LABEL = 'CSP v1.0.86';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3578,6 +3578,110 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
                         }`}>
                           {priorita}
                         </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-amber-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Automation Engine</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Azioni operative consigliate</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Partner prioritizzati con suggerimento immediato per accelerare conversioni commerciali.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 max-h-[460px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[1080px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Partner</th>
+                <th className="px-3 py-3">Temperatura</th>
+                <th className="px-3 py-3">Campagna consigliata</th>
+                <th className="px-3 py-3">Canale</th>
+                <th className="px-3 py-3">Priorità</th>
+                <th className="px-3 py-3">Stato operativo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {partnerEconomici.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                    Nessun partner disponibile.
+                  </td>
+                </tr>
+              ) : (
+                partnerEconomici.map((row) => {
+                  const score =
+                    (row.valore >= 10000 ? 40 : row.valore >= 5000 ? 25 : 10)
+                    + (row.campagne >= 3 ? 25 : row.campagne >= 2 ? 15 : 5)
+                    + (row.ultimoEsito === 'inviata' ? 20 : row.ultimoEsito === 'dry_run' ? 10 : 0);
+
+                  const temperatura =
+                    score >= 70 ? 'Caldo'
+                    : score >= 40 ? 'Tiepido'
+                    : 'Freddo';
+
+                  const campagna =
+                    row.ultimaCampagna === 'followup'
+                      ? 'Annuale'
+                      : row.ultimaCampagna === 'annuale'
+                        ? 'Premium'
+                        : row.ultimaCampagna === 'premium'
+                          ? 'Contatto diretto'
+                          : 'Follow-up';
+
+                  const canale =
+                    temperatura === 'Caldo'
+                      ? 'Email + Push + WA'
+                      : temperatura === 'Tiepido'
+                        ? 'Email + Push'
+                        : 'Email';
+
+                  const priorita =
+                    score >= 70 ? 'Alta'
+                    : score >= 40 ? 'Media'
+                    : 'Bassa';
+
+                  return (
+                    <tr key={`automation-${row.aziendaId}`} className="border-t border-slate-100 hover:bg-amber-50/30">
+                      <td className="px-3 py-3 font-black text-slate-900">
+                        {row.azienda?.ragione_sociale || `Azienda #${row.aziendaId}`}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          temperatura === 'Caldo'
+                            ? 'bg-red-100 text-red-700'
+                            : temperatura === 'Tiepido'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {temperatura}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-slate-700">{campagna}</td>
+                      <td className="px-3 py-3 text-slate-600">{canale}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          priorita === 'Alta'
+                            ? 'bg-purple-100 text-purple-700'
+                            : priorita === 'Media'
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {priorita}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-emerald-700 font-black">
+                        {priorita === 'Alta' ? 'Invio immediato consigliato' : priorita === 'Media' ? 'Monitorare / programmare' : 'Nurturing'}
                       </td>
                     </tr>
                   );
