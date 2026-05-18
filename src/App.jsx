@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.81';
-const APP_VERSION_LABEL = 'CSP v1.0.81';
+const APP_VERSION = '1.0.82';
+const APP_VERSION_LABEL = 'CSP v1.0.82';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2868,13 +2868,6 @@ function CapitolatoSenzaPensieriSuite({
         </section>
       )}
 
-      {isGestore && (
-        <DashboardCampagnePartnerCaSP
-          partnerCampaignLog={partnerCampaignLog}
-          aziendePartner={aziendePartner}
-        />
-      )}
-
       {!isGestore && (
         <section className="h-[920px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Nuovo capitolato</p>
@@ -3137,102 +3130,6 @@ function CapitolatoSenzaPensieriSuite({
           )}
         </div>
       </section>
-    </section>
-  );
-}
-
-
-function DashboardCampagnePartnerCaSP({ partnerCampaignLog, aziendePartner }) {
-  const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
-
-  const campagne = partnerCampaignLog || [];
-  const campagneInviate = campagne.filter((c) => c.esito === 'inviata').length;
-  const campagneErrore = campagne.filter((c) => c.esito === 'errore').length;
-  const campagneDryRun = campagne.filter((c) => c.esito === 'dry_run').length;
-  const followup = campagne.filter((c) => c.tipo_campagna === 'followup').length;
-  const annuali = campagne.filter((c) => c.tipo_campagna === 'annuale').length;
-  const premium = campagne.filter((c) => c.tipo_campagna === 'premium').length;
-  const aziendeContattate = new Set(campagne.map((c) => c.azienda_id).filter(Boolean)).size;
-
-  return (
-    <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Campagne Partner CaSP</p>
-          <h2 className="mt-1 text-xl font-black text-slate-900">Dashboard invii commerciali</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            Storico campagne follow-up, annuali e premium inviate alle aziende partner.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 md:min-w-[560px] md:grid-cols-4">
-          <DashboardStat label="Campagne" value={campagne.length} tone="sky" />
-          <DashboardStat label="Inviate" value={campagneInviate} tone="emerald" />
-          <DashboardStat label="Errori" value={campagneErrore} tone="red" />
-          <DashboardStat label="Aziende" value={aziendeContattate} tone="purple" />
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <DashboardStat label="Follow-up" value={followup} tone="amber" />
-        <DashboardStat label="Annuali" value={annuali} tone="emerald" />
-        <DashboardStat label="Premium" value={premium} tone="purple" />
-      </div>
-
-      <div className="mt-4 max-h-[460px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
-        <table className="min-w-[920px] w-full border-collapse text-sm">
-          <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-3 py-3">Data</th>
-              <th className="px-3 py-3">Azienda</th>
-              <th className="px-3 py-3">Campagna</th>
-              <th className="px-3 py-3">Destinatario</th>
-              <th className="px-3 py-3">Esito</th>
-              <th className="px-3 py-3">Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {campagne.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
-                  Nessuna campagna inviata.
-                </td>
-              </tr>
-            ) : (
-              campagne.map((campagna) => {
-                const azienda = aziendaById(campagna.azienda_id);
-                return (
-                  <tr key={campagna.id} className="border-t border-slate-100 hover:bg-sky-50/30">
-                    <td className="px-3 py-3 text-xs font-semibold text-slate-600">
-                      {campagna.data_invio ? new Date(campagna.data_invio).toLocaleString('it-IT') : 'n.d.'}
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-black text-slate-900">{azienda?.ragione_sociale || `Azienda #${campagna.azienda_id || 'n.d.'}`}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">
-                        {campagna.tipo_campagna || 'n.d.'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">{campagna.destinatario || 'n.d.'}</td>
-                    <td className="px-3 py-3">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
-                        campagna.esito === 'inviata'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : campagna.esito === 'errore'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {campagna.esito || 'n.d.'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-xs text-slate-500">{campagna.note || ''}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
     </section>
   );
 }
@@ -6627,7 +6524,6 @@ export default function App() {
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
   const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
-  const [partnerCampaignLog, setPartnerCampaignLog] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -6987,14 +6883,6 @@ export default function App() {
 
       if (onboardingError && onboardingError.code !== 'PGRST116' && onboardingError.code !== '42P01') throw onboardingError;
       setPartnerOnboardingCaSP(onboardingData || []);
-
-      const { data: campaignLogData, error: campaignLogError } = await supabase
-        .from('partner_campaign_log')
-        .select('*')
-        .order('data_invio', { ascending: false });
-
-      if (campaignLogError && campaignLogError.code !== 'PGRST116' && campaignLogError.code !== '42P01') throw campaignLogError;
-      setPartnerCampaignLog(campaignLogData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -8549,7 +8437,6 @@ export default function App() {
             condomini={condomini}
             aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
-            partnerCampaignLog={partnerCampaignLog}
           />
         )}
 
@@ -8559,7 +8446,6 @@ export default function App() {
             fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
             aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
-            partnerCampaignLog={partnerCampaignLog}
           />
         )}
 
@@ -8663,7 +8549,6 @@ export default function App() {
             <FatturazionePartnerSuite
               aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
-            partnerCampaignLog={partnerCampaignLog}
               provvigioniPartner={provvigioniPartner}
               fatturePartner={fatturePartner}
               provvigioniMaturate={provvigioniMaturate}
@@ -8699,7 +8584,6 @@ export default function App() {
               utentiSistema={utentiSistema}
               aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
-            partnerCampaignLog={partnerCampaignLog}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
@@ -8716,7 +8600,6 @@ export default function App() {
             utentiSistema={utentiSistema}
             aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
-            partnerCampaignLog={partnerCampaignLog}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
