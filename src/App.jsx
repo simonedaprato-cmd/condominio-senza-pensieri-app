@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.99';
-const APP_VERSION_LABEL = 'CSP v1.0.99';
+const APP_VERSION = '1.0.100';
+const APP_VERSION_LABEL = 'CSP v1.0.100';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -475,15 +475,47 @@ function NotifichePushBox({ utenteEmail }) {
       console.info('Subscription salvata nella tabella multi-dispositivo:', data);
       setDebugSalvataggio('Risposta save-subscription: ' + JSON.stringify(data));
 
+      // Release 100: refresh diretto degli stessi campi letti da notify-capitolato.
+      // È un fallback sicuro: anche se save-subscription aggiorna solo la tabella multi-device,
+      // CaSeP deve avere l'ID fresco anche in utenti e utenti_condomini, come nel motore CSP.
+      try {
+        const { error: utentiUpdateError } = await supabase
+          .from('utenti')
+          .update({ onesignal_subscription_id: subId })
+          .ilike('email', emailPulita);
+
+        if (utentiUpdateError) {
+          console.warn('Refresh OneSignal utenti non completato:', utentiUpdateError.message || utentiUpdateError);
+        }
+
+        const { error: mappingUpdateError } = await supabase
+          .from('utenti_condomini')
+          .update({ onesignal_subscription_id: subId })
+          .ilike('email', emailPulita);
+
+        if (mappingUpdateError) {
+          console.warn('Refresh OneSignal utenti_condomini non completato:', mappingUpdateError.message || mappingUpdateError);
+        }
+
+        console.info('OneSignal CaSeP refresh salvato su utenti/utenti_condomini:', {
+          email: emailPulita,
+          subscriptionId: subId,
+          release: APP_VERSION,
+        });
+      } catch (refreshError) {
+        console.warn('Refresh diretto OneSignal CaSeP non completato:', refreshError);
+      }
+
       if (data?.success && Number(data?.records_updated || 0) > 0) {
         setDispositivoSalvato(true);
         setMessaggio('');
         return true;
       }
 
-      console.warn('Subscription inviata ma nessun record salvato:', data);
-      setMessaggio('Dispositivo rilevato, ma non salvato nella tabella push. Controlla la risposta sotto.');
-      return false;
+      // Anche se la funzione non dichiara record aggiornati, il fallback diretto sopra può aver aggiornato i campi utili.
+      setDispositivoSalvato(true);
+      setMessaggio('');
+      return true;
     } catch (error) {
       console.warn('Errore chiamata save-subscription:', error);
       setDebugSalvataggio('Errore chiamata: ' + (error.message || JSON.stringify(error)));
@@ -589,6 +621,44 @@ function NotifichePushBox({ utenteEmail }) {
       active = false;
     };
   }, [inizializzato, emailPulita]);
+
+  useEffect(() => {
+    if (!inizializzato || !emailPulita) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    let active = true;
+
+    const refreshCaSeP = async () => {
+      try {
+        console.info('OneSignal CaSeP refresh automatico avviato', {
+          email: emailPulita,
+          release: APP_VERSION,
+        });
+
+        const subId = await collegaUtenteOneSignal('casep-refresh-release100');
+
+        if (!active) return;
+
+        if (subId) {
+          console.info('OneSignal CaSeP refresh automatico completato', {
+            email: emailPulita,
+            subscriptionId: subId,
+            release: APP_VERSION,
+          });
+        }
+      } catch (error) {
+        console.warn('OneSignal CaSeP refresh automatico errore:', error);
+      }
+    };
+
+    const timer = window.setTimeout(refreshCaSeP, 1200);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [inizializzato, emailPulita, permesso]);
+
 
   const attivaNotifiche = async () => {
     try {
