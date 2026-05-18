@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.89';
-const APP_VERSION_LABEL = 'CSP v1.0.89';
+const APP_VERSION = '1.0.90';
+const APP_VERSION_LABEL = 'CSP v1.0.90';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3902,6 +3902,115 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
             <p className="mt-2 text-2xl font-black">{formatEuro(forecastAmbizioso * 12)}</p>
             <p className="mt-1 text-xs text-purple-100/80">Stima annuale con alta conversione partner.</p>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-cyan-100 bg-white p-5 shadow-sm">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Territorial Expansion Matrix</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">Espansione territoriale intelligente</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Analisi per territori, saturazione commerciale locale e priorità di sviluppo.
+          </p>
+        </div>
+
+        <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[1180px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Territorio</th>
+                <th className="px-3 py-3 text-right">Partner</th>
+                <th className="px-3 py-3 text-right">Valore stimato</th>
+                <th className="px-3 py-3">Saturazione</th>
+                <th className="px-3 py-3">Classe territorio</th>
+                <th className="px-3 py-3">Strategia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const territori = {};
+
+                partnerEconomici.forEach((row) => {
+                  const territorio = row.azienda?.provincia || row.azienda?.citta || 'Non assegnato';
+
+                  if (!territori[territorio]) {
+                    territori[territorio] = {
+                      nome: territorio,
+                      partner: 0,
+                      valore: 0,
+                    };
+                  }
+
+                  territori[territorio].partner += 1;
+                  territori[territorio].valore += row.valore;
+                });
+
+                const territoriArray = Object.values(territori).sort((a, b) => b.valore - a.valore);
+
+                if (territoriArray.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                        Nessun territorio disponibile.
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return territoriArray.map((territorio) => {
+                  const saturazione =
+                    territorio.partner >= 6 ? 'Alta'
+                    : territorio.partner >= 3 ? 'Media'
+                    : 'Bassa';
+
+                  const classe =
+                    territorio.valore >= 30000 ? 'Dominante'
+                    : territorio.valore >= 10000 ? 'Strategico'
+                    : 'Espansione';
+
+                  const strategia =
+                    saturazione === 'Alta'
+                      ? 'Ottimizzare conversioni'
+                      : classe === 'Dominante'
+                        ? 'Protezione leadership'
+                        : classe === 'Strategico'
+                          ? 'Espansione selettiva'
+                          : 'Acquisizione aggressiva';
+
+                  return (
+                    <tr key={`territorio-${territorio.nome}`} className="border-t border-slate-100 hover:bg-cyan-50/30">
+                      <td className="px-3 py-3 font-black text-slate-900">{territorio.nome}</td>
+                      <td className="px-3 py-3 text-right font-black text-slate-700">{territorio.partner}</td>
+                      <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(territorio.valore)}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          saturazione === 'Alta'
+                            ? 'bg-red-100 text-red-700'
+                            : saturazione === 'Media'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {saturazione}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                          classe === 'Dominante'
+                            ? 'bg-purple-100 text-purple-700'
+                            : classe === 'Strategico'
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-cyan-100 text-cyan-700'
+                        }`}>
+                          {classe}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-cyan-700">{strategia}</td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
         </div>
       </section>
 
