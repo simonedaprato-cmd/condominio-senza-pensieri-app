@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.92';
-const APP_VERSION_LABEL = 'CSP v1.0.92';
+const APP_VERSION = '1.0.93';
+const APP_VERSION_LABEL = 'CSP v1.0.93';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2432,6 +2432,7 @@ function CapitolatoSenzaPensieriSuite({
   const [filtroStato, setFiltroStato] = useState('');
   const [filtroSearch, setFiltroSearch] = useState('');
   const [conversioneDraft, setConversioneDraft] = useState({});
+  const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
@@ -2668,6 +2669,8 @@ function CapitolatoSenzaPensieriSuite({
 
       return !filtroSearch || haystack.includes(filtroSearch.toLowerCase().trim());
     });
+
+  const capitolatoAperto = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoApertoId));
 
   const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.importo_presunto || 0), 0);
   const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
@@ -2968,11 +2971,12 @@ function CapitolatoSenzaPensieriSuite({
         </section>
       )}
 
-      <section className="h-[820px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="h-[760px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Archivio capitolati</p>
-            <h2 className="mt-1 text-xl font-bold">Workflow tecnico grandi lavori</h2>
+            <h2 className="mt-1 text-xl font-bold">Lista pratiche grandi lavori</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Vista sintetica: apri una pratica per gestire sopralluogo, documenti, assemblea e conversione CaSP.</p>
           </div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <input value={filtroSearch} onChange={(e) => setFiltroSearch(e.target.value)} placeholder="Cerca pratica, condominio, tecnico" className="rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold" />
@@ -2983,186 +2987,271 @@ function CapitolatoSenzaPensieriSuite({
           </div>
         </div>
 
-        <div className="mt-4 max-h-[700px] space-y-3 overflow-auto pr-1 csp-scroll">
-          {capitolatiVisibili.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500">
-              Nessun capitolato presente.
-            </div>
-          ) : (
-            capitolatiVisibili.map((item) => (
-              <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{item.numero_pratica || `#${item.id}`}</p>
-                    <h3 className="mt-1 text-lg font-black text-slate-900">{item.titolo}</h3>
-                    <p className="mt-1 text-sm font-semibold text-slate-600">{item.condominio_nome || 'Condominio n.d.'} • {item.indirizzo || ''} {item.citta || ''}</p>
-                    {isGestore && <p className="mt-1 text-xs text-slate-500">Amministratore: {item.amministratore_nome || item.amministratore_email}</p>}
-                    <p className="mt-1 text-xs text-slate-500">Tecnico: {item.tecnico_nome || 'n.d.'} {item.tecnico_studio ? `• ${item.tecnico_studio}` : ''} {item.tecnico_telefono ? `• ${item.tecnico_telefono}` : ''}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 md:min-w-[430px]">
-                    <DashboardStat label="Importo" value={formatEuro(item.importo_presunto || 0)} tone="emerald" />
-                    <DashboardStat label="Priorità" value={item.priorita || 'Media'} tone={item.priorita === 'Alta' ? 'red' : 'amber'} />
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3 2xl:grid-cols-5">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Stato pratica</p>
-                    {isGestore ? (
-                      <select value={item.stato || 'Nuovo capitolato'} onChange={(e) => onUpdateCapitolato(item.id, { stato: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-black">
-                        {stati.map((stato) => <option key={stato} value={stato}>{stato}</option>)}
-                      </select>
-                    ) : (
-                      <span className="mt-2 inline-block rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Sopralluogo</p>
-                    {isGestore ? (
-                      <div className="mt-2 space-y-2">
-                        <input type="date" value={item.data_sopralluogo || ''} onChange={(e) => aggiornaWorkflowTecnico(item, { data_sopralluogo: e.target.value || null, stato: e.target.value ? 'Sopralluogo programmato' : item.stato })} className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold" />
-                        <textarea defaultValue={item.note_sopralluogo || ''} onBlur={(e) => aggiornaWorkflowTecnico(item, { note_sopralluogo: e.target.value })} placeholder="Note sopralluogo" className="min-h-16 w-full rounded-xl border border-slate-200 px-2 py-2 text-xs" />
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-xs font-semibold text-slate-600">{item.data_sopralluogo || 'Da programmare'}</p>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Assemblea</p>
-                    <div className="mt-2 space-y-2">
-                      <input
-                        type="date"
-                        value={item.data_assemblea || ''}
-                        onChange={(e) => aggiornaWorkflowTecnico(item, { data_assemblea: e.target.value || null, stato: e.target.value ? 'Assemblea programmata' : item.stato })}
-                        className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
-                        disabled={isGestore}
-                      />
-                      <input
-                        value={item.luogo_assemblea || ''}
-                        onChange={(e) => aggiornaWorkflowTecnico(item, { luogo_assemblea: e.target.value })}
-                        placeholder="Luogo assemblea"
-                        className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
-                        disabled={isGestore}
-                      />
-
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          href={buildGoogleCalendarUrl(item)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white"
-                        >
-                          Google Calendar
-                        </a>
-
-                        {!item.presenza_csp_richiesta ? (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await aggiornaWorkflowTecnico(item, { presenza_csp_richiesta: true, stato: 'Presenza CSP richiesta' });
-                              alert('Richiesta presenza CSP inviata correttamente.');
-                            }}
-                            className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
-                          >
-                            Richiedi presenza CSP
-                          </button>
-                        ) : (
-                          <span className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">
-                            Presenza CSP richiesta
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Documenti</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {item.capitolato_pdf_url && <a href={item.capitolato_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Capitolato</a>}
-                      {item.relazione_pdf_url && <a href={item.relazione_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">Relazione</a>}
-                      {item.offerta_pdf_url && <a href={item.offerta_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">Offerta</a>}
-                    </div>
-
-                    {isGestore && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${item.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
-                          {uploadingDocId === `${item.id}-relazione` ? 'Carico...' : 'Carica relazione'}
-                          <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(item, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${item.id}-relazione`} />
-                        </label>
-                        <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${item.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
-                          {uploadingDocId === `${item.id}-offerta` ? 'Carico...' : 'Carica offerta'}
-                          <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(item, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${item.id}-offerta`} />
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Conversione CaSP</p>
-
-                    {item.convertita_casp ? (
-                      <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
-                        <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
-                        <p className="mt-1 text-xs font-semibold text-slate-600">{item.azienda_vincitrice_nome || aziendaById(item.azienda_vincitrice_id)?.ragione_sociale || 'Azienda n.d.'}</p>
-                        <p className="text-xs text-slate-500">Valore aggiudicato: {formatEuro(item.valore_aggiudicato || item.importo_presunto || 0)}</p>
-                        <p className="text-xs text-slate-500">Data conversione: {item.data_conversione_casp || 'n.d.'}</p>
-                      </div>
-                    ) : isGestore ? (
-                      <div className="mt-2 space-y-2">
-                        <select
-                          value={conversioneDraft[item.id]?.azienda_vincitrice_id || item.azienda_vincitrice_id || ''}
-                          onChange={(e) => updateConversioneDraft(item.id, 'azienda_vincitrice_id', e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
-                        >
-                          <option value="">Azienda vincitrice</option>
-                          {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
-                        </select>
-
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={conversioneDraft[item.id]?.valore_aggiudicato ?? item.valore_aggiudicato ?? item.importo_presunto ?? ''}
-                          onChange={(e) => updateConversioneDraft(item.id, 'valore_aggiudicato', e.target.value)}
-                          placeholder="Valore aggiudicato"
-                          className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
-                        />
-
-                        <textarea
-                          value={conversioneDraft[item.id]?.note_conversione_casp ?? item.note_conversione_casp ?? ''}
-                          onChange={(e) => updateConversioneDraft(item.id, 'note_conversione_casp', e.target.value)}
-                          placeholder="Note conversione CaSP"
-                          className="min-h-14 w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const draft = conversioneDraft[item.id] || {};
-                            convertiInCasp(
-                              item,
-                              draft.azienda_vincitrice_id || item.azienda_vincitrice_id,
-                              draft.valore_aggiudicato ?? item.valore_aggiudicato ?? item.importo_presunto,
-                              draft.note_conversione_casp ?? item.note_conversione_casp
-                            );
-                          }}
-                          className="w-full rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white"
-                        >
-                          Converti in CaSP
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di aggiudicazione e conversione CaSP.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
+        <div className="mt-4 max-h-[650px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
+          <table className="min-w-[1080px] w-full border-collapse text-sm">
+            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-3">Pratica</th>
+                <th className="px-3 py-3">Condominio</th>
+                <th className="px-3 py-3">Tecnico</th>
+                <th className="px-3 py-3 text-right">Importo</th>
+                <th className="px-3 py-3">Priorità</th>
+                <th className="px-3 py-3">Stato</th>
+                <th className="px-3 py-3 text-right">Azione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capitolatiVisibili.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                    Nessun capitolato presente.
+                  </td>
+                </tr>
+              ) : (
+                capitolatiVisibili.map((item) => (
+                  <tr key={item.id} className="border-t border-slate-100 hover:bg-emerald-50/30">
+                    <td className="px-3 py-3">
+                      <p className="font-black text-slate-900">{item.numero_pratica || `#${item.id}`}</p>
+                      <p className="text-xs text-slate-500">{item.titolo}</p>
+                      {isGestore && <p className="text-xs text-slate-400">{item.amministratore_nome || item.amministratore_email}</p>}
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold text-slate-700">{item.condominio_nome || 'n.d.'}</p>
+                      <p className="text-xs text-slate-500">{item.indirizzo || ''} {item.citta || ''}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold text-slate-700">{item.tecnico_nome || 'n.d.'}</p>
+                      <p className="text-xs text-slate-500">{item.tecnico_email || ''}</p>
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(item.importo_presunto || 0)}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                        item.priorita === 'Alta' ? 'bg-red-100 text-red-700' :
+                        item.priorita === 'Bassa' ? 'bg-slate-100 text-slate-600' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {item.priorita || 'Media'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setCapitolatoApertoId(item.id)}
+                        className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
+                      >
+                        Apri / Gestisci
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
+
+      {capitolatoAperto && (
+        <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Scheda pratica capitolato</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">{capitolatoAperto.numero_pratica || `#${capitolatoAperto.id}`} — {capitolatoAperto.titolo}</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{capitolatoAperto.condominio_nome || 'Condominio n.d.'} • {capitolatoAperto.indirizzo || ''} {capitolatoAperto.citta || ''}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCapitolatoApertoId(null)}
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-600"
+            >
+              Chiudi scheda
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-5">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Stato pratica</p>
+              {isGestore ? (
+                <div className="mt-2 space-y-2">
+                  <select
+                    value={capitolatoAperto.stato || 'Nuovo capitolato'}
+                    onChange={(e) => onUpdateCapitolato(capitolatoAperto.id, { stato: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-black"
+                  >
+                    {stati.map((stato) => <option key={stato} value={stato}>{stato}</option>)}
+                  </select>
+
+                  {(capitolatoAperto.stato === 'Sopralluogo programmato' || !capitolatoAperto.data_sopralluogo) && (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 p-2">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">Data sopralluogo</p>
+                      <input
+                        type="date"
+                        value={capitolatoAperto.data_sopralluogo || ''}
+                        onChange={(e) => {
+                          if (!e.target.value) return;
+                          aggiornaWorkflowTecnico(capitolatoAperto, {
+                            data_sopralluogo: e.target.value,
+                            stato: 'Sopralluogo programmato',
+                          });
+                          alert('Data sopralluogo inserita. Notifica avviata.');
+                        }}
+                        className="mt-2 w-full rounded-xl border border-amber-200 bg-white px-2 py-2 text-xs font-bold"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className="mt-2 inline-block rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{capitolatoAperto.stato || 'Nuovo capitolato'}</span>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Sopralluogo</p>
+              {isGestore ? (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="date"
+                    value={capitolatoAperto.data_sopralluogo || ''}
+                    onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { data_sopralluogo: e.target.value || null, stato: e.target.value ? 'Sopralluogo programmato' : capitolatoAperto.stato })}
+                    className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                  />
+                  <textarea
+                    defaultValue={capitolatoAperto.note_sopralluogo || ''}
+                    onBlur={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { note_sopralluogo: e.target.value })}
+                    placeholder="Note sopralluogo"
+                    className="min-h-16 w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 text-xs font-semibold text-slate-600">{capitolatoAperto.data_sopralluogo || 'Da programmare'}</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Assemblea</p>
+              <div className="mt-2 space-y-2">
+                <input
+                  type="date"
+                  value={capitolatoAperto.data_assemblea || ''}
+                  onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { data_assemblea: e.target.value || null, stato: e.target.value ? 'Assemblea programmata' : capitolatoAperto.stato })}
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                  disabled={isGestore}
+                />
+                <input
+                  value={capitolatoAperto.luogo_assemblea || ''}
+                  onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { luogo_assemblea: e.target.value })}
+                  placeholder="Luogo assemblea"
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
+                  disabled={isGestore}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <a href={buildGoogleCalendarUrl(capitolatoAperto)} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Google Calendar</a>
+                  {!capitolatoAperto.presenza_csp_richiesta ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await aggiornaWorkflowTecnico(capitolatoAperto, { presenza_csp_richiesta: true, stato: 'Presenza CSP richiesta' });
+                        alert('Richiesta presenza CSP inviata correttamente.');
+                      }}
+                      className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
+                    >
+                      Richiedi presenza CSP
+                    </button>
+                  ) : (
+                    <span className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">Presenza CSP richiesta</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Documenti</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {capitolatoAperto.capitolato_pdf_url && <a href={capitolatoAperto.capitolato_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Capitolato</a>}
+                {capitolatoAperto.relazione_pdf_url && <a href={capitolatoAperto.relazione_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">Relazione</a>}
+                {capitolatoAperto.offerta_pdf_url && <a href={capitolatoAperto.offerta_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">Offerta</a>}
+              </div>
+
+              {isGestore && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
+                    {uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'Carico...' : 'Carica relazione'}
+                    <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-relazione`} />
+                  </label>
+                  <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
+                    {uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'Carico...' : 'Carica offerta'}
+                    <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-offerta`} />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Conversione CaSP</p>
+              {capitolatoAperto.convertita_casp ? (
+                <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
+                  <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-600">{capitolatoAperto.azienda_vincitrice_nome || aziendaById(capitolatoAperto.azienda_vincitrice_id)?.ragione_sociale || 'Azienda n.d.'}</p>
+                  <p className="text-xs text-slate-500">Valore aggiudicato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
+                </div>
+              ) : isGestore ? (
+                <div className="mt-2 space-y-2">
+                  <select
+                    value={conversioneDraft[capitolatoAperto.id]?.azienda_vincitrice_id || capitolatoAperto.azienda_vincitrice_id || ''}
+                    onChange={(e) => updateConversioneDraft(capitolatoAperto.id, 'azienda_vincitrice_id', e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                  >
+                    <option value="">Azienda vincitrice</option>
+                    {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                  </select>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.importo_presunto ?? ''}
+                    onChange={(e) => updateConversioneDraft(capitolatoAperto.id, 'valore_aggiudicato', e.target.value)}
+                    placeholder="Valore aggiudicato"
+                    className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const draft = conversioneDraft[capitolatoAperto.id] || {};
+                      convertiInCasp(
+                        capitolatoAperto,
+                        draft.azienda_vincitrice_id || capitolatoAperto.azienda_vincitrice_id,
+                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.importo_presunto,
+                        draft.note_conversione_casp ?? capitolatoAperto.note_conversione_casp
+                      );
+                    }}
+                    className="w-full rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white"
+                  >
+                    Converti in CaSP
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di aggiudicazione.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-500">Timeline pratica</p>
+            <div className="mt-2 max-h-28 space-y-1 overflow-auto csp-scroll">
+              {(capitolatiEventi || [])
+                .filter((evento) => Number(evento.capitolato_id) === Number(capitolatoAperto.id))
+                .slice(0, 8)
+                .map((evento) => (
+                  <div key={evento.id} className="rounded-xl bg-white px-2 py-2 text-xs">
+                    <span className="font-black text-slate-700">{evento.tipo_evento}</span>
+                    <span className="ml-2 text-slate-600">{evento.descrizione}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </section>
+      )}
     </section>
   );
 }
