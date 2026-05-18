@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.76';
-const APP_VERSION_LABEL = 'CSP v1.0.76';
+const APP_VERSION = '1.0.77';
+const APP_VERSION_LABEL = 'CSP v1.0.77';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2817,6 +2817,9 @@ function CapitolatoSenzaPensieriSuite({
                         <h3 className="mt-1 text-lg font-black text-slate-900">{azienda.ragione_sociale}</h3>
                         <p className="text-xs font-semibold text-slate-500">{azienda.email || 'email n.d.'} {azienda.telefono ? `• ${azienda.telefono}` : ''}</p>
                         <p className="mt-1 text-xs font-black text-slate-700">Stato CRM: {stato}</p>
+                        <p className="text-xs text-slate-500">
+                          Follow-up: {(partnerOnboardingCaSP || []).find((item) => Number(item.azienda_id) === Number(azienda.id))?.data_followup || 'non programmato'}
+                        </p>
                       </div>
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
                         propostaAnnuale ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
@@ -7926,6 +7929,12 @@ export default function App() {
       if (existing) {
         await supabase.from('partner_onboarding_casp').update({
           stato_commerciale: statoCommerciale,
+          data_followup: statoCommerciale === 'Follow-up programmato'
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+            : existing.data_followup,
+          data_conversione: statoCommerciale === 'Convertita annuale'
+            ? new Date().toISOString().slice(0, 10)
+            : existing.data_conversione,
           note,
           updated_at: new Date().toISOString(),
         }).eq('id', existing.id);
@@ -7937,6 +7946,10 @@ export default function App() {
           telefono: azienda.telefono,
           stato_commerciale: statoCommerciale,
           data_primo_contatto: statoCommerciale !== 'Da contattare' ? new Date().toISOString().slice(0, 10) : null,
+          data_followup: statoCommerciale === 'Follow-up programmato'
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+            : null,
+          data_conversione: statoCommerciale === 'Convertita annuale' ? new Date().toISOString().slice(0, 10) : null,
           note,
         });
       }
