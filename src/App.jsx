@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.77';
-const APP_VERSION_LABEL = 'CSP v1.0.77';
+const APP_VERSION = '1.0.78';
+const APP_VERSION_LABEL = 'CSP v1.0.78';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2669,6 +2669,9 @@ function CapitolatoSenzaPensieriSuite({
   const partnerDaOnboardare = partnerRanking.filter((azienda) => azienda.convertiti >= 1);
   const partnerDaAnnuale = partnerRanking.filter((azienda) => azienda.convertiti >= 2);
   const valorePartnerDaAnnuale = partnerDaAnnuale.reduce((sum, azienda) => sum + Number(azienda.valoreCasp || 0), 0);
+  const campagneInviate = (partnerCampaignLog || []).length;
+  const campagneAnnuali = (partnerCampaignLog || []).filter((item) => item.tipo_campagna === 'annuale').length;
+  const campagnePremium = (partnerCampaignLog || []).filter((item) => item.tipo_campagna === 'premium').length;
 
   return (
     <section className="space-y-4">
@@ -2864,6 +2867,63 @@ function CapitolatoSenzaPensieriSuite({
                 );
               })
             )}
+          </div>
+        </section>
+      )}
+
+      {isGestore && (
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Pilota automatico commerciale</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Campagne partner CaSP</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Automazione campagne follow-up, annuali e premium sulle aziende partner.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 md:min-w-[560px]">
+              <DashboardStat label="Campagne inviate" value={campagneInviate} tone="sky" />
+              <DashboardStat label="Annuali" value={campagneAnnuali} tone="emerald" />
+              <DashboardStat label="Premium" value={campagnePremium} tone="purple" />
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {partnerRanking.slice(0, 12).map((azienda) => {
+              const tipoCampagna =
+                azienda.convertiti >= 3 ? 'premium' :
+                azienda.convertiti >= 2 ? 'annuale' :
+                azienda.convertiti >= 1 ? 'followup' :
+                null;
+
+              if (!tipoCampagna) return null;
+
+              return (
+                <div key={`campaign-${azienda.id}`} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wide text-sky-700">
+                        {tipoCampagna === 'premium' ? 'Campagna premium' : tipoCampagna === 'annuale' ? 'Campagna annuale' : 'Campagna follow-up'}
+                      </p>
+                      <h3 className="mt-1 text-lg font-black text-slate-900">{azienda.ragione_sociale}</h3>
+                      <p className="text-xs font-semibold text-slate-500">
+                        Conversioni: {azienda.convertiti} • Valore: {formatEuro(azienda.valoreCasp)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => inviaCampagnaPartner(azienda, tipoCampagna)}
+                      className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white"
+                    >
+                      Invia campagna
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -6524,6 +6584,7 @@ export default function App() {
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
   const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
+  const [partnerCampaignLog, setPartnerCampaignLog] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -6883,6 +6944,14 @@ export default function App() {
 
       if (onboardingError && onboardingError.code !== 'PGRST116' && onboardingError.code !== '42P01') throw onboardingError;
       setPartnerOnboardingCaSP(onboardingData || []);
+
+      const { data: campaignData, error: campaignError } = await supabase
+        .from('partner_campaign_log')
+        .select('*')
+        .order('data_invio', { ascending: false });
+
+      if (campaignError && campaignError.code !== 'PGRST116' && campaignError.code !== '42P01') throw campaignError;
+      setPartnerCampaignLog(campaignData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -7959,6 +8028,25 @@ export default function App() {
     } catch (error) {
       console.error(error);
       alert('Errore aggiornamento onboarding partner.');
+    }
+  };
+
+  const inviaCampagnaPartner = async (azienda, tipoCampagna) => {
+    try {
+      const { error } = await supabase.functions.invoke('campaign-partner-casp', {
+        body: {
+          azienda_id: azienda.id,
+          tipo_campagna: tipoCampagna,
+        },
+      });
+
+      if (error) throw error;
+
+      alert(`Campagna ${tipoCampagna} inviata correttamente.`);
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore invio campagna partner.');
     }
   };
 
