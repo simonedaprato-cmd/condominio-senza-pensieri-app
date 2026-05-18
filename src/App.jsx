@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.97';
-const APP_VERSION_LABEL = 'CSP v1.0.97';
+const APP_VERSION = '1.0.98';
+const APP_VERSION_LABEL = 'CSP v1.0.98';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -8913,23 +8913,42 @@ export default function App() {
   };
 
   const inviaNotificaCapitolato = async (eventType, capitolato, extra = {}) => {
-    try {
-      if (!capitolato?.id) return;
+    const functionName = 'notify-capitolato';
 
-      const { error } = await supabase.functions.invoke('notify-capitolato', {
-        body: {
-          event_type: eventType,
-          capitolato_id: capitolato.id,
-          capitolato,
-          extra,
+    try {
+      if (!capitolato?.id) {
+        console.warn('[CaSeP notify] Chiamata saltata: capitolato senza id', { eventType, capitolato });
+        return { ok: false, skipped: true, reason: 'missing_capitolato_id' };
+      }
+
+      const payload = {
+        event_type: eventType,
+        capitolato_id: capitolato.id,
+        capitolato,
+        extra: {
+          ...extra,
+          source: 'App.jsx',
+          release: APP_VERSION,
+          function_name: functionName,
         },
+      };
+
+      console.log('[CaSeP notify] Invoco edge:', functionName, payload);
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: payload,
       });
 
       if (error) {
-        console.warn('notify-capitolato non completata:', error.message || error);
+        console.warn('[CaSeP notify] Edge non completata:', functionName, error.message || error);
+        return { ok: false, error };
       }
+
+      console.log('[CaSeP notify] Risposta edge:', functionName, data);
+      return data;
     } catch (error) {
-      console.warn('notify-capitolato errore non bloccante:', error.message || error);
+      console.warn('[CaSeP notify] Errore non bloccante:', functionName, error.message || error);
+      return { ok: false, error };
     }
   };
 
@@ -9008,7 +9027,8 @@ export default function App() {
 
       if (data?.id) {
         await registraEventoCapitolato(data.id, 'apertura', 'Nuovo capitolato aperto', 'gestore', 'app');
-        await inviaNotificaCapitolato('nuovo_capitolato', data);
+        const notifyResult = await inviaNotificaCapitolato('nuovo_capitolato', data);
+        console.log('[CaSeP notify] nuovo_capitolato result', notifyResult);
       }
 
       setStatusMessage('Pratica Capitolato Senza Pensieri aperta correttamente.');
@@ -9057,7 +9077,8 @@ export default function App() {
                     : 'aggiornamento';
 
       if (data?.id) {
-        await inviaNotificaCapitolato(eventType, data, { updatePayload });
+        const notifyResult = await inviaNotificaCapitolato(eventType, data, { updatePayload });
+        console.log('[CaSeP notify] update result', eventType, notifyResult);
       }
 
       setStatusMessage('Capitolato Senza Pensieri aggiornato.');
