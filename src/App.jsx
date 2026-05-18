@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.75';
-const APP_VERSION_LABEL = 'CSP v1.0.75';
+const APP_VERSION = '1.0.76';
+const APP_VERSION_LABEL = 'CSP v1.0.76';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2805,6 +2805,8 @@ function CapitolatoSenzaPensieriSuite({
                   ? `mailto:${azienda.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
                   : '';
 
+                const stato = (partnerOnboardingCaSP || []).find((item) => Number(item.azienda_id) === Number(azienda.id))?.stato_commerciale || 'Da contattare';
+
                 return (
                   <div key={azienda.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -2814,6 +2816,7 @@ function CapitolatoSenzaPensieriSuite({
                         </p>
                         <h3 className="mt-1 text-lg font-black text-slate-900">{azienda.ragione_sociale}</h3>
                         <p className="text-xs font-semibold text-slate-500">{azienda.email || 'email n.d.'} {azienda.telefono ? `• ${azienda.telefono}` : ''}</p>
+                        <p className="mt-1 text-xs font-black text-slate-700">Stato CRM: {stato}</p>
                       </div>
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
                         propostaAnnuale ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
@@ -2839,6 +2842,19 @@ function CapitolatoSenzaPensieriSuite({
                         <a href={`https://wa.me/39${String(azienda.telefono).replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
                           WhatsApp
                         </a>
+                      )}
+
+                      <button type="button" onClick={() => salvaPartnerOnboarding(azienda, 'Primo contatto inviato')} className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-black text-white">
+                        Segna contattato
+                      </button>
+
+                      <button type="button" onClick={() => salvaPartnerOnboarding(azienda, 'Follow-up programmato')} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
+                        Programma follow-up
+                      </button>
+
+                      <button type="button" onClick={() => salvaPartnerOnboarding(azienda, 'Convertita annuale')} className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white">
+                        Convertita annuale
+                      </button>
                       )}
                     </div>
                   </div>
@@ -6504,6 +6520,7 @@ export default function App() {
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
+  const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
@@ -6855,6 +6872,14 @@ export default function App() {
 
       if (capitolatiEventiError && capitolatiEventiError.code !== 'PGRST116' && capitolatiEventiError.code !== '42P01') throw capitolatiEventiError;
       setCapitolatiEventi(capitolatiEventiData || []);
+
+      const { data: onboardingData, error: onboardingError } = await supabase
+        .from('partner_onboarding_casp')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (onboardingError && onboardingError.code !== 'PGRST116' && onboardingError.code !== '42P01') throw onboardingError;
+      setPartnerOnboardingCaSP(onboardingData || []);
 
       const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
@@ -7893,6 +7918,37 @@ export default function App() {
     }
   };
 
+  const salvaPartnerOnboarding = async (azienda, statoCommerciale, note = '') => {
+    try {
+      if (!azienda?.id) return;
+      const existing = (partnerOnboardingCaSP || []).find((item) => Number(item.azienda_id) === Number(azienda.id));
+
+      if (existing) {
+        await supabase.from('partner_onboarding_casp').update({
+          stato_commerciale: statoCommerciale,
+          note,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id);
+      } else {
+        await supabase.from('partner_onboarding_casp').insert({
+          azienda_id: azienda.id,
+          ragione_sociale: azienda.ragione_sociale,
+          email: azienda.email,
+          telefono: azienda.telefono,
+          stato_commerciale: statoCommerciale,
+          data_primo_contatto: statoCommerciale !== 'Da contattare' ? new Date().toISOString().slice(0, 10) : null,
+          note,
+        });
+      }
+
+      await carica();
+      alert(`Stato commerciale aggiornato: ${statoCommerciale}`);
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento onboarding partner.');
+    }
+  };
+
   const creaCapitolatoSenzaPensieri = async (capitolato) => {
     try {
       const numeroPratica = capitolato.numero_pratica || `CASEP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
@@ -8367,6 +8423,7 @@ export default function App() {
             fatturePartner={fatturePartner}
             condomini={condomini}
             aziendePartner={aziendePartner}
+            partnerOnboardingCaSP={partnerOnboardingCaSP}
           />
         )}
 
@@ -8375,6 +8432,7 @@ export default function App() {
             fatturePartner={fatturePartner}
             fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
             aziendePartner={aziendePartner}
+            partnerOnboardingCaSP={partnerOnboardingCaSP}
           />
         )}
 
@@ -8477,6 +8535,7 @@ export default function App() {
             {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture, pagamenti, provvigioni e liquidazioni.')}
             <FatturazionePartnerSuite
               aziendePartner={aziendePartner}
+            partnerOnboardingCaSP={partnerOnboardingCaSP}
               provvigioniPartner={provvigioniPartner}
               fatturePartner={fatturePartner}
               provvigioniMaturate={provvigioniMaturate}
@@ -8511,6 +8570,7 @@ export default function App() {
               condomini={condomini}
               utentiSistema={utentiSistema}
               aziendePartner={aziendePartner}
+            partnerOnboardingCaSP={partnerOnboardingCaSP}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
@@ -8526,6 +8586,7 @@ export default function App() {
             condomini={condominiVisibili}
             utentiSistema={utentiSistema}
             aziendePartner={aziendePartner}
+            partnerOnboardingCaSP={partnerOnboardingCaSP}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
