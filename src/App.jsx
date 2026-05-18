@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.93';
-const APP_VERSION_LABEL = 'CSP v1.0.93';
+const APP_VERSION = '1.0.94';
+const APP_VERSION_LABEL = 'CSP v1.0.94';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2987,6 +2987,102 @@ function CapitolatoSenzaPensieriSuite({
           </div>
         </div>
 
+        {capitolatoAperto && (
+          <div data-casep-open-panel className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Pratica aperta</p>
+                <h3 className="mt-1 text-lg font-black text-slate-900">
+                  {capitolatoAperto.numero_pratica || `#${capitolatoAperto.id}`} — {capitolatoAperto.titolo}
+                </h3>
+                <p className="mt-1 text-sm font-semibold text-slate-600">
+                  {capitolatoAperto.condominio_nome || 'Condominio n.d.'} • {capitolatoAperto.stato || 'Nuovo capitolato'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCapitolatoApertoId(null)}
+                className="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-700"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <div className="rounded-2xl border border-emerald-100 bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Stato e sopralluogo</p>
+                {isGestore ? (
+                  <div className="mt-2 space-y-2">
+                    <select
+                      value={capitolatoAperto.stato || 'Nuovo capitolato'}
+                      onChange={(e) => onUpdateCapitolato(capitolatoAperto.id, { stato: e.target.value })}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-black"
+                    >
+                      {stati.map((stato) => <option key={stato} value={stato}>{stato}</option>)}
+                    </select>
+                    <input
+                      type="date"
+                      value={capitolatoAperto.data_sopralluogo || ''}
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        aggiornaWorkflowTecnico(capitolatoAperto, {
+                          data_sopralluogo: e.target.value,
+                          stato: 'Sopralluogo programmato',
+                        });
+                        alert('Data sopralluogo inserita. Notifica avviata.');
+                      }}
+                      className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                    />
+                    <textarea
+                      defaultValue={capitolatoAperto.note_sopralluogo || ''}
+                      onBlur={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { note_sopralluogo: e.target.value })}
+                      placeholder="Note sopralluogo"
+                      className="min-h-16 w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm font-semibold text-slate-600">
+                    {capitolatoAperto.data_sopralluogo || 'Sopralluogo da programmare'}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-emerald-100 bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Documenti</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {capitolatoAperto.capitolato_pdf_url && <a href={capitolatoAperto.capitolato_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Capitolato</a>}
+                  {capitolatoAperto.relazione_pdf_url && <a href={capitolatoAperto.relazione_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">Relazione</a>}
+                  {capitolatoAperto.offerta_pdf_url && <a href={capitolatoAperto.offerta_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">Offerta</a>}
+                </div>
+                {isGestore && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
+                      {uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'Carico...' : 'Carica relazione'}
+                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-relazione`} />
+                    </label>
+                    <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
+                      {uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'Carico...' : 'Carica offerta'}
+                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-offerta`} />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-emerald-100 bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Conversione CaSP</p>
+                {capitolatoAperto.convertita_casp ? (
+                  <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
+                    <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
+                    <p className="text-xs text-slate-500">Valore: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di aggiudicazione / conversione.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 max-h-[650px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
           <table className="min-w-[1080px] w-full border-collapse text-sm">
             <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
@@ -3039,7 +3135,12 @@ function CapitolatoSenzaPensieriSuite({
                     <td className="px-3 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => setCapitolatoApertoId(item.id)}
+                        onClick={() => {
+                          setCapitolatoApertoId(Number(item.id));
+                          setTimeout(() => {
+                            document.querySelector('[data-casep-open-panel]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }, 50);
+                        }}
                         className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
                       >
                         Apri / Gestisci
