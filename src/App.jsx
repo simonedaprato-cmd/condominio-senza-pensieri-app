@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
-import OneSignal from 'react-onesignal';
+import OneSignal from './onesignalClient';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
@@ -3020,7 +3020,6 @@ function CapitolatoSenzaPensieriSuite({
                       <button type="button" onClick={() => salvaPartnerOnboarding(azienda, 'Convertita annuale')} className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white">
                         Convertita annuale
                       </button>
-                      )}
                     </div>
                   </div>
                 );
