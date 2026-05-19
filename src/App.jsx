@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.104';
-const APP_VERSION_LABEL = 'CSP v1.0.104';
+const APP_VERSION = '1.0.105';
+const APP_VERSION_LABEL = 'CSP v1.0.105';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2681,6 +2681,62 @@ function CapitolatoSenzaPensieriSuite({
     await onUpdateCapitolato(item.id, payload);
   };
 
+  const salvaValoreOffertaCapitolato = async (item, valore) => {
+    const numero = Number(valore || 0);
+
+    if (!numero || numero <= 0) {
+      alert('Inserisci un valore offerta valido.');
+      return;
+    }
+
+    await aggiornaWorkflowTecnico(item, {
+      valore_offerta: numero,
+      stato: 'Offerta inviata',
+    });
+
+    alert('Valore offerta salvato correttamente.');
+  };
+
+  const azioneAmministratoreOfferta = async (item, azione) => {
+    const oggi = new Date().toISOString().slice(0, 10);
+
+    if (azione === 'accetta') {
+      await aggiornaWorkflowTecnico(item, {
+        stato: 'Offerta accettata',
+        decisione_amministratore: 'Accettata',
+        data_decisione_offerta: oggi,
+      });
+      alert('Offerta accettata correttamente.');
+      return;
+    }
+
+    if (azione === 'rifiuta') {
+      await aggiornaWorkflowTecnico(item, {
+        stato: 'Offerta rifiutata',
+        decisione_amministratore: 'Rifiutata',
+        data_decisione_offerta: oggi,
+      });
+      alert('Offerta rifiutata correttamente.');
+      return;
+    }
+
+    const nota = window.prompt('Scrivi la richiesta da inviare al gestore:') || '';
+
+    if (!nota.trim()) {
+      alert('Inserisci una richiesta prima di inviare.');
+      return;
+    }
+
+    await aggiornaWorkflowTecnico(item, {
+      stato: 'Integrazione richiesta',
+      decisione_amministratore: 'Richiesta integrazione',
+      note_richiesta_amministratore: nota.trim(),
+      data_decisione_offerta: oggi,
+    });
+
+    alert('Richiesta inviata correttamente.');
+  };
+
   const apriPratica = async (e) => {
     e.preventDefault();
 
@@ -3125,15 +3181,40 @@ function CapitolatoSenzaPensieriSuite({
                   {capitolatoAperto.offerta_pdf_url && <a href={capitolatoAperto.offerta_pdf_url} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">Offerta</a>}
                 </div>
                 {isGestore && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
-                      {uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'Carico...' : 'Carica relazione'}
-                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-relazione`} />
-                    </label>
-                    <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
-                      {uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'Carico...' : 'Carica offerta'}
-                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-offerta`} />
-                    </label>
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
+                        {uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'Carico...' : 'Carica relazione'}
+                        <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-relazione`} />
+                      </label>
+                      <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
+                        {uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'Carico...' : 'Carica offerta'}
+                        <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-offerta`} />
+                      </label>
+                    </div>
+                    <div className="rounded-xl border border-sky-100 bg-sky-50 p-2">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-sky-700">Valore offerta</p>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          defaultValue={capitolatoAperto.valore_offerta || ''}
+                          placeholder="Importo offerta"
+                          className="w-full rounded-xl border border-sky-200 bg-white px-2 py-2 text-xs font-bold"
+                          onBlur={(e) => {
+                            if (e.target.value) salvaValoreOffertaCapitolato(capitolatoAperto, e.target.value);
+                          }}
+                        />
+                      </div>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">Attuale: {formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
+                    </div>
+                  </div>
+                )}
+
+                {!isGestore && capitolatoAperto.valore_offerta && (
+                  <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 p-2">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-sky-700">Valore offerta</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
                   </div>
                 )}
               </div>
@@ -3145,8 +3226,17 @@ function CapitolatoSenzaPensieriSuite({
                     <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
                     <p className="text-xs text-slate-500">Valore: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
                   </div>
+                ) : isGestore ? (
+                  <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di decisione amministratore / aggiudicazione.</p>
                 ) : (
-                  <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di aggiudicazione / conversione.</p>
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs font-semibold text-slate-500">Decisione amministratore: {capitolatoAperto.decisione_amministratore || 'Da gestire'}</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <button type="button" onClick={() => azioneAmministratoreOfferta(capitolatoAperto, 'accetta')} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">Accetta offerta</button>
+                      <button type="button" onClick={() => azioneAmministratoreOfferta(capitolatoAperto, 'rifiuta')} className="rounded-xl bg-red-700 px-3 py-2 text-xs font-black text-white">Rifiuta offerta</button>
+                      <button type="button" onClick={() => azioneAmministratoreOfferta(capitolatoAperto, 'richiedi')} className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-black text-white">Richiedi integrazione</button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -3302,6 +3392,7 @@ function CapitolatoSenzaPensieriSuite({
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs font-black uppercase tracking-wide text-slate-500">Assemblea</p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">{isGestore ? 'Compilabile dall’amministratore.' : 'Inserisci data/luogo assemblea e richiedi presenza CSP.'}</p>
               <div className="mt-2 space-y-2">
                 <input
                   type="date"
@@ -3346,15 +3437,38 @@ function CapitolatoSenzaPensieriSuite({
               </div>
 
               {isGestore && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
-                    {uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'Carico...' : 'Carica relazione'}
-                    <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-relazione`} />
-                  </label>
-                  <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
-                    {uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'Carico...' : 'Carica offerta'}
-                    <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-offerta`} />
-                  </label>
+                <div className="mt-3 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'bg-slate-400' : 'bg-emerald-700'}`}>
+                      {uploadingDocId === `${capitolatoAperto.id}-relazione` ? 'Carico...' : 'Carica relazione'}
+                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'relazione', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-relazione`} />
+                    </label>
+                    <label className={`cursor-pointer rounded-xl px-3 py-2 text-xs font-black text-white ${uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'bg-slate-400' : 'bg-sky-700'}`}>
+                      {uploadingDocId === `${capitolatoAperto.id}-offerta` ? 'Carico...' : 'Carica offerta'}
+                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => caricaDocumentoTecnico(capitolatoAperto, 'offerta', e.target.files?.[0])} className="hidden" disabled={uploadingDocId === `${capitolatoAperto.id}-offerta`} />
+                    </label>
+                  </div>
+                  <div className="rounded-xl border border-sky-100 bg-sky-50 p-2">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-sky-700">Valore offerta</p>
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={capitolatoAperto.valore_offerta || ''}
+                      placeholder="Importo offerta"
+                      className="mt-2 w-full rounded-xl border border-sky-200 bg-white px-2 py-2 text-xs font-bold"
+                      onBlur={(e) => {
+                        if (e.target.value) salvaValoreOffertaCapitolato(capitolatoAperto, e.target.value);
+                      }}
+                    />
+                    <p className="mt-1 text-xs font-semibold text-slate-500">Attuale: {formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
+                  </div>
+                </div>
+              )}
+
+              {!isGestore && capitolatoAperto.valore_offerta && (
+                <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 p-2">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-sky-700">Valore offerta</p>
+                  <p className="mt-1 text-sm font-black text-slate-900">{formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
                 </div>
               )}
             </div>
@@ -3402,7 +3516,12 @@ function CapitolatoSenzaPensieriSuite({
                   </button>
                 </div>
               ) : (
-                <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di aggiudicazione.</p>
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">Decisione amministratore: {capitolatoAperto.decisione_amministratore || 'Da gestire'}</p>
+                  <button type="button" onClick={() => azioneAmministratoreOfferta(capitolatoAperto, 'accetta')} className="w-full rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">Accetta offerta</button>
+                  <button type="button" onClick={() => azioneAmministratoreOfferta(capitolatoAperto, 'rifiuta')} className="w-full rounded-xl bg-red-700 px-3 py-2 text-xs font-black text-white">Rifiuta offerta</button>
+                  <button type="button" onClick={() => azioneAmministratoreOfferta(capitolatoAperto, 'richiedi')} className="w-full rounded-xl bg-amber-600 px-3 py-2 text-xs font-black text-white">Richiedi integrazione</button>
+                </div>
               )}
             </div>
           </div>
