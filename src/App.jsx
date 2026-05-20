@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.111';
-const APP_VERSION_LABEL = 'CSP v1.0.111';
+const APP_VERSION = '1.0.112';
+const APP_VERSION_LABEL = 'CSP v1.0.112';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2648,7 +2648,7 @@ function CapitolatoSenzaPensieriSuite({
     await onUpdateCapitolato(item.id, {
       azienda_vincitrice_id: Number(aziendaId),
       azienda_vincitrice_nome: aziendaById(aziendaId)?.ragione_sociale || '',
-      valore_aggiudicato: Number(valoreAggiudicato || item.importo_presunto || 0),
+      valore_aggiudicato: Number(valoreAggiudicato || item.valore_offerta || item.importo_presunto || 0),
       note_conversione_casp: noteConversione || '',
       convertita_casp: true,
       data_conversione_casp: new Date().toISOString().slice(0, 10),
@@ -2874,7 +2874,9 @@ function CapitolatoSenzaPensieriSuite({
     });
   }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
 
-  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.importo_presunto || 0), 0);
+  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || item.importo_presunto || 0), 0);
+  const valoreOfferteGestore = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
+  const guadagnoPotenzialeAmministratore = valoreOfferteGestore * 0.10;
   const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
   const convertiteCaSP = capitolatiVisibili.filter((item) => item.stato === 'Convertita in CaSP').length;
   const valoreAcquisito = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_aggiudicato || 0), 0);
@@ -2926,7 +2928,7 @@ function CapitolatoSenzaPensieriSuite({
             {isGestore ? (
               <DashboardStat label="Convertite CaSP" value={convertiteCaSP} tone="purple" />
             ) : (
-              <DashboardStat label="Guadagno potenziale" value={formatEuro(valorePotenziale * 0.10)} tone="purple" />
+              <DashboardStat label="Guadagno potenziale" value={formatEuro(guadagnoPotenzialeAmministratore)} tone="purple" />
             )}
           </div>
         </div>
@@ -3596,7 +3598,7 @@ function CapitolatoSenzaPensieriSuite({
                 <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
                   <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
                   <p className="mt-1 text-xs font-semibold text-slate-600">{capitolatoAperto.azienda_vincitrice_nome || aziendaById(capitolatoAperto.azienda_vincitrice_id)?.ragione_sociale || 'Azienda n.d.'}</p>
-                  <p className="text-xs text-slate-500">Valore aggiudicato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
+                  <p className="text-xs text-slate-500">Valore deliberato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.valore_offerta || capitolatoAperto.importo_presunto || 0)}</p>
                 </div>
               ) : isGestore ? (
                 <div className="mt-2 space-y-2">
@@ -3611,9 +3613,9 @@ function CapitolatoSenzaPensieriSuite({
                   <input
                     type="number"
                     step="0.01"
-                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.importo_presunto ?? ''}
+                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta ?? capitolatoAperto.importo_presunto ?? ''}
                     onChange={(e) => updateConversioneDraft(capitolatoAperto.id, 'valore_aggiudicato', e.target.value)}
-                    placeholder="Valore aggiudicato"
+                    placeholder="Valore deliberato"
                     className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
                   />
                   <button
@@ -3623,7 +3625,7 @@ function CapitolatoSenzaPensieriSuite({
                       convertiInCasp(
                         capitolatoAperto,
                         draft.azienda_vincitrice_id || capitolatoAperto.azienda_vincitrice_id,
-                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.importo_presunto,
+                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta ?? capitolatoAperto.importo_presunto,
                         draft.note_conversione_casp ?? capitolatoAperto.note_conversione_casp
                       );
                     }}
@@ -4669,6 +4671,7 @@ function FatturazionePartnerSuite({
   segnalazioni,
   utentiSistema,
   leadAmministratori,
+  capitolatiSenzaPensieri = [],
   onCreateAziendaPartner,
   onUpdateAziendaPartner,
   onCreateProvvigionePartner,
@@ -4717,6 +4720,8 @@ function FatturazionePartnerSuite({
     amministratore_email: '',
     condominio_id: '',
     segnalazione_id: '',
+    capitolato_id: '',
+    pratica_tipo: 'csp',
     numero_fattura: '',
     descrizione: '',
     importo_imponibile: '',
@@ -4739,6 +4744,8 @@ function FatturazionePartnerSuite({
     amministratore_email: '',
     condominio_id: '',
     segnalazione_id: '',
+    capitolato_id: '',
+    pratica_tipo: 'csp',
     numero_fattura: '',
     descrizione: '',
     importo_imponibile: '',
@@ -4906,9 +4913,25 @@ function FatturazionePartnerSuite({
     setFatturaForm((prev) => {
       const next = { ...prev, [field]: value };
 
-      if (field === 'importo_imponibile' || field === 'iva') {
-        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
-        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+      if (field === 'pratica_tipo') {
+        next.segnalazione_id = '';
+        next.capitolato_id = '';
+      }
+
+      if (field === 'capitolato_id') {
+        const capitolato = capitolatoById(value);
+        next.segnalazione_id = '';
+        next.condominio_id = capitolato?.condominio_id ? String(capitolato.condominio_id) : next.condominio_id;
+        next.amministratore_email = capitolato?.amministratore_email || next.amministratore_email;
+        next.azienda_partner_id = capitolato?.azienda_vincitrice_id ? String(capitolato.azienda_vincitrice_id) : next.azienda_partner_id;
+        const valore = Number(capitolato?.valore_aggiudicato || capitolato?.valore_offerta || 0);
+        if (valore > 0 && !Number(next.importo_imponibile || 0)) next.importo_imponibile = valore;
+        if (!next.descrizione && capitolato) next.descrizione = `Fattura CaSeP - ${capitolato.numero_pratica || `Pratica #${capitolato.id}`} - ${capitolato.titolo || capitolato.condominio_nome || ''}`.trim();
+      }
+
+      if (field === 'importo_imponibile' || field === 'iva' || field === 'capitolato_id') {
+        const imponibile = Number(next.importo_imponibile || 0);
+        const ivaPercentuale = Number(next.iva || 0);
         next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
       }
 
@@ -5024,6 +5047,11 @@ function FatturazionePartnerSuite({
   const amministratori = [...amministratoriMap.values()]
     .sort((a, b) => String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || '')));
   const praticheChiuse = (segnalazioni || []).filter((s) => String(s.stato || '').toLowerCase().trim() === 'chiusa');
+  const praticheCasepFatturabili = (capitolatiSenzaPensieri || []).filter((item) => {
+    const stato = String(item.stato || '').toLowerCase();
+    return stato.includes('accett') || stato.includes('convertita') || Number(item.valore_aggiudicato || item.valore_offerta || 0) > 0;
+  });
+  const capitolatoById = (id) => (capitolatiSenzaPensieri || []).find((item) => Number(item.id) === Number(id));
 
 
   const fatturatoTotale = (fatturePartner || []).reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
@@ -5090,11 +5118,20 @@ function FatturazionePartnerSuite({
     e.preventDefault();
     if (!fatturaForm.azienda_partner_id) return;
 
+    const capitolatoSelezionato = fatturaForm.pratica_tipo === 'casep' ? capitolatoById(fatturaForm.capitolato_id) : null;
+    const { capitolato_id, pratica_tipo, ...payloadFattura } = fatturaForm;
+
     await onCreateFatturaPartner({
-      ...fatturaForm,
+      ...payloadFattura,
       azienda_partner_id: Number(fatturaForm.azienda_partner_id),
       condominio_id: fatturaForm.condominio_id ? Number(fatturaForm.condominio_id) : null,
-      segnalazione_id: fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+      segnalazione_id: pratica_tipo === 'csp' && fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+      descrizione: pratica_tipo === 'casep' && capitolatoSelezionato
+        ? `${fatturaForm.descrizione || 'Fattura CaSeP'}\nRiferimento CaSeP: ${capitolatoSelezionato.numero_pratica || `#${capitolatoSelezionato.id}`} - ${capitolatoSelezionato.titolo || capitolatoSelezionato.condominio_nome || ''}`
+        : fatturaForm.descrizione,
+      note: pratica_tipo === 'casep' && capitolatoSelezionato
+        ? `${fatturaForm.note || ''}\nCASEP_ID:${capitolatoSelezionato.id}`.trim()
+        : fatturaForm.note,
       importo_imponibile: Number(fatturaForm.importo_imponibile || 0),
       iva: Number(fatturaForm.iva || 0),
       totale: Number(fatturaForm.totale || 0),
@@ -5212,10 +5249,25 @@ function FatturazionePartnerSuite({
                 <option value="">Condominio</option>
                 {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
-              <select value={fatturaForm.segnalazione_id} onChange={(e) => updateFattura('segnalazione_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
-                <option value="">Pratica collegata</option>
-                {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>{s.titolo}</option>)}
+              <select value={fatturaForm.pratica_tipo} onChange={(e) => updateFattura('pratica_tipo', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                <option value="csp">Pratica CSP</option>
+                <option value="casep">Pratica CaSeP</option>
               </select>
+              {fatturaForm.pratica_tipo === 'casep' ? (
+                <select value={fatturaForm.capitolato_id} onChange={(e) => updateFattura('capitolato_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                  <option value="">Pratica CaSeP collegata</option>
+                  {praticheCasepFatturabili.slice(0, 120).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.numero_pratica || `CaSeP #${c.id}`} — {c.titolo || c.condominio_nome} — {formatEuro(c.valore_aggiudicato || c.valore_offerta || 0)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select value={fatturaForm.segnalazione_id} onChange={(e) => updateFattura('segnalazione_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                  <option value="">Pratica CSP collegata</option>
+                  {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>{s.titolo}</option>)}
+                </select>
+              )}
               <input value={fatturaForm.numero_fattura} onChange={(e) => updateFattura('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="number" step="0.01" value={fatturaForm.importo_imponibile} onChange={(e) => updateFattura('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="number" step="0.01" value={fatturaForm.iva} onChange={(e) => updateFattura('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-slate-200 px-3 py-3" />
@@ -5261,11 +5313,19 @@ function FatturazionePartnerSuite({
                     return;
                   }
 
+                  const capitolatoSelezionato = fatturaForm.pratica_tipo === 'casep' ? capitolatoById(fatturaForm.capitolato_id) : null;
+                  const { capitolato_id, pratica_tipo, ...payloadFattura } = fatturaForm;
                   const saved = await onCreateFatturaPartner({
-                    ...fatturaForm,
+                    ...payloadFattura,
                     azienda_partner_id: Number(fatturaForm.azienda_partner_id),
                     condominio_id: fatturaForm.condominio_id ? Number(fatturaForm.condominio_id) : null,
-                    segnalazione_id: fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+                    segnalazione_id: pratica_tipo === 'csp' && fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+                    descrizione: pratica_tipo === 'casep' && capitolatoSelezionato
+                      ? `${fatturaForm.descrizione || 'Fattura CaSeP'}\nRiferimento CaSeP: ${capitolatoSelezionato.numero_pratica || `#${capitolatoSelezionato.id}`} - ${capitolatoSelezionato.titolo || capitolatoSelezionato.condominio_nome || ''}`
+                      : fatturaForm.descrizione,
+                    note: pratica_tipo === 'casep' && capitolatoSelezionato
+                      ? `${fatturaForm.note || ''}\nCASEP_ID:${capitolatoSelezionato.id}`.trim()
+                      : fatturaForm.note,
                     importo_imponibile: Number(fatturaForm.importo_imponibile || 0),
                     iva: Number(fatturaForm.iva || 0),
                     totale: Number(fatturaForm.totale || 0),
@@ -9922,7 +9982,7 @@ export default function App() {
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'fatturazione' && (
           <>
-            {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture, pagamenti, provvigioni e liquidazioni.')}
+            {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture CSP/CaSeP, pagamenti, provvigioni e liquidazioni.')}
             <FatturazionePartnerSuite
               aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
@@ -9935,6 +9995,7 @@ export default function App() {
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
               leadAmministratori={leadAmministratori}
+              capitolatiSenzaPensieri={capitolatiSenzaPensieri}
               onCreateAziendaPartner={creaAziendaPartner}
               onUpdateAziendaPartner={aggiornaAziendaPartner}
               onCreateProvvigionePartner={creaProvvigionePartner}
