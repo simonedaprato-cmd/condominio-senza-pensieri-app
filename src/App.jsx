@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.114';
-const APP_VERSION_LABEL = 'CSP v1.0.114';
+const APP_VERSION = '1.0.2';
+const APP_VERSION_LABEL = 'CSP v1.0.2';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -126,11 +126,35 @@ async function loadUserProfile(email) {
 
   if (collegamentiError) throw collegamentiError;
 
-  const condomini = (collegamenti || []).map((item) => item.condomini).filter(Boolean);
+  let collegamentiFinali = collegamenti || [];
+
+  // Collaboratore: eredita automaticamente i condomìni dell'amministratore collegato.
+  // L'email dell'amministratore viene salvata nel campo testuale `condominio` del profilo utente
+  // dalla funzione gestione-anagrafiche. Manteniamo comunque eventuali collegamenti diretti già presenti.
+  if (String(utente.ruolo || '').toLowerCase().trim() === 'collaboratore') {
+    const amministratoreCollegatoEmail = normalizeEmail(utente.condominio);
+
+    if (amministratoreCollegatoEmail) {
+      const { data: collegamentiAmministratore, error: collegamentiAdminError } = await supabase
+        .from('utenti_condomini')
+        .select('condominio_id, condomini(id, nome, indirizzo)')
+        .ilike('email', amministratoreCollegatoEmail);
+
+      if (collegamentiAdminError) throw collegamentiAdminError;
+
+      const byId = new Map();
+      [...collegamentiFinali, ...(collegamentiAmministratore || [])].forEach((item) => {
+        if (item?.condominio_id) byId.set(Number(item.condominio_id), item);
+      });
+      collegamentiFinali = Array.from(byId.values());
+    }
+  }
+
+  const condomini = collegamentiFinali.map((item) => item.condomini).filter(Boolean);
 
   return {
     ...utente,
-    condominiIds: (collegamenti || []).map((item) => item.condominio_id),
+    condominiIds: collegamentiFinali.map((item) => item.condominio_id),
     condomini,
     condominio: condomini[0]?.nome || utente.condominio || '',
   };
@@ -938,6 +962,11 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
     if (ruolo === 'amministratore') {
       if (criticita > 0) return criticita + ' criticità da monitorare';
       return 'Gestisci ' + condominiVisibili.length + ' condomini';
+    }
+
+    if (ruolo === 'collaboratore') {
+      if (criticita > 0) return criticita + ' criticità operative da monitorare';
+      return 'Operatività su ' + condominiVisibili.length + ' condomini';
     }
 
     if (ruolo === 'condominio' && userProfile?.condominio) {
@@ -6537,6 +6566,7 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '' });
+  const [collaboratoreForm, setCollaboratoreForm] = useState({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
   const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
   const [condominoForm, setCondominoForm] = useState({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
   const [importCondominioId, setImportCondominioId] = useState('');
@@ -6592,6 +6622,7 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
         <div className="flex flex-wrap gap-2">
           {[
             ['amministratore', 'Amministratore'],
+            ['collaboratore', 'Collaboratore'],
             ['condominio', 'Condominio'],
             ['condomino', 'Condòmino'],
             ['import', 'Import condòmini'],
@@ -6632,6 +6663,28 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
           <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Studio / riferimento" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva amministratore'}
+          </button>
+        </form>
+      )}
+
+      {tab === 'collaboratore' && (
+        <form
+          className="grid gap-3 md:grid-cols-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = await invokeGestione({ action: 'crea_collaboratore', ...collaboratoreForm });
+            if (data?.success) setCollaboratoreForm({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
+          }}
+        >
+          <input value={collaboratoreForm.nome} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, nome: e.target.value })} placeholder="Nome collaboratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={collaboratoreForm.email} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, email: e.target.value })} placeholder="Email collaboratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={collaboratoreForm.telefono} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={collaboratoreForm.amministratoreEmail} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, amministratoreEmail: e.target.value })} placeholder="Email amministratore collegato" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <div className="rounded-2xl border border-sky-100 bg-sky-50 p-3 text-xs font-bold text-sky-800 md:col-span-2">
+            Il collaboratore eredita i condomìni dell’amministratore collegato, vede l’operatività e le fatture interventi, ma non vede guadagni, provvigioni o dashboard economiche dell’amministratore.
+          </div>
+          <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
+            {saving ? 'Salvataggio...' : 'Salva collaboratore'}
           </button>
         </form>
       )}
@@ -6722,7 +6775,7 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, fi
             <option value="">Tutti i condomini</option>
             {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
-          {ruolo === 'amministratore' && (
+          {(ruolo === 'amministratore' || ruolo === 'collaboratore') && (
             <select value={filtroStato} onChange={(e) => onChangeFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
               <option value="">Tutti gli stati</option>
               <option value="Presa in carico">Presa in carico</option>
@@ -6925,6 +6978,8 @@ function TimelinePratica({ stato }) {
 }
 
 function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, onRefreshVoti }) {
+  const ruoloDettaglio = String(ruolo || '').toLowerCase().trim();
+  const isAmministratoreOperativoDettaglio = ruoloDettaglio === 'amministratore' || ruoloDettaglio === 'collaboratore';
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
@@ -7105,7 +7160,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
-            {(ruolo === 'gestore' || ruolo === 'amministratore') && (
+            {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
               <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
             )}
             {segnalazione.data_inizio_lavori_presunta && (
@@ -7125,7 +7180,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   Apri preventivo
                 </a>
 
-                {(ruolo === 'condominio' || ruolo === 'amministratore' || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
+                {(ruolo === 'condominio' || isAmministratoreOperativoDettaglio || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
                   <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3">
                     <div>
                       <p className="text-sm font-semibold text-sky-800">
@@ -7226,7 +7281,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </div>
                 )}
 
-                {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && (
+                {isAmministratoreOperativoDettaglio && segnalazione.stato === 'Preventivata' && (
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -7259,7 +7314,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </p>
                 )}
 
-                {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && !segnalazione.preventivo_condiviso_condomini && (
+                {isAmministratoreOperativoDettaglio && segnalazione.stato === 'Preventivata' && !segnalazione.preventivo_condiviso_condomini && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -7273,7 +7328,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </button>
                 )}
 
-                {segnalazione.preventivo_condiviso_condomini && ruolo === 'amministratore' && (
+                {segnalazione.preventivo_condiviso_condomini && isAmministratoreOperativoDettaglio && (
                   <div className="rounded-xl bg-sky-100 px-3 py-3 text-sm font-semibold text-sky-700">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p>Preventivo condiviso con i condomini</p>
@@ -7349,7 +7404,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       )}
                     </div>
 
-                    {ruolo === 'amministratore' && nonVotanti.length > 0 && (
+                    {isAmministratoreOperativoDettaglio && nonVotanti.length > 0 && (
                       <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 md:max-h-32 md:overflow-auto">
                         <p className="border-b border-amber-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-700">Non votanti</p>
                         {nonVotanti.map((email) => (
@@ -7525,7 +7580,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruolo === 'amministratore' && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
+            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto costi per millesimi</p>
@@ -7928,7 +7983,11 @@ export default function App() {
   const [reportCondominio, setReportCondominio] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
-  const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio';
+  const isCollaboratore = ruoloNormalizzato === 'collaboratore';
+  const isAmministratoreOperativo = ruoloNormalizzato === 'amministratore' || isCollaboratore;
+  const puoVedereGuadagniAmministratore = ruoloNormalizzato === 'amministratore';
+  const puoVedereFattureOperative = isAmministratoreOperativo;
+  const puoCreareSegnalazioni = isAmministratoreOperativo || ruoloNormalizzato === 'condominio';
 
 
   const mostraToast = (title, message = '', tone = 'info') => {
@@ -9744,8 +9803,8 @@ export default function App() {
 
   const amministratoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
-    { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture, scadenze e PDF' },
-    { id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' },
+    { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture interventi, scadenze e PDF' },
+    ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
   ];
 
@@ -9781,7 +9840,7 @@ export default function App() {
           onLogout={logout}
         />
 
-        {ruoloNormalizzato === 'amministratore' && (
+        {isAmministratoreOperativo && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               {amministratoreSections.map((section) => (
@@ -9805,7 +9864,7 @@ export default function App() {
           </section>
         )}
 
-        {ruoloNormalizzato !== 'gestore' && (ruoloNormalizzato !== 'amministratore' || amministratoreSection === 'pratiche') && (
+        {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (
           <>
             <ActionBar
               condomini={condominiVisibili}
@@ -9851,7 +9910,7 @@ export default function App() {
           </section>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
+        {isAmministratoreOperativo && amministratoreSection === 'pratiche' && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
@@ -9878,7 +9937,7 @@ export default function App() {
           </div>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
+        {isAmministratoreOperativo && amministratoreSection === 'pratiche' && (
           <>
             <div className="-mt-2">
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
@@ -9886,7 +9945,7 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'fatturazione' && (
+        {puoVedereFattureOperative && amministratoreSection === 'fatturazione' && (
           <FatturazioneAmministratoreSuite
             fatturePartner={fatturePartner}
             condomini={condomini}
@@ -9895,7 +9954,7 @@ export default function App() {
           />
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'guadagni' && (
+        {puoVedereGuadagniAmministratore && amministratoreSection === 'guadagni' && (
           <GuadagniAmministratoreSuite
             fatturePartner={fatturePartner}
             fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
@@ -10058,7 +10117,7 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'capitolato' && (
+        {isAmministratoreOperativo && amministratoreSection === 'capitolato' && (
           <CapitolatoSenzaPensieriSuite
             ruolo={ruoloNormalizzato}
             userProfile={userProfile}
