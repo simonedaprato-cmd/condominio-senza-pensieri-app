@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.112';
-const APP_VERSION_LABEL = 'CSP v1.0.112';
+const APP_VERSION = '1.0.113';
+const APP_VERSION_LABEL = 'CSP v1.0.113';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2874,7 +2874,7 @@ function CapitolatoSenzaPensieriSuite({
     });
   }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
 
-  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || item.importo_presunto || 0), 0);
+  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
   const valoreOfferteGestore = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
   const guadagnoPotenzialeAmministratore = valoreOfferteGestore * 0.10;
   const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
@@ -2889,8 +2889,8 @@ function CapitolatoSenzaPensieriSuite({
     .map((azienda) => {
       const capitolatiAzienda = capitolatiVisibili.filter((item) => Number(item.azienda_vincitrice_id) === Number(azienda.id));
       const convertiti = capitolatiAzienda.filter((item) => item.convertita_casp || item.stato === 'Convertita in CaSP');
-      const valore = capitolatiAzienda.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.importo_presunto || 0), 0);
-      const valoreCasp = convertiti.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.importo_presunto || 0), 0);
+      const valore = capitolatiAzienda.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
+      const valoreCasp = convertiti.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.valore_offerta || 0), 0);
 
       return {
         ...azienda,
@@ -3315,7 +3315,7 @@ function CapitolatoSenzaPensieriSuite({
                 {capitolatoAperto.convertita_casp ? (
                   <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
                     <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
-                    <p className="text-xs text-slate-500">Valore: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
+                    <p className="text-xs text-slate-500">Valore deliberato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.valore_offerta || 0)}</p>
                   </div>
                 ) : isGestore ? (
                   <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di decisione amministratore / aggiudicazione.</p>
@@ -3370,7 +3370,9 @@ function CapitolatoSenzaPensieriSuite({
                       <p className="font-semibold text-slate-700">{item.tecnico_nome || 'n.d.'}</p>
                       <p className="text-xs text-slate-500">{item.tecnico_email || ''}</p>
                     </td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(item.importo_presunto || 0)}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">
+                      {Number(item.valore_offerta || 0) > 0 ? formatEuro(item.valore_offerta || 0) : <span className="text-xs font-bold text-slate-400">Offerta non caricata</span>}
+                    </td>
                     <td className="px-3 py-3">
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
                         item.priorita === 'Alta' ? 'bg-red-100 text-red-700' :
@@ -3590,6 +3592,14 @@ function CapitolatoSenzaPensieriSuite({
                   <p className="mt-1 text-sm font-black text-slate-900">{formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
                 </div>
               )}
+
+              {Number(capitolatoAperto.importo_presunto || 0) > 0 && (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-2">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Importo presunto indicato dall'amministratore</p>
+                  <p className="mt-1 text-sm font-black text-slate-700">{formatEuro(capitolatoAperto.importo_presunto || 0)}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-slate-400">Dato informativo interno: non entra nelle statistiche né nella fatturazione.</p>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -3598,7 +3608,7 @@ function CapitolatoSenzaPensieriSuite({
                 <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
                   <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
                   <p className="mt-1 text-xs font-semibold text-slate-600">{capitolatoAperto.azienda_vincitrice_nome || aziendaById(capitolatoAperto.azienda_vincitrice_id)?.ragione_sociale || 'Azienda n.d.'}</p>
-                  <p className="text-xs text-slate-500">Valore deliberato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.valore_offerta || capitolatoAperto.importo_presunto || 0)}</p>
+                  <p className="text-xs text-slate-500">Valore deliberato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.valore_offerta || 0)}</p>
                 </div>
               ) : isGestore ? (
                 <div className="mt-2 space-y-2">
@@ -3613,7 +3623,7 @@ function CapitolatoSenzaPensieriSuite({
                   <input
                     type="number"
                     step="0.01"
-                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta ?? capitolatoAperto.importo_presunto ?? ''}
+                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta ?? ''}
                     onChange={(e) => updateConversioneDraft(capitolatoAperto.id, 'valore_aggiudicato', e.target.value)}
                     placeholder="Valore deliberato"
                     className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
@@ -3625,7 +3635,7 @@ function CapitolatoSenzaPensieriSuite({
                       convertiInCasp(
                         capitolatoAperto,
                         draft.azienda_vincitrice_id || capitolatoAperto.azienda_vincitrice_id,
-                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta ?? capitolatoAperto.importo_presunto,
+                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta,
                         draft.note_conversione_casp ?? capitolatoAperto.note_conversione_casp
                       );
                     }}
@@ -5049,7 +5059,8 @@ function FatturazionePartnerSuite({
   const praticheChiuse = (segnalazioni || []).filter((s) => String(s.stato || '').toLowerCase().trim() === 'chiusa');
   const praticheCasepFatturabili = (capitolatiSenzaPensieri || []).filter((item) => {
     const stato = String(item.stato || '').toLowerCase();
-    return stato.includes('accett') || stato.includes('convertita') || Number(item.valore_aggiudicato || item.valore_offerta || 0) > 0;
+    const decisione = String(item.decisione_amministratore || '').toLowerCase();
+    return (stato.includes('accett') || decisione.includes('accett')) && Number(item.valore_aggiudicato || item.valore_offerta || 0) > 0;
   });
   const capitolatoById = (id) => (capitolatiSenzaPensieri || []).find((item) => Number(item.id) === Number(id));
 
