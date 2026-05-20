@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.113';
-const APP_VERSION_LABEL = 'CSP v1.0.113';
+const APP_VERSION = '1.0.114';
+const APP_VERSION_LABEL = 'CSP v1.0.114';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9431,21 +9431,28 @@ export default function App() {
         'app'
       );
 
+      const statoCapitolatoAggiornato = String(updatePayload.stato || '').toLowerCase();
+      const decisioneCapitolatoAggiornata = String(updatePayload.decisione_amministratore || '').toLowerCase();
+
       const eventType = updatePayload.convertita_casp
         ? 'conversione_casp'
         : updatePayload.presenza_csp_richiesta
           ? 'presenza_csp_richiesta'
-          : updatePayload.data_assemblea
-            ? 'assemblea_programmata'
-            : updatePayload.offerta_pdf_url
-              ? 'offerta_inviata'
-              : updatePayload.relazione_pdf_url
-                ? 'relazione_inviata'
-                : updatePayload.data_sopralluogo
-                  ? 'sopralluogo_programmato'
-                  : updatePayload.stato
-                    ? 'stato_aggiornato'
-                    : 'aggiornamento';
+          : statoCapitolatoAggiornato.includes('accett') || decisioneCapitolatoAggiornata.includes('accett')
+            ? 'offerta_accettata'
+            : statoCapitolatoAggiornato.includes('rifiut') || decisioneCapitolatoAggiornata.includes('rifiut')
+              ? 'offerta_rifiutata'
+              : updatePayload.data_assemblea
+                ? 'assemblea_programmata'
+                : updatePayload.offerta_pdf_url
+                  ? 'offerta_inviata'
+                  : updatePayload.relazione_pdf_url
+                    ? 'relazione_inviata'
+                    : updatePayload.data_sopralluogo
+                      ? 'sopralluogo_programmato'
+                      : updatePayload.stato
+                        ? 'stato_aggiornato'
+                        : 'aggiornamento';
 
       const campiSoloSalvataggio = ['luogo_assemblea', 'note_sopralluogo'];
       const deveInviareNotificaCapitolato = Object.keys(updatePayload || {}).some(
