@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.107';
-const APP_VERSION_LABEL = 'CSP v1.0.107';
+const APP_VERSION = '1.0.108';
+const APP_VERSION_LABEL = 'CSP v1.0.108';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3402,8 +3402,8 @@ function CapitolatoSenzaPensieriSuite({
                   disabled={isGestore}
                 />
                 <input
-                  value={capitolatoAperto.luogo_assemblea || ''}
-                  onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { luogo_assemblea: e.target.value })}
+                  defaultValue={capitolatoAperto.luogo_assemblea || ''}
+                  onBlur={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { luogo_assemblea: e.target.value })}
                   placeholder="Luogo assemblea"
                   className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
                   disabled={isGestore}
@@ -9259,7 +9259,12 @@ export default function App() {
                     ? 'stato_aggiornato'
                     : 'aggiornamento';
 
-      if (data?.id) {
+      const campiSoloSalvataggio = ['luogo_assemblea', 'note_sopralluogo'];
+      const deveInviareNotificaCapitolato = Object.keys(updatePayload || {}).some(
+        (campo) => !campiSoloSalvataggio.includes(campo)
+      );
+
+      if (data?.id && deveInviareNotificaCapitolato) {
         console.log('[CaSeP notify] TRIGGER REALE update capitolato -> notify-capitolato', eventType, data, updatePayload);
         const notifyResult = await inviaNotificaCapitolato(eventType, data, {
           updatePayload,
@@ -9267,6 +9272,8 @@ export default function App() {
           updated_from_app: true,
         });
         console.log('[CaSeP notify] update result', eventType, notifyResult);
+      } else if (data?.id) {
+        console.log('[CaSeP notify] update capitolato salvato senza notifica', updatePayload);
       }
 
       setStatusMessage('Capitolato Senza Pensieri aggiornato.');
