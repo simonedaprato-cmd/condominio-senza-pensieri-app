@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.108';
-const APP_VERSION_LABEL = 'CSP v1.0.108';
+const APP_VERSION = '1.0.110';
+const APP_VERSION_LABEL = 'CSP v1.0.110';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2503,6 +2503,7 @@ function CapitolatoSenzaPensieriSuite({
   const [filtroSearch, setFiltroSearch] = useState('');
   const [conversioneDraft, setConversioneDraft] = useState({});
   const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
+  const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', luogo: '' });
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
@@ -2681,6 +2682,24 @@ function CapitolatoSenzaPensieriSuite({
     await onUpdateCapitolato(item.id, payload);
   };
 
+  const pianificaAssembleaCapitolato = async (item) => {
+    const dataAssemblea = String(assembleaDraft.data || '').trim();
+    const luogoAssemblea = String(assembleaDraft.luogo || '').trim();
+
+    if (!dataAssemblea || !luogoAssemblea) {
+      alert('Inserisci sia la data sia il luogo dell’assemblea prima di salvare.');
+      return;
+    }
+
+    await aggiornaWorkflowTecnico(item, {
+      data_assemblea: dataAssemblea,
+      luogo_assemblea: luogoAssemblea,
+      stato: 'Assemblea programmata',
+    });
+
+    alert('Assemblea pianificata correttamente.');
+  };
+
   const salvaValoreOffertaCapitolato = async (item, valore) => {
     const numero = Number(valore || 0);
 
@@ -2797,6 +2816,23 @@ function CapitolatoSenzaPensieriSuite({
     });
 
   const capitolatoAperto = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoApertoId));
+
+  useEffect(() => {
+    if (!capitolatoAperto?.id) {
+      setAssembleaDraft({ capitolatoId: null, data: '', luogo: '' });
+      return;
+    }
+
+    setAssembleaDraft((prev) => {
+      if (Number(prev.capitolatoId) === Number(capitolatoAperto.id)) return prev;
+
+      return {
+        capitolatoId: capitolatoAperto.id,
+        data: capitolatoAperto.data_assemblea || '',
+        luogo: capitolatoAperto.luogo_assemblea || '',
+      };
+    });
+  }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
 
   const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.importo_presunto || 0), 0);
   const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
@@ -3020,7 +3056,6 @@ function CapitolatoSenzaPensieriSuite({
                       <button type="button" onClick={() => salvaPartnerOnboarding(azienda, 'Convertita annuale')} className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white">
                         Convertita annuale
                       </button>
-                      )}
                     </div>
                   </div>
                 );
@@ -3396,18 +3431,35 @@ function CapitolatoSenzaPensieriSuite({
               <div className="mt-2 space-y-2">
                 <input
                   type="date"
-                  value={capitolatoAperto.data_assemblea || ''}
-                  onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { data_assemblea: e.target.value || null, stato: e.target.value ? 'Assemblea programmata' : capitolatoAperto.stato })}
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.data : (capitolatoAperto.data_assemblea || '')}
+                  onChange={(e) => setAssembleaDraft((prev) => ({
+                    ...prev,
+                    capitolatoId: capitolatoAperto.id,
+                    data: e.target.value || '',
+                  }))}
                   className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
                   disabled={isGestore}
                 />
                 <input
-                  defaultValue={capitolatoAperto.luogo_assemblea || ''}
-                  onBlur={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { luogo_assemblea: e.target.value })}
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.luogo : (capitolatoAperto.luogo_assemblea || '')}
+                  onChange={(e) => setAssembleaDraft((prev) => ({
+                    ...prev,
+                    capitolatoId: capitolatoAperto.id,
+                    luogo: e.target.value,
+                  }))}
                   placeholder="Luogo assemblea"
                   className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
                   disabled={isGestore}
                 />
+                {!isGestore && (
+                  <button
+                    type="button"
+                    onClick={() => pianificaAssembleaCapitolato(capitolatoAperto)}
+                    className="w-full rounded-xl bg-amber-600 px-3 py-2 text-xs font-black text-white transition hover:bg-amber-700"
+                  >
+                    Pianifica assemblea
+                  </button>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <a href={buildGoogleCalendarUrl(capitolatoAperto)} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Google Calendar</a>
                   {!capitolatoAperto.presenza_csp_richiesta ? (
