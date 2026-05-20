@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.110';
-const APP_VERSION_LABEL = 'CSP v1.0.110';
+const APP_VERSION = '1.0.111';
+const APP_VERSION_LABEL = 'CSP v1.0.111';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2493,6 +2493,7 @@ function CapitolatoSenzaPensieriSuite({
   onCreateCapitolato,
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
+  onDeleteCapitolato,
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
@@ -2503,7 +2504,7 @@ function CapitolatoSenzaPensieriSuite({
   const [filtroSearch, setFiltroSearch] = useState('');
   const [conversioneDraft, setConversioneDraft] = useState({});
   const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
-  const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', luogo: '' });
+  const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', ora: '', luogo: '' });
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
@@ -2534,11 +2535,34 @@ function CapitolatoSenzaPensieriSuite({
     'Relazione inviata',
     'Offerta inviata',
     'Assemblea programmata',
+    'Offerta accettata',
+    'Offerta rifiutata',
     'Presenza CSP richiesta',
     'Aggiudicata',
     'Convertita in CaSP',
     'Non aggiudicata',
   ];
+
+  const estraiOraAssemblea = (luogo = '') => {
+    const match = String(luogo || '').match(/(?:\s*[—-]\s*)?ore\s+([0-2]?\d:[0-5]\d)\s*$/i);
+    return match?.[1] || '';
+  };
+
+  const pulisciLuogoAssemblea = (luogo = '') => String(luogo || '').replace(/(?:\s*[—-]\s*)?ore\s+[0-2]?\d:[0-5]\d\s*$/i, '').trim();
+
+  const componiLuogoAssemblea = (luogo = '', ora = '') => {
+    const luogoPulito = pulisciLuogoAssemblea(luogo);
+    const oraPulita = String(ora || '').trim();
+    return oraPulita ? `${luogoPulito} — ore ${oraPulita}` : luogoPulito;
+  };
+
+  const statoDecisioneCapitolato = (item) => {
+    const stato = String(item?.stato || '').toLowerCase();
+    const decisione = String(item?.decisione_amministratore || '').toLowerCase();
+    if (stato.includes('rifiut') || decisione.includes('rifiut')) return 'rifiutata';
+    if (stato.includes('accett') || decisione.includes('accett')) return 'accettata';
+    return '';
+  };
 
   const buildGoogleCalendarUrl = (item) => {
     const title = `Assemblea Capitolato Senza Pensieri - ${item.condominio_nome || item.titolo || 'Condominio'}`;
@@ -2551,12 +2575,18 @@ function CapitolatoSenzaPensieriSuite({
 
     const date = item.data_assemblea || new Date().toISOString().slice(0, 10);
     const cleanDate = String(date).replaceAll('-', '');
-    const location = item.luogo_assemblea || item.indirizzo || '';
+    const ora = estraiOraAssemblea(item.luogo_assemblea) || '18:00';
+    const [hh = '18', mm = '00'] = String(ora).split(':');
+    const startMinutes = (Number(hh) || 18) * 60 + (Number(mm) || 0);
+    const endMinutes = startMinutes + 120;
+    const endH = String(Math.floor(endMinutes / 60) % 24).padStart(2, '0');
+    const endM = String(endMinutes % 60).padStart(2, '0');
+    const location = pulisciLuogoAssemblea(item.luogo_assemblea) || item.indirizzo || '';
 
     const params = new URLSearchParams({
       action: 'TEMPLATE',
       text: title,
-      dates: `${cleanDate}T180000/${cleanDate}T200000`,
+      dates: `${cleanDate}T${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}00/${cleanDate}T${endH}${endM}00`,
       details,
       location,
     });
@@ -2684,20 +2714,29 @@ function CapitolatoSenzaPensieriSuite({
 
   const pianificaAssembleaCapitolato = async (item) => {
     const dataAssemblea = String(assembleaDraft.data || '').trim();
+    const oraAssemblea = String(assembleaDraft.ora || '').trim();
     const luogoAssemblea = String(assembleaDraft.luogo || '').trim();
 
-    if (!dataAssemblea || !luogoAssemblea) {
-      alert('Inserisci sia la data sia il luogo dell’assemblea prima di salvare.');
+    if (!dataAssemblea || !oraAssemblea || !luogoAssemblea) {
+      alert('Inserisci data, orario e luogo dell’assemblea prima di salvare.');
       return;
     }
 
     await aggiornaWorkflowTecnico(item, {
       data_assemblea: dataAssemblea,
-      luogo_assemblea: luogoAssemblea,
+      luogo_assemblea: componiLuogoAssemblea(luogoAssemblea, oraAssemblea),
       stato: 'Assemblea programmata',
     });
 
     alert('Assemblea pianificata correttamente.');
+  };
+
+  const cancellaCapitolato = async (item) => {
+    if (!item?.id || !onDeleteCapitolato) return;
+    const conferma = window.confirm(`Sicuro di cancellare la pratica ${item.numero_pratica || `#${item.id}`}? L’operazione non può essere annullata.`);
+    if (!conferma) return;
+    await onDeleteCapitolato(item.id);
+    setCapitolatoApertoId(null);
   };
 
   const salvaValoreOffertaCapitolato = async (item, valore) => {
@@ -2819,7 +2858,7 @@ function CapitolatoSenzaPensieriSuite({
 
   useEffect(() => {
     if (!capitolatoAperto?.id) {
-      setAssembleaDraft({ capitolatoId: null, data: '', luogo: '' });
+      setAssembleaDraft({ capitolatoId: null, data: '', ora: '', luogo: '' });
       return;
     }
 
@@ -2829,7 +2868,8 @@ function CapitolatoSenzaPensieriSuite({
       return {
         capitolatoId: capitolatoAperto.id,
         data: capitolatoAperto.data_assemblea || '',
-        luogo: capitolatoAperto.luogo_assemblea || '',
+        ora: estraiOraAssemblea(capitolatoAperto.luogo_assemblea) || '',
+        luogo: pulisciLuogoAssemblea(capitolatoAperto.luogo_assemblea || ''),
       };
     });
   }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
@@ -3159,14 +3199,28 @@ function CapitolatoSenzaPensieriSuite({
                 <p className="mt-1 text-sm font-semibold text-slate-600">
                   {capitolatoAperto.condominio_nome || 'Condominio n.d.'} • {capitolatoAperto.stato || 'Nuovo capitolato'}
                 </p>
+                {statoDecisioneCapitolato(capitolatoAperto) && (
+                  <div className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${statoDecisioneCapitolato(capitolatoAperto) === 'accettata' ? 'bg-emerald-700 text-white' : 'bg-red-700 text-white'}`}>
+                    Pratica {statoDecisioneCapitolato(capitolatoAperto)}
+                  </div>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => setCapitolatoApertoId(null)}
-                className="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-700"
-              >
-                Chiudi
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCapitolatoApertoId(null)}
+                  className="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-700"
+                >
+                  Chiudi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cancellaCapitolato(capitolatoAperto)}
+                  className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-50"
+                >
+                  Cancella pratica
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -3427,7 +3481,7 @@ function CapitolatoSenzaPensieriSuite({
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs font-black uppercase tracking-wide text-slate-500">Assemblea</p>
-              <p className="mt-1 text-[11px] font-semibold text-slate-500">{isGestore ? 'Compilabile dall’amministratore.' : 'Inserisci data/luogo assemblea e richiedi presenza CSP.'}</p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">{isGestore ? 'Compilabile dall’amministratore.' : 'Inserisci data, orario e luogo assemblea e richiedi presenza CSP.'}</p>
               <div className="mt-2 space-y-2">
                 <input
                   type="date"
@@ -3441,7 +3495,18 @@ function CapitolatoSenzaPensieriSuite({
                   disabled={isGestore}
                 />
                 <input
-                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.luogo : (capitolatoAperto.luogo_assemblea || '')}
+                  type="time"
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.ora : estraiOraAssemblea(capitolatoAperto.luogo_assemblea)}
+                  onChange={(e) => setAssembleaDraft((prev) => ({
+                    ...prev,
+                    capitolatoId: capitolatoAperto.id,
+                    ora: e.target.value || '',
+                  }))}
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                  disabled={isGestore}
+                />
+                <input
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.luogo : pulisciLuogoAssemblea(capitolatoAperto.luogo_assemblea || '')}
                   onChange={(e) => setAssembleaDraft((prev) => ({
                     ...prev,
                     capitolatoId: capitolatoAperto.id,
@@ -9336,6 +9401,23 @@ export default function App() {
     }
   };
 
+  const cancellaCapitolatoSenzaPensieri = async (capitolatoId) => {
+    try {
+      const id = Number(capitolatoId);
+      if (!id) return;
+
+      await supabase.from('capitolati_eventi').delete().eq('capitolato_id', id);
+      const { error } = await supabase.from('capitolati_senza_pensieri').delete().eq('id', id);
+      if (error) throw error;
+
+      setStatusMessage('Pratica Capitolato Senza Pensieri cancellata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore cancellazione pratica: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const inviaFatturaPartner = async (fatturaId) => {
     try {
       const { data, error } = await supabase.functions.invoke('notify-fattura-partner', {
@@ -9881,6 +9963,7 @@ export default function App() {
             partnerOnboardingCaSP={partnerOnboardingCaSP}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
+              onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
             />
           </>
@@ -9907,6 +9990,7 @@ export default function App() {
             partnerOnboardingCaSP={partnerOnboardingCaSP}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
+            onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
           />
         )}
