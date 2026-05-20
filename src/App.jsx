@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -4888,6 +4888,8 @@ function FatturazionePartnerSuite({
     note: '',
   });
 
+  const [adminProvvigioniSelezionato, setAdminProvvigioniSelezionato] = useState('');
+
   const updateMiaFattura = (field, value) => {
     setMiaFatturaForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -5158,6 +5160,73 @@ function FatturazionePartnerSuite({
   });
   const capitolatoById = (id) => (capitolatiSenzaPensieri || []).find((item) => Number(item.id) === Number(id));
 
+  const normalizzaEmail = (value) => String(value || '').toLowerCase().trim();
+  const getDataPagamentoFattura = (fattura) => (
+    fattura?.pagata_il ||
+    fattura?.data_pagamento ||
+    fattura?.paid_at ||
+    null
+  );
+
+  const isFatturaPagataFuoriTermine = (fattura) => {
+    if (String(fattura?.stato || '').toLowerCase() !== 'pagata') return false;
+    if (!fattura?.data_scadenza) return false;
+
+    const dataPagamentoRaw = getDataPagamentoFattura(fattura);
+    if (!dataPagamentoRaw) return false;
+
+    const scadenza = new Date(fattura.data_scadenza);
+    const pagamento = new Date(dataPagamentoRaw);
+
+    if (Number.isNaN(scadenza.getTime()) || Number.isNaN(pagamento.getTime())) return false;
+
+    scadenza.setHours(0, 0, 0, 0);
+    pagamento.setHours(0, 0, 0, 0);
+
+    const limiteMaturazione = new Date(scadenza);
+    limiteMaturazione.setDate(limiteMaturazione.getDate() + 15);
+
+    return pagamento > limiteMaturazione;
+  };
+
+  const calcolaProvvigioneAmministratoreDaFattura = (fattura) => Number(fattura.importo_imponibile || 0) * 0.10;
+
+  const provvigioniPerAmministratore = amministratori.map((admin) => {
+    const email = normalizzaEmail(admin.email);
+    const fattureAdminPagate = (fatturePartner || []).filter((fattura) => (
+      normalizzaEmail(fattura.amministratore_email) === email &&
+      String(fattura.stato || '').toLowerCase() === 'pagata'
+    ));
+    const fattureValide = fattureAdminPagate.filter((fattura) => !isFatturaPagataFuoriTermine(fattura));
+    const fatturePerse = fattureAdminPagate.filter((fattura) => isFatturaPagataFuoriTermine(fattura));
+    const fattureProvvigioneAdmin = (fattureProvvigioniAmministratori || []).filter((fattura) => normalizzaEmail(fattura.amministratore_email) === email);
+
+    const maturate = fattureValide.reduce((sum, fattura) => sum + calcolaProvvigioneAmministratoreDaFattura(fattura), 0);
+    const perse = fatturePerse.reduce((sum, fattura) => sum + calcolaProvvigioneAmministratoreDaFattura(fattura), 0);
+    const fatturate = fattureProvvigioneAdmin
+      .filter((fattura) => String(fattura.stato || '') !== 'annullata')
+      .reduce((sum, fattura) => sum + Number(fattura.importo_imponibile || 0), 0);
+    const pagate = fattureProvvigioneAdmin
+      .filter((fattura) => String(fattura.stato || '') === 'pagata')
+      .reduce((sum, fattura) => sum + Number(fattura.importo_imponibile || 0), 0);
+
+    return {
+      ...admin,
+      email,
+      nome: admin.nome || admin.email,
+      maturate,
+      perse,
+      fatturate,
+      pagate,
+      daFatturare: Math.max(maturate - fatturate, 0),
+      daPagare: Math.max(fatturate - pagate, 0),
+      fattureValide,
+      fatturePerse,
+      fattureProvvigioneAdmin,
+    };
+  });
+
+  const riepilogoAdminSelezionato = provvigioniPerAmministratore.find((row) => row.email === normalizzaEmail(adminProvvigioniSelezionato)) || null;
 
   const fatturatoTotale = (fatturePartner || []).reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
   const fatturatoPagato = (fatturePartner || []).filter((f) => f.stato === 'pagata').reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
@@ -5167,9 +5236,12 @@ function FatturazionePartnerSuite({
   const mieProvvigioniFatturate = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
   const mieProvvigioniDaFatturare = Math.max(provvigioniGestore - mieProvvigioniFatturate, 0);
 
-  const provvAdminTotali = (fattureProvvigioniAmministratori || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
-  const provvAdminPagate = (fattureProvvigioniAmministratori || []).filter((f) => String(f.stato || '') === 'pagata').reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
-  const provvAdminDaPagare = (fattureProvvigioniAmministratori || []).filter((f) => !['pagata','annullata'].includes(String(f.stato || ''))).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
+  const provvAdminTotali = provvigioniPerAmministratore.reduce((sum, row) => sum + row.fatturate, 0);
+  const provvAdminMaturate = provvigioniPerAmministratore.reduce((sum, row) => sum + row.maturate, 0);
+  const provvAdminPerse = provvigioniPerAmministratore.reduce((sum, row) => sum + row.perse, 0);
+  const provvAdminPagate = provvigioniPerAmministratore.reduce((sum, row) => sum + row.pagate, 0);
+  const provvAdminDaFatturare = provvigioniPerAmministratore.reduce((sum, row) => sum + row.daFatturare, 0);
+  const provvAdminDaPagare = provvigioniPerAmministratore.reduce((sum, row) => sum + row.daPagare, 0);
 
   const oggiFatture = new Date();
   oggiFatture.setHours(0, 0, 0, 0);
@@ -5744,10 +5816,13 @@ function FatturazionePartnerSuite({
             <h2 className="mt-1 text-xl font-bold">Controllo trimestrale</h2>
             <p className="mt-1 text-sm text-slate-500">Gestione contabile interna dei riepiloghi fattura delle provvigioni amministratori.</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 md:min-w-[560px]">
-            <DashboardStat label="Totali" value={formatEuro(provvAdminTotali)} tone="sky" />
+          <div className="grid grid-cols-2 gap-2 md:min-w-[720px] md:grid-cols-6">
+            <DashboardStat label="Maturate" value={formatEuro(provvAdminMaturate)} tone="sky" />
+            <DashboardStat label="Perse" value={formatEuro(provvAdminPerse)} tone="red" />
+            <DashboardStat label="Fatturate" value={formatEuro(provvAdminTotali)} tone="emerald" />
+            <DashboardStat label="Da fatturare" value={formatEuro(provvAdminDaFatturare)} tone="amber" />
             <DashboardStat label="Pagate" value={formatEuro(provvAdminPagate)} tone="emerald" />
-            <DashboardStat label="Da pagare" value={formatEuro(provvAdminDaPagare)} tone="amber" />
+            <DashboardStat label="Da pagare" value={formatEuro(provvAdminDaPagare)} tone="red" />
           </div>
         </div>
 
@@ -5798,60 +5873,91 @@ function FatturazionePartnerSuite({
           </button>
         </form>
 
-        <div className="mt-4 max-h-[360px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
-          <table className="min-w-[900px] w-full border-collapse text-sm">
-            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-3">Fattura</th>
-                <th className="px-3 py-3">Amministratore</th>
-                <th className="px-3 py-3">Fornitore</th>
-                <th className="px-3 py-3">Periodo</th>
-                <th className="px-3 py-3 text-right">Imponibile</th>
-                <th className="px-3 py-3">Stato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(fattureProvvigioniAmministratori || []).length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione amministratore presente.</td>
-                </tr>
-              ) : (
-                fattureProvvigioniAmministratori.map((fattura) => (
-                  <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/30">
-                    <td className="px-3 py-3">
-                      <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
-                      <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      <p className="font-bold text-slate-800">{fattura.amministratore_nome || fattura.amministratore_email}</p>
-                      <p className="text-xs text-slate-500">{fattura.amministratore_email}</p>
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
-                    <td className="px-3 py-3">
-                      <select
-                        value={fattura.stato || 'da_pagare'}
-                        onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
-                        className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-wide ${
-                          fattura.stato === 'pagata'
-                            ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                            : fattura.stato === 'annullata'
-                              ? 'border-slate-200 bg-slate-100 text-slate-600'
-                              : 'border-amber-200 bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        <option value="da_pagare">Da pagare</option>
-                        <option value="pagata">Pagata</option>
-                        <option value="annullata">Annullata</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <section className="mt-4 rounded-3xl border border-indigo-100 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Dashboard riservata</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">Provvigioni per amministratore</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Seleziona un amministratore per visualizzare solo i suoi numeri: utile quando la schermata è aperta durante un incontro.
+              </p>
+            </div>
+            <select value={adminProvvigioniSelezionato} onChange={(e) => setAdminProvvigioniSelezionato(e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-700 md:min-w-[320px]">
+              <option value="">Seleziona amministratore</option>
+              {provvigioniPerAmministratore.map((admin) => (
+                <option key={admin.email} value={admin.email}>{admin.nome || admin.email}</option>
+              ))}
+            </select>
+          </div>
+
+          {riepilogoAdminSelezionato ? (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+                <DashboardStat label="Maturate" value={formatEuro(riepilogoAdminSelezionato.maturate)} tone="sky" />
+                <DashboardStat label="Perse" value={formatEuro(riepilogoAdminSelezionato.perse)} tone="red" />
+                <DashboardStat label="Fatturate" value={formatEuro(riepilogoAdminSelezionato.fatturate)} tone="emerald" />
+                <DashboardStat label="Da fatturare" value={formatEuro(riepilogoAdminSelezionato.daFatturare)} tone="amber" />
+                <DashboardStat label="Pagate" value={formatEuro(riepilogoAdminSelezionato.pagate)} tone="emerald" />
+                <DashboardStat label="Da pagare" value={formatEuro(riepilogoAdminSelezionato.daPagare)} tone="red" />
+              </div>
+
+              <div className="max-h-[360px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
+                <table className="min-w-[900px] w-full border-collapse text-sm">
+                  <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-3">Fattura</th>
+                      <th className="px-3 py-3">Fornitore</th>
+                      <th className="px-3 py-3">Periodo</th>
+                      <th className="px-3 py-3 text-right">Imponibile</th>
+                      <th className="px-3 py-3">Stato</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {riepilogoAdminSelezionato.fattureProvvigioneAdmin.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione registrata per questo amministratore.</td>
+                      </tr>
+                    ) : (
+                      riepilogoAdminSelezionato.fattureProvvigioneAdmin.map((fattura) => (
+                        <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/30">
+                          <td className="px-3 py-3">
+                            <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
+                            <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
+                          </td>
+                          <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                          <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
+                          <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
+                          <td className="px-3 py-3">
+                            <select
+                              value={fattura.stato || 'da_pagare'}
+                              onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
+                              className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-wide ${
+                                fattura.stato === 'pagata'
+                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                  : fattura.stato === 'annullata'
+                                    ? 'border-slate-200 bg-slate-100 text-slate-600'
+                                    : 'border-amber-200 bg-amber-100 text-amber-700'
+                              }`}
+                            >
+                              <option value="da_pagare">Da pagare</option>
+                              <option value="pagata">Pagata</option>
+                              <option value="annullata">Annullata</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-3xl border border-dashed border-indigo-200 bg-indigo-50/60 p-6 text-center">
+              <p className="text-sm font-black text-indigo-800">Seleziona un amministratore per aprire la dashboard riservata.</p>
+              <p className="mt-1 text-xs font-semibold text-indigo-600">I numeri degli altri amministratori restano nascosti.</p>
+            </div>
+          )}
+        </section>
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
