@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2576,6 +2576,225 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
 }
 
 
+
+function VotazioneAssembleaCasep({ capitolato, utentiCondomini = [], utentiSistema = [], votiAssemblea = [], onSaveVotoAssemblea }) {
+  const [filtro, setFiltro] = useState('');
+  const condominioId = Number(capitolato?.condominio_id || 0);
+  const emailKey = (value) => String(value || '').toLowerCase().trim();
+
+  const nomeByEmail = useMemo(() => {
+    const map = new Map();
+    (utentiSistema || []).forEach((utente) => {
+      const email = emailKey(utente.email);
+      if (email) map.set(email, utente.nome || email);
+    });
+    return map;
+  }, [utentiSistema]);
+
+  const votoByEmail = useMemo(() => {
+    const map = new Map();
+    (votiAssemblea || [])
+      .filter((voto) => Number(voto.capitolato_id) === Number(capitolato?.id))
+      .forEach((voto) => map.set(emailKey(voto.email), voto));
+    return map;
+  }, [votiAssemblea, capitolato?.id]);
+
+  const aventiDiritto = useMemo(() => {
+    return (utentiCondomini || [])
+      .filter((item) => Number(item.condominio_id) === condominioId)
+      .filter((item) => {
+        const ruolo = String(item.ruolo || '').toLowerCase().trim();
+        return ruolo === 'condominio' || ruolo === 'condomino';
+      })
+      .map((item) => {
+        const email = emailKey(item.email);
+        const voto = votoByEmail.get(email) || {};
+        const nome = nomeByEmail.get(email) || item.nome || email;
+        const cognome = item.cognome || voto.cognome || '';
+        const millesimi = Number(item.millesimi || voto.millesimi || 0);
+        return {
+          email,
+          nome,
+          cognome,
+          label: `${nome || ''} ${cognome || ''}`.trim() || email,
+          millesimi,
+          presente: Boolean(voto.presente),
+          voto: voto.voto || '',
+          delegato_a_email: emailKey(voto.delegato_a_email),
+          note: voto.note || '',
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'it'));
+  }, [utentiCondomini, condominioId, nomeByEmail, votoByEmail]);
+
+  const presenti = aventiDiritto.filter((item) => item.presente);
+  const presentiEmails = new Set(presenti.map((item) => item.email));
+  const delegheValide = aventiDiritto.filter((item) => item.delegato_a_email && presentiEmails.has(item.delegato_a_email));
+
+  const millesimiRappresentatiPerEmail = useMemo(() => {
+    const map = new Map();
+    presenti.forEach((item) => map.set(item.email, Number(item.millesimi || 0)));
+    delegheValide.forEach((delegato) => {
+      map.set(delegato.delegato_a_email, Number(map.get(delegato.delegato_a_email) || 0) + Number(delegato.millesimi || 0));
+    });
+    return map;
+  }, [presenti, delegheValide]);
+
+  const riepilogo = useMemo(() => {
+    const represented = Array.from(millesimiRappresentatiPerEmail.values()).reduce((sum, value) => sum + Number(value || 0), 0);
+    const base = {
+      presentiFisici: presenti.length,
+      deleghe: delegheValide.length,
+      rappresentati: represented,
+      favorevoli: 0,
+      contrari: 0,
+      astenuti: 0,
+      nonEspressi: 0,
+    };
+
+    presenti.forEach((presente) => {
+      const peso = Number(millesimiRappresentatiPerEmail.get(presente.email) || 0);
+      const voto = String(presente.voto || '').toLowerCase();
+      if (voto === 'favorevole') base.favorevoli += peso;
+      else if (voto === 'contrario') base.contrari += peso;
+      else if (voto === 'astenuto') base.astenuti += peso;
+      else base.nonEspressi += peso;
+    });
+
+    return base;
+  }, [presenti, delegheValide, millesimiRappresentatiPerEmail]);
+
+  const listaFiltrata = aventiDiritto.filter((item) => {
+    const q = filtro.toLowerCase().trim();
+    if (!q) return true;
+    return item.label.toLowerCase().includes(q) || item.email.includes(q);
+  });
+
+  const salva = async (item, patch) => {
+    const prossimo = {
+      capitolato_id: capitolato.id,
+      condominio_id: condominioId,
+      email: item.email,
+      nome: item.nome,
+      cognome: item.cognome || '',
+      millesimi: Number(item.millesimi || 0),
+      presente: item.presente,
+      voto: item.voto || '',
+      delegato_a_email: item.delegato_a_email || null,
+      note: item.note || '',
+      ...patch,
+    };
+
+    if (prossimo.presente) prossimo.delegato_a_email = null;
+    if (prossimo.delegato_a_email) {
+      prossimo.presente = false;
+      prossimo.voto = '';
+    }
+
+    await onSaveVotoAssemblea?.(prossimo);
+  };
+
+  const generaResocontoPdf = () => {
+    const rowsPresenti = presenti.map((item) => {
+      const peso = Number(millesimiRappresentatiPerEmail.get(item.email) || item.millesimi || 0).toFixed(2);
+      const deleghe = delegheValide.filter((d) => d.delegato_a_email === item.email).map((d) => `${d.label} (${Number(d.millesimi || 0).toFixed(2)})`).join(', ');
+      return `<tr><td>${item.label}</td><td>${Number(item.millesimi || 0).toFixed(2)}</td><td>${peso}</td><td>${item.voto || 'Non espresso'}</td><td>${deleghe || '-'}</td></tr>`;
+    }).join('');
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Resoconto assemblea CaSeP</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#0f172a}h1{font-size:24px}h2{font-size:18px;margin-top:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}.card{border:1px solid #d1d5db;border-radius:14px;padding:12px;background:#f8fafc}.label{font-size:11px;text-transform:uppercase;color:#64748b;font-weight:800}.value{font-size:20px;font-weight:900;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border-bottom:1px solid #e5e7eb;text-align:left;padding:9px;font-size:12px}th{background:#f1f5f9;text-transform:uppercase;font-size:10px;color:#475569}.muted{color:#64748b;font-size:12px}</style></head><body><h1>Resoconto assemblea CaSeP</h1><p class="muted">${capitolato?.numero_pratica || '#'+capitolato?.id} — ${capitolato?.titolo || ''}</p><p><strong>Condominio:</strong> ${capitolato?.condominio_nome || ''}<br/><strong>Data assemblea:</strong> ${capitolato?.data_assemblea || '-'}<br/><strong>Luogo:</strong> ${capitolato?.luogo_assemblea || '-'}</p><div class="grid"><div class="card"><div class="label">Presenti fisici</div><div class="value">${riepilogo.presentiFisici}</div></div><div class="card"><div class="label">Deleghe</div><div class="value">${riepilogo.deleghe}</div></div><div class="card"><div class="label">Millesimi rappresentati</div><div class="value">${riepilogo.rappresentati.toFixed(2)}</div></div><div class="card"><div class="label">Favorevoli</div><div class="value">${riepilogo.favorevoli.toFixed(2)}</div></div><div class="card"><div class="label">Contrari</div><div class="value">${riepilogo.contrari.toFixed(2)}</div></div><div class="card"><div class="label">Astenuti</div><div class="value">${riepilogo.astenuti.toFixed(2)}</div></div><div class="card"><div class="label">Non espressi</div><div class="value">${riepilogo.nonEspressi.toFixed(2)}</div></div></div><h2>Presenti, deleghe e votazioni</h2><table><thead><tr><th>Condòmino</th><th>Millesimi propri</th><th>Millesimi rappresentati</th><th>Voto</th><th>Deleghe ricevute</th></tr></thead><tbody>${rowsPresenti || '<tr><td colspan="5">Nessun presente registrato.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return alert('Popup bloccato: consenti le finestre popup per generare il PDF.');
+    win.document.write(html);
+    win.document.close();
+  };
+
+  if (!condominioId) return null;
+
+  return (
+    <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Votazione assemblea CaSeP</p>
+          <h3 className="mt-1 text-lg font-black text-slate-900">Presenze, deleghe e millesimi live</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Sistema separato dal voto CSP: pensato per assemblea fisica e gestione manuale assistita.</p>
+        </div>
+        <button type="button" onClick={generaResocontoPdf} className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white">
+          Genera resoconto PDF
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-7">
+        <DashboardStat label="Presenti" value={riepilogo.presentiFisici} tone="sky" />
+        <DashboardStat label="Deleghe" value={riepilogo.deleghe} tone="amber" />
+        <DashboardStat label="Rappresentati" value={riepilogo.rappresentati.toFixed(2)} tone="slate" />
+        <DashboardStat label="Favorevoli" value={riepilogo.favorevoli.toFixed(2)} tone="emerald" />
+        <DashboardStat label="Contrari" value={riepilogo.contrari.toFixed(2)} tone="red" />
+        <DashboardStat label="Astenuti" value={riepilogo.astenuti.toFixed(2)} tone="purple" />
+        <DashboardStat label="Non espressi" value={riepilogo.nonEspressi.toFixed(2)} tone="slate" />
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Cerca per nome, cognome o email" className="w-full rounded-2xl border border-indigo-100 bg-white px-3 py-3 text-sm font-semibold md:max-w-md" />
+        <p className="text-xs font-bold text-indigo-700">Condòmini caricati: {aventiDiritto.length}</p>
+      </div>
+
+      <div className="mt-3 max-h-[520px] overflow-auto rounded-2xl border border-indigo-100 bg-white csp-scroll">
+        <table className="min-w-[1040px] w-full border-collapse text-sm">
+          <thead className="bg-indigo-100 text-left text-[11px] font-black uppercase tracking-wide text-indigo-700">
+            <tr>
+              <th className="px-3 py-3">Condòmino</th>
+              <th className="px-3 py-3 text-right">Millesimi</th>
+              <th className="px-3 py-3">Presente</th>
+              <th className="px-3 py-3">Delega a</th>
+              <th className="px-3 py-3">Voto</th>
+              <th className="px-3 py-3 text-right">Rappresentati</th>
+            </tr>
+          </thead>
+          <tbody>
+            {listaFiltrata.length === 0 ? (
+              <tr><td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessun condòmino trovato. Verifica anagrafica, cognome e millesimi.</td></tr>
+            ) : listaFiltrata.map((item) => {
+              const rappresentati = item.presente ? Number(millesimiRappresentatiPerEmail.get(item.email) || item.millesimi || 0) : 0;
+              const delegabileA = presenti.filter((presente) => presente.email !== item.email);
+              return (
+                <tr key={item.email} className="border-t border-slate-100 hover:bg-indigo-50/40">
+                  <td className="px-3 py-3">
+                    <p className="font-black text-slate-900">{item.label}</p>
+                    <p className="text-xs text-slate-500">{item.email}</p>
+                  </td>
+                  <td className="px-3 py-3 text-right font-black text-slate-800">{Number(item.millesimi || 0).toFixed(2)}</td>
+                  <td className="px-3 py-3">
+                    <label className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                      <input type="checkbox" checked={item.presente} onChange={(e) => salva(item, { presente: e.target.checked, delegato_a_email: null, voto: e.target.checked ? item.voto : '' })} />
+                      Presente
+                    </label>
+                  </td>
+                  <td className="px-3 py-3">
+                    <select value={item.delegato_a_email || ''} onChange={(e) => salva(item, { delegato_a_email: e.target.value || null, presente: false, voto: '' })} className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-bold" disabled={item.presente}>
+                      <option value="">Nessuna delega</option>
+                      {delegabileA.map((presente) => <option key={presente.email} value={presente.email}>{presente.label}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-3">
+                    <select value={item.voto || ''} onChange={(e) => salva(item, { voto: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-bold" disabled={!item.presente}>
+                      <option value="">Non espresso</option>
+                      <option value="favorevole">Favorevole</option>
+                      <option value="contrario">Contrario</option>
+                      <option value="astenuto">Astenuto</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-3 text-right font-black text-indigo-700">{rappresentati.toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
 function CapitolatoSenzaPensieriSuite({
   ruolo,
   userProfile,
@@ -2583,6 +2802,9 @@ function CapitolatoSenzaPensieriSuite({
   capitolatiEventi,
   condomini,
   utentiSistema,
+  utentiCondomini = [],
+  votiAssembleaCasep = [],
+  onSaveVotoAssembleaCasep,
   aziendePartner,
   onCreateCapitolato,
   onUpdateCapitolato,
@@ -3748,6 +3970,14 @@ function CapitolatoSenzaPensieriSuite({
               )}
             </div>
           </div>
+
+          <VotazioneAssembleaCasep
+            capitolato={capitolatoAperto}
+            utentiCondomini={utentiCondomini}
+            utentiSistema={utentiSistema}
+            votiAssemblea={votiAssembleaCasep}
+            onSaveVotoAssemblea={onSaveVotoAssembleaCasep}
+          />
 
           <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-black uppercase tracking-wide text-slate-500">Timeline pratica</p>
@@ -6739,7 +6969,7 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
   const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '' });
   const [collaboratoreForm, setCollaboratoreForm] = useState({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
   const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
-  const [condominoForm, setCondominoForm] = useState({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+  const [condominoForm, setCondominoForm] = useState({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
   const [importCondominioId, setImportCondominioId] = useState('');
   const [importText, setImportText] = useState('');
 
@@ -6773,11 +7003,13 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
       .filter(Boolean)
       .map((row) => {
         const parts = row.includes(';') ? row.split(';') : row.split(',');
+        const hasCognome = parts.length >= 5;
         return {
           nome: String(parts[0] || '').trim(),
-          email: String(parts[1] || '').trim(),
-          millesimi: String(parts[2] || '').trim(),
-          telefono: String(parts[3] || '').trim(),
+          cognome: hasCognome ? String(parts[1] || '').trim() : '',
+          email: String(parts[hasCognome ? 2 : 1] || '').trim(),
+          millesimi: String(parts[hasCognome ? 3 : 2] || '').trim(),
+          telefono: String(parts[hasCognome ? 4 : 3] || '').trim(),
         };
       });
   };
@@ -6885,7 +7117,7 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
           onSubmit={async (event) => {
             event.preventDefault();
             const data = await invokeGestione({ action: 'crea_condomino', ...condominoForm });
-            if (data?.success) setCondominoForm({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+            if (data?.success) setCondominoForm({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
           }}
         >
           <select value={condominoForm.condominioId} onChange={(e) => setCondominoForm({ ...condominoForm, condominioId: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
@@ -6893,6 +7125,7 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
             {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
           <input value={condominoForm.nome} onChange={(e) => setCondominoForm({ ...condominoForm, nome: e.target.value })} placeholder="Nome condòmino" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominoForm.cognome} onChange={(e) => setCondominoForm({ ...condominoForm, cognome: e.target.value })} placeholder="Cognome / famiglia" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominoForm.email} onChange={(e) => setCondominoForm({ ...condominoForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominoForm.telefono} onChange={(e) => setCondominoForm({ ...condominoForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominoForm.millesimi} onChange={(e) => setCondominoForm({ ...condominoForm, millesimi: e.target.value })} placeholder="Millesimi" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
@@ -8143,6 +8376,7 @@ export default function App() {
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
+  const [votiAssembleaCasep, setVotiAssembleaCasep] = useState([]);
   const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
   const [partnerCampaignLog, setPartnerCampaignLog] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
@@ -8501,6 +8735,14 @@ export default function App() {
       if (capitolatiEventiError && capitolatiEventiError.code !== 'PGRST116' && capitolatiEventiError.code !== '42P01') throw capitolatiEventiError;
       setCapitolatiEventi(capitolatiEventiData || []);
 
+      const { data: votiAssembleaCasepData, error: votiAssembleaCasepError } = await supabase
+        .from('casep_assemblea_voti')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (votiAssembleaCasepError && votiAssembleaCasepError.code !== 'PGRST116' && votiAssembleaCasepError.code !== '42P01') throw votiAssembleaCasepError;
+      setVotiAssembleaCasep(votiAssembleaCasepData || []);
+
       const { data: onboardingData, error: onboardingError } = await supabase
         .from('partner_onboarding_casp')
         .select('*')
@@ -8517,11 +8759,21 @@ export default function App() {
       if (campaignLogError && campaignLogError.code !== 'PGRST116' && campaignLogError.code !== '42P01') throw campaignLogError;
       setPartnerCampaignLog(campaignLogData || []);
 
-      const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
+      let utentiCondominiData = [];
+      const { data: utentiCondominiConCognome, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
-        .select('email, condominio_id, millesimi, ruolo, onesignal_subscription_id');
+        .select('email, condominio_id, millesimi, ruolo, cognome, onesignal_subscription_id');
 
-      if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
+      if (utentiCondominiError && utentiCondominiError.code === '42703') {
+        const { data: utentiCondominiFallback, error: utentiCondominiFallbackError } = await supabase
+          .from('utenti_condomini')
+          .select('email, condominio_id, millesimi, ruolo, onesignal_subscription_id');
+        if (utentiCondominiFallbackError && utentiCondominiFallbackError.code !== 'PGRST116') throw utentiCondominiFallbackError;
+        utentiCondominiData = utentiCondominiFallback || [];
+      } else {
+        if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
+        utentiCondominiData = utentiCondominiConCognome || [];
+      }
       setUtentiCondomini(utentiCondominiData || []);
 
       const { data: utentiSistemaData, error: utentiSistemaError } = await supabase
@@ -9709,6 +9961,41 @@ export default function App() {
     }
   };
 
+
+  const salvaVotoAssembleaCasep = async (payload) => {
+    try {
+      if (!payload?.capitolato_id || !payload?.email) return;
+
+      const record = {
+        capitolato_id: Number(payload.capitolato_id),
+        condominio_id: payload.condominio_id ? Number(payload.condominio_id) : null,
+        email: String(payload.email || '').toLowerCase().trim(),
+        nome: payload.nome || '',
+        cognome: payload.cognome || '',
+        millesimi: Number(payload.millesimi || 0),
+        presente: Boolean(payload.presente),
+        voto: payload.voto || null,
+        delegato_a_email: payload.delegato_a_email || null,
+        note: payload.note || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('casep_assemblea_voti')
+        .upsert(record, { onConflict: 'capitolato_id,email' });
+
+      if (error) throw error;
+
+      setVotiAssembleaCasep((prev) => {
+        const altri = (prev || []).filter((item) => !(Number(item.capitolato_id) === Number(record.capitolato_id) && String(item.email || '').toLowerCase().trim() === record.email));
+        return [record, ...altri];
+      });
+    } catch (error) {
+      console.error(error);
+      alert('Errore salvataggio voto assemblea CaSeP: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const cancellaCapitolatoSenzaPensieri = async (capitolatoId) => {
     try {
       const id = Number(capitolatoId);
@@ -10268,6 +10555,9 @@ export default function App() {
               capitolatiEventi={capitolatiEventi}
               condomini={condomini}
               utentiSistema={utentiSistema}
+              utentiCondomini={utentiCondomini}
+              votiAssembleaCasep={votiAssembleaCasep}
+              onSaveVotoAssembleaCasep={salvaVotoAssembleaCasep}
               aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
@@ -10295,6 +10585,9 @@ export default function App() {
             capitolati={capitolatiSenzaPensieri}
             condomini={condominiVisibili}
             utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
+            votiAssembleaCasep={votiAssembleaCasep}
+            onSaveVotoAssembleaCasep={salvaVotoAssembleaCasep}
             aziendePartner={aziendePartner}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
