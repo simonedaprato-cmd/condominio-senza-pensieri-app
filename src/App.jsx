@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2795,6 +2795,147 @@ function VotazioneAssembleaCasep({ capitolato, utentiCondomini = [], utentiSiste
 }
 
 
+
+function statoDocumentoPresentazione(dataScadenza) {
+  if (!dataScadenza) return { label: 'non caricato', tone: 'slate' };
+  const oggi = new Date();
+  const scadenza = new Date(dataScadenza);
+  const diff = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+  if (Number.isNaN(diff)) return { label: 'da verificare', tone: 'amber' };
+  if (diff < 0) return { label: 'scaduto', tone: 'red' };
+  if (diff <= 30) return { label: `in scadenza (${diff} gg)`, tone: 'amber' };
+  return { label: 'valido', tone: 'emerald' };
+}
+
+function badgeDocumentoPresentazione(tone) {
+  if (tone === 'emerald') return 'border-emerald-300 bg-emerald-500/15 text-emerald-100';
+  if (tone === 'amber') return 'border-amber-300 bg-amber-500/15 text-amber-100';
+  if (tone === 'red') return 'border-red-300 bg-red-500/15 text-red-100';
+  return 'border-slate-300 bg-white/10 text-slate-100';
+}
+
+function PresentazioneAssembleaCaSeP({ capitolato, azienda, votiAssemblea = [], onClose }) {
+  const [slide, setSlide] = useState(0);
+  const durc = statoDocumentoPresentazione(azienda?.durc_scadenza);
+  const polizza = statoDocumentoPresentazione(azienda?.polizza_scadenza);
+  const voti = (votiAssemblea || []).filter((voto) => Number(voto.capitolato_id) === Number(capitolato?.id));
+  const presenti = voti.filter((voto) => voto.presente);
+  const deleghe = voti.filter((voto) => voto.delegato_a_email);
+  const millesimiPresenti = presenti.reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const favorevoli = presenti.filter((voto) => String(voto.voto).toLowerCase() === 'favorevole').reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const contrari = presenti.filter((voto) => String(voto.voto).toLowerCase() === 'contrario').reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const astenuti = presenti.filter((voto) => String(voto.voto).toLowerCase() === 'astenuto').reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const step = ['Richiesta', 'Sopralluogo', 'Relazione', 'Offerta', 'Assemblea', 'Decisione', 'CaSP'];
+  const stato = String(capitolato?.stato || '').toLowerCase();
+  const activeIndex = stato.includes('convertita') ? 6 : stato.includes('accett') || stato.includes('rifiut') ? 5 : stato.includes('assemblea') || stato.includes('presenza') ? 4 : stato.includes('offerta') ? 3 : stato.includes('relazione') ? 2 : stato.includes('sopralluogo') ? 1 : 0;
+
+  const slides = [
+    {
+      label: 'Quadro intervento',
+      body: (
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-black/20 backdrop-blur-xl">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Pratica CaSeP</p>
+            <h1 className="mt-3 text-4xl font-black leading-tight text-white md:text-6xl">{capitolato?.titolo || 'Intervento condominiale'}</h1>
+            <p className="mt-4 text-xl font-semibold text-emerald-50">{capitolato?.condominio_nome || 'Condominio'} • {capitolato?.numero_pratica || `#${capitolato?.id}`}</p>
+            <p className="mt-6 max-w-3xl text-lg leading-relaxed text-slate-200">{capitolato?.note || capitolato?.categoria || 'Riepilogo tecnico e operativo della pratica da condividere in assemblea.'}</p>
+          </div>
+          <div className="rounded-[2rem] border border-emerald-300/30 bg-emerald-400/10 p-6 backdrop-blur-xl">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Assemblea</p>
+            <p className="mt-4 text-3xl font-black text-white">{capitolato?.data_assemblea || 'Da pianificare'}</p>
+            <p className="mt-3 text-lg font-semibold text-slate-200">{capitolato?.luogo_assemblea || 'Luogo da definire'}</p>
+            <div className="mt-6 rounded-2xl bg-white/10 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-300">Stato pratica</p>
+              <p className="mt-1 text-2xl font-black text-emerald-100">{capitolato?.stato || 'Nuova pratica'}</p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: 'Offerta e azienda',
+      body: (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-[2rem] border border-sky-300/30 bg-sky-400/10 p-8 backdrop-blur-xl">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-sky-200">Offerta economica</p>
+            <p className="mt-5 text-5xl font-black text-white md:text-6xl">{capitolato?.valore_offerta ? formatEuro(capitolato.valore_offerta) : 'Offerta non caricata'}</p>
+            <p className="mt-4 text-lg font-semibold text-slate-200">Fornitore: {azienda?.ragione_sociale || capitolato?.azienda_vincitrice_nome || 'Da selezionare'}</p>
+            {capitolato?.offerta_pdf_url && <a href={capitolato.offerta_pdf_url} target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-900">Apri offerta PDF</a>}
+          </div>
+          <div className="rounded-[2rem] border border-emerald-300/30 bg-emerald-400/10 p-8 backdrop-blur-xl">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Affidabilità azienda</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <span className={`rounded-full border px-4 py-2 text-sm font-black uppercase ${badgeDocumentoPresentazione(durc.tone)}`}>DURC: {durc.label}</span>
+              <span className={`rounded-full border px-4 py-2 text-sm font-black uppercase ${badgeDocumentoPresentazione(polizza.tone)}`}>Polizza: {polizza.label}</span>
+              {azienda?.certificazioni_iso && <span className="rounded-full border border-cyan-300 bg-cyan-400/10 px-4 py-2 text-sm font-black uppercase text-cyan-100">ISO: {azienda.certificazioni_iso}</span>}
+              {azienda?.certificazioni_soa && <span className="rounded-full border border-purple-300 bg-purple-400/10 px-4 py-2 text-sm font-black uppercase text-purple-100">SOA: {azienda.certificazioni_soa}</span>}
+            </div>
+            <div className="mt-6 rounded-2xl bg-white/10 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-300">Garanzie</p>
+              <p className="mt-2 whitespace-pre-wrap text-base font-semibold leading-relaxed text-white">{azienda?.schema_garanzie || 'Schema garanzie non ancora caricato.'}</p>
+            </div>
+            {azienda?.note_qualificazione && <p className="mt-4 text-sm font-semibold leading-relaxed text-emerald-50">{azienda.note_qualificazione}</p>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: 'Timeline',
+      body: (
+        <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
+          <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Avanzamento pratica</p>
+          <div className="mt-10 grid gap-4 md:grid-cols-7">
+            {step.map((label, index) => (
+              <div key={label} className={`rounded-3xl border p-5 text-center ${index <= activeIndex ? 'border-emerald-300 bg-emerald-400/20 text-white shadow-xl shadow-emerald-950/30' : 'border-white/10 bg-white/5 text-slate-400'}`}>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-xl font-black">{index + 1}</div>
+                <p className="mt-3 text-sm font-black uppercase tracking-wide">{label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-2xl font-black text-white">Stato attuale: {capitolato?.stato || 'Da definire'}</p>
+        </div>
+      ),
+    },
+    {
+      label: 'Votazione live',
+      body: (
+        <div className="grid gap-4 md:grid-cols-5">
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-slate-300">Presenti</p><p className="mt-3 text-5xl font-black text-white">{presenti.length}</p></div>
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-slate-300">Deleghe</p><p className="mt-3 text-5xl font-black text-white">{deleghe.length}</p></div>
+          <div className="rounded-[2rem] border border-emerald-300/30 bg-emerald-400/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-emerald-200">Favorevoli</p><p className="mt-3 text-5xl font-black text-white">{favorevoli.toFixed(2)}</p></div>
+          <div className="rounded-[2rem] border border-red-300/30 bg-red-400/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-red-200">Contrari</p><p className="mt-3 text-5xl font-black text-white">{contrari.toFixed(2)}</p></div>
+          <div className="rounded-[2rem] border border-purple-300/30 bg-purple-400/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-purple-200">Astenuti</p><p className="mt-3 text-5xl font-black text-white">{astenuti.toFixed(2)}</p></div>
+          <div className="md:col-span-5 rounded-[2rem] border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">Millesimi presenti/rappresentati</p>
+            <p className="mt-3 text-6xl font-black text-white">{millesimiPresenti.toFixed(2)} / 1000</p>
+            <div className="mt-5 h-5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, millesimiPresenti / 10)}%` }} /></div>
+          </div>
+        </div>
+      ),
+    },
+  ];
+  const current = slides[slide] || slides[0];
+  return (
+    <div className="fixed inset-0 z-[9999] overflow-auto bg-slate-950 p-4 text-white md:p-8">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.35),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.25),transparent_35%)]" />
+      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col">
+        <header className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <LogoMark className="h-14 w-auto" />
+            <div><p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-300">Modalità assemblea premium</p><h2 className="text-2xl font-black text-white">{current.label}</h2></div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white backdrop-blur hover:bg-white/20">Chiudi presentazione</button>
+        </header>
+        <main className="relative flex-1 py-8">{current.body}</main>
+        <footer className="relative flex flex-col gap-3 border-t border-white/10 pt-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-2">{slides.map((item, index) => <button key={item.label} type="button" onClick={() => setSlide(index)} className={`h-3 rounded-full transition-all ${index === slide ? 'w-12 bg-emerald-400' : 'w-3 bg-white/25'}`} aria-label={item.label} />)}</div>
+          <div className="flex gap-2"><button type="button" onClick={() => setSlide((prev) => Math.max(0, prev - 1))} className="rounded-2xl bg-white/10 px-5 py-3 text-sm font-black text-white disabled:opacity-40" disabled={slide === 0}>← Indietro</button><button type="button" onClick={() => setSlide((prev) => Math.min(slides.length - 1, prev + 1))} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-40" disabled={slide === slides.length - 1}>Avanti →</button></div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function CapitolatoSenzaPensieriSuite({
   ruolo,
   userProfile,
@@ -2806,6 +2947,7 @@ function CapitolatoSenzaPensieriSuite({
   votiAssembleaCasep = [],
   onSaveVotoAssembleaCasep,
   aziendePartner,
+  contratti = [],
   onCreateCapitolato,
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
@@ -2821,6 +2963,7 @@ function CapitolatoSenzaPensieriSuite({
   const [conversioneDraft, setConversioneDraft] = useState({});
   const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
   const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', ora: '', luogo: '' });
+  const [presentazioneAssembleaId, setPresentazioneAssembleaId] = useState(null);
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
@@ -2911,6 +3054,17 @@ function CapitolatoSenzaPensieriSuite({
   };
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
+
+  const condominioCspAttivo = (condominioId) => {
+    const oggi = new Date().toISOString().slice(0, 10);
+    return (contratti || []).some((contratto) => {
+      if (Number(contratto.condominio_id) !== Number(condominioId)) return false;
+      const statoContratto = String(contratto.stato || contratto.status || '').toLowerCase();
+      if (['annullato', 'annullata', 'disdetto', 'disdetta', 'scaduto', 'scaduta'].includes(statoContratto)) return false;
+      if (contratto.data_scadenza && String(contratto.data_scadenza).slice(0, 10) < oggi) return false;
+      return Boolean(contratto.piano || contratto.app_attiva || contratto.gruppo_whatsapp_attivo || statoContratto === 'attivo' || statoContratto === 'attiva');
+    });
+  };
 
   const eseguiCampagnaConsigliata = async (azienda, tipoCampagna) => {
     try {
@@ -3171,6 +3325,7 @@ function CapitolatoSenzaPensieriSuite({
     });
 
   const capitolatoAperto = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoApertoId));
+  const presentazioneCapitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(presentazioneAssembleaId));
 
   useEffect(() => {
     if (!capitolatoAperto?.id) {
@@ -3227,7 +3382,16 @@ function CapitolatoSenzaPensieriSuite({
   const valorePartnerDaAnnuale = partnerDaAnnuale.reduce((sum, azienda) => sum + Number(azienda.valoreCasp || 0), 0);
 
   return (
-    <section className="space-y-4">
+    <>
+      {presentazioneCapitolato && (
+        <PresentazioneAssembleaCaSeP
+          capitolato={presentazioneCapitolato}
+          azienda={aziendaById(presentazioneCapitolato.azienda_vincitrice_id) || aziendaById(presentazioneCapitolato.azienda_partner_id)}
+          votiAssemblea={votiAssembleaCasep}
+          onClose={() => setPresentazioneAssembleaId(null)}
+        />
+      )}
+      <section className="space-y-4">
       <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
@@ -3539,6 +3703,23 @@ function CapitolatoSenzaPensieriSuite({
                   Cancella pratica
                 </button>
               </div>
+            </div>
+
+            <div className="mt-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-sky-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Modalità assemblea premium</p>
+              {condominioCspAttivo(capitolatoAperto.condominio_id) ? (
+                <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <p className="text-sm font-semibold text-slate-600">Disponibile per questo condominio CSP attivo: presentazione fullscreen con offerta, timeline, votazione live e affidabilità azienda.</p>
+                  <button type="button" onClick={() => setPresentazioneAssembleaId(capitolatoAperto.id)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
+                    Presenta in assemblea
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 rounded-2xl border border-amber-200 bg-white p-3">
+                  <p className="text-sm font-black text-amber-800">Funzione premium riservata ai condomìni con CSP attivo.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">La regia assemblea avanzata usa anagrafiche, millesimi, deleghe e dati CSP: è il motivo perfetto per proporre l’attivazione del condominio.</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -3995,7 +4176,8 @@ function CapitolatoSenzaPensieriSuite({
           </div>
         </section>
       )}
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -4208,7 +4390,6 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
   const [sendingCampaignId, setSendingCampaignId] = useState(null);
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
-
   const campagne = partnerCampaignLog || [];
   const filtrate = campagne.filter((campagna) => {
     const azienda = aziendaById(campagna.azienda_id)?.ragione_sociale || '';
@@ -10567,6 +10748,7 @@ export default function App() {
             fatturePartner={fatturePartner}
             condomini={condomini}
             aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
           />
         )}
@@ -10576,6 +10758,7 @@ export default function App() {
             fatturePartner={fatturePartner}
             fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
             aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
           />
         )}
@@ -10679,6 +10862,7 @@ export default function App() {
             {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture CSP/CaSeP, pagamenti, provvigioni e liquidazioni.')}
             <FatturazionePartnerSuite
               aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
               provvigioniPartner={provvigioniPartner}
               fatturePartner={fatturePartner}
@@ -10718,6 +10902,7 @@ export default function App() {
               votiAssembleaCasep={votiAssembleaCasep}
               onSaveVotoAssembleaCasep={salvaVotoAssembleaCasep}
               aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
@@ -10748,6 +10933,7 @@ export default function App() {
             votiAssembleaCasep={votiAssembleaCasep}
             onSaveVotoAssembleaCasep={salvaVotoAssembleaCasep}
             aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
