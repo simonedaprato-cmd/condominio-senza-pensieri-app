@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2955,6 +2955,9 @@ function CapitolatoSenzaPensieriSuite({
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
+  const isAmministratore = ruoloNorm === 'amministratore';
+  const isCollaboratore = ruoloNorm === 'collaboratore';
+  const canPresentareAssemblea = isGestore || isAmministratore || isCollaboratore;
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [capitolatoPdfName, setCapitolatoPdfName] = useState('');
   const [uploadingDocId, setUploadingDocId] = useState(null);
@@ -3383,7 +3386,7 @@ function CapitolatoSenzaPensieriSuite({
 
   return (
     <>
-      {presentazioneCapitolato && (
+      {canPresentareAssemblea && presentazioneCapitolato && (
         <PresentazioneAssembleaCaSeP
           capitolato={presentazioneCapitolato}
           azienda={aziendaById(presentazioneCapitolato.azienda_vincitrice_id) || aziendaById(presentazioneCapitolato.azienda_partner_id)}
@@ -3707,17 +3710,22 @@ function CapitolatoSenzaPensieriSuite({
 
             <div className="mt-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-sky-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Modalità assemblea premium</p>
-              {condominioCspAttivo(capitolatoAperto.condominio_id) ? (
+              {canPresentareAssemblea && condominioCspAttivo(capitolatoAperto.condominio_id) ? (
                 <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <p className="text-sm font-semibold text-slate-600">Disponibile per questo condominio CSP attivo: presentazione fullscreen con offerta, timeline, votazione live e affidabilità azienda.</p>
                   <button type="button" onClick={() => setPresentazioneAssembleaId(capitolatoAperto.id)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
                     Presenta in assemblea
                   </button>
                 </div>
-              ) : (
+              ) : canPresentareAssemblea ? (
                 <div className="mt-2 rounded-2xl border border-amber-200 bg-white p-3">
                   <p className="text-sm font-black text-amber-800">Funzione premium riservata ai condomìni con CSP attivo.</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">La regia assemblea avanzata usa anagrafiche, millesimi, deleghe e dati CSP: è il motivo perfetto per proporre l’attivazione del condominio.</p>
+                </div>
+              ) : (
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                  <p className="text-sm font-black text-slate-700">Modalità riservata a gestore, amministratore e collaboratore.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">I condòmini non accedono alla regia assemblea premium.</p>
                 </div>
               )}
             </div>
