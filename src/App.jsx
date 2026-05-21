@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2914,9 +2914,44 @@ function PresentazioneAssembleaCaSeP({ capitolato, azienda, votiAssemblea = [], 
       ),
     },
   ];
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        chiudiPresentazione();
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        setSlide((prev) => Math.max(0, prev - 1));
+      }
+      if (event.key === 'ArrowRight') {
+        setSlide((prev) => Math.min(slides.length - 1, prev + 1));
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [slides.length, onClose]);
+
+  const chiudiPresentazione = () => {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    } catch (error) {
+      console.warn('Fullscreen exit non disponibile:', error);
+    }
+    onClose?.();
+  };
+
   const current = slides[slide] || slides[0];
   return (
-    <div className="fixed inset-0 z-[9999] overflow-auto bg-slate-950 p-4 text-white md:p-8">
+    <div className="fixed inset-0 z-[9999] h-screen w-screen overflow-auto bg-slate-950 p-4 text-white md:p-8">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.35),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.25),transparent_35%)]" />
       <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col">
         <header className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
@@ -2924,7 +2959,7 @@ function PresentazioneAssembleaCaSeP({ capitolato, azienda, votiAssemblea = [], 
             <LogoMark className="h-14 w-auto" />
             <div><p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-300">Modalità assemblea premium</p><h2 className="text-2xl font-black text-white">{current.label}</h2></div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white backdrop-blur hover:bg-white/20">Chiudi presentazione</button>
+          <button type="button" onClick={chiudiPresentazione} className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white backdrop-blur hover:bg-white/20">Esci dalla presentazione</button>
         </header>
         <main className="relative flex-1 py-8">{current.body}</main>
         <footer className="relative flex flex-col gap-3 border-t border-white/10 pt-5 md:flex-row md:items-center md:justify-between">
@@ -2967,6 +3002,18 @@ function CapitolatoSenzaPensieriSuite({
   const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
   const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', ora: '', luogo: '' });
   const [presentazioneAssembleaId, setPresentazioneAssembleaId] = useState(null);
+
+  const apriPresentazioneAssemblea = (capitolatoId) => {
+    try {
+      const target = document.documentElement;
+      if (!document.fullscreenElement && target?.requestFullscreen) {
+        target.requestFullscreen().catch(() => {});
+      }
+    } catch (error) {
+      console.warn('Fullscreen non disponibile:', error);
+    }
+    setPresentazioneAssembleaId(capitolatoId);
+  };
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
@@ -3713,7 +3760,7 @@ function CapitolatoSenzaPensieriSuite({
               {canPresentareAssemblea && condominioCspAttivo(capitolatoAperto.condominio_id) ? (
                 <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <p className="text-sm font-semibold text-slate-600">Disponibile per questo condominio CSP attivo: presentazione fullscreen con offerta, timeline, votazione live e affidabilità azienda.</p>
-                  <button type="button" onClick={() => setPresentazioneAssembleaId(capitolatoAperto.id)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
+                  <button type="button" onClick={() => apriPresentazioneAssemblea(capitolatoAperto.id)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
                     Presenta in assemblea
                   </button>
                 </div>
