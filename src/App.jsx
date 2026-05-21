@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -5027,6 +5027,14 @@ function FatturazionePartnerSuite({
     citta: '',
     provincia: 'Firenze',
     percentuale_gestore: '',
+    durc_url: '',
+    durc_scadenza: '',
+    polizza_url: '',
+    polizza_scadenza: '',
+    certificazioni_iso: '',
+    certificazioni_soa: '',
+    schema_garanzie: '',
+    note_qualificazione: '',
     note: '',
   });
 
@@ -5041,6 +5049,14 @@ function FatturazionePartnerSuite({
     tipo_attivita: '',
     citta: '',
     provincia: '',
+    durc_url: '',
+    durc_scadenza: '',
+    polizza_url: '',
+    polizza_scadenza: '',
+    certificazioni_iso: '',
+    certificazioni_soa: '',
+    schema_garanzie: '',
+    note_qualificazione: '',
     note: '',
     attiva: true,
     nuova_percentuale_gestore: '',
@@ -5205,6 +5221,14 @@ function FatturazionePartnerSuite({
       tipo_attivita: azienda.tipo_attivita || '',
       citta: azienda.citta || '',
       provincia: azienda.provincia || '',
+      durc_url: azienda.durc_url || '',
+      durc_scadenza: azienda.durc_scadenza || '',
+      polizza_url: azienda.polizza_url || '',
+      polizza_scadenza: azienda.polizza_scadenza || '',
+      certificazioni_iso: azienda.certificazioni_iso || '',
+      certificazioni_soa: azienda.certificazioni_soa || '',
+      schema_garanzie: azienda.schema_garanzie || '',
+      note_qualificazione: azienda.note_qualificazione || '',
       note: azienda.note || '',
       attiva: azienda.attiva !== false,
       nuova_percentuale_gestore: '',
@@ -5242,8 +5266,49 @@ function FatturazionePartnerSuite({
       azienda.tipo_attivita,
       azienda.citta,
       azienda.provincia,
+      azienda.certificazioni_iso,
+      azienda.certificazioni_soa,
+      azienda.schema_garanzie,
+      azienda.note_qualificazione,
     ].some((value) => String(value || '').toLowerCase().includes(search));
   });
+
+
+  const giorniAllaScadenzaDocumento = (dataScadenza) => {
+    if (!dataScadenza) return null;
+    const oggi = new Date();
+    const scadenza = new Date(dataScadenza);
+    if (Number.isNaN(scadenza.getTime())) return null;
+    oggi.setHours(0, 0, 0, 0);
+    scadenza.setHours(0, 0, 0, 0);
+    return Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+  };
+
+  const statoDocumentoAzienda = (dataScadenza) => {
+    const giorni = giorniAllaScadenzaDocumento(dataScadenza);
+    if (giorni === null) return { label: 'Non caricato', tone: 'slate', giorni: null };
+    if (giorni < 0) return { label: 'Scaduto', tone: 'red', giorni };
+    if (giorni <= 15) return { label: `In scadenza ${giorni} gg`, tone: 'amber', giorni };
+    return { label: 'Valido', tone: 'emerald', giorni };
+  };
+
+  const badgeDocumentoClass = (tone) => (
+    tone === 'emerald' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+    tone === 'amber' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+    tone === 'red' ? 'bg-red-100 text-red-700 border-red-200' :
+    'bg-slate-100 text-slate-600 border-slate-200'
+  );
+
+  const aziendeConDocumentiCritici = (aziendePartner || []).filter((azienda) => {
+    const durc = statoDocumentoAzienda(azienda.durc_scadenza);
+    const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
+    return ['red', 'amber'].includes(durc.tone) || ['red', 'amber'].includes(polizza.tone);
+  });
+
+  const aziendeQualificate = (aziendePartner || []).filter((azienda) => (
+    statoDocumentoAzienda(azienda.durc_scadenza).tone === 'emerald' &&
+    statoDocumentoAzienda(azienda.polizza_scadenza).tone === 'emerald'
+  ));
 
   const updateFattura = (field, value) => {
     setFatturaForm((prev) => {
@@ -5517,6 +5582,14 @@ function FatturazionePartnerSuite({
       citta: '',
       provincia: 'Firenze',
       percentuale_gestore: '',
+      durc_url: '',
+      durc_scadenza: '',
+      polizza_url: '',
+      polizza_scadenza: '',
+      certificazioni_iso: '',
+      certificazioni_soa: '',
+      schema_garanzie: '',
+      note_qualificazione: '',
       note: '',
     });
   };
@@ -6241,6 +6314,41 @@ function FatturazionePartnerSuite({
           </div>
         </section>
       </div>
+      <section className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Qualificazione aziende</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Controllo documentale partner</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">DURC, polizza, ISO/SOA e garanzie: la base per mostrare in assemblea l’azienda giusta per l’intervento giusto.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <DashboardStat label="Qualificate" value={aziendeQualificate.length} tone="emerald" />
+            <DashboardStat label="Alert" value={aziendeConDocumentiCritici.length} tone="amber" />
+            <DashboardStat label="Partner" value={(aziendePartner || []).length} tone="slate" />
+          </div>
+        </div>
+        {aziendeConDocumentiCritici.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-700">Reminder documentali</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {aziendeConDocumentiCritici.slice(0, 6).map((azienda) => {
+                const durc = statoDocumentoAzienda(azienda.durc_scadenza);
+                const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
+                return (
+                  <div key={azienda.id} className="rounded-2xl border border-amber-100 bg-white p-3">
+                    <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(durc.tone)}`}>DURC: {durc.label}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(polizza.tone)}`}>Polizza: {polizza.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
@@ -6259,6 +6367,22 @@ function FatturazionePartnerSuite({
               <input value={aziendaForm.citta} onChange={(e) => updateAzienda('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input value={aziendaForm.provincia} onChange={(e) => updateAzienda('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 px-3 py-3" />
             </div>
+
+            <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Qualificazione azienda</p>
+              <p className="mt-1 text-sm font-semibold text-emerald-800">Documenti e garanzie da mostrare in modalità assemblea premium.</p>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input value={aziendaForm.durc_url} onChange={(e) => updateAzienda('durc_url', e.target.value)} placeholder="URL DURC aggiornato" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input type="date" value={aziendaForm.durc_scadenza} onChange={(e) => updateAzienda('durc_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza DURC" />
+                <input value={aziendaForm.polizza_url} onChange={(e) => updateAzienda('polizza_url', e.target.value)} placeholder="URL polizza assicurativa" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input type="date" value={aziendaForm.polizza_scadenza} onChange={(e) => updateAzienda('polizza_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza polizza" />
+                <input value={aziendaForm.certificazioni_iso} onChange={(e) => updateAzienda('certificazioni_iso', e.target.value)} placeholder="Certificazioni ISO" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaForm.certificazioni_soa} onChange={(e) => updateAzienda('certificazioni_soa', e.target.value)} placeholder="Certificazioni SOA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              </div>
+              <textarea value={aziendaForm.schema_garanzie} onChange={(e) => updateAzienda('schema_garanzie', e.target.value)} placeholder="Schema garanzie lavori" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              <textarea value={aziendaForm.note_qualificazione} onChange={(e) => updateAzienda('note_qualificazione', e.target.value)} placeholder="Note qualificazione / punti di forza da presentare in assemblea" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+            </div>
+
             <textarea value={aziendaForm.note} onChange={(e) => updateAzienda('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
             <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">Salva azienda partner</button>
           </form>
@@ -6306,6 +6430,21 @@ function FatturazionePartnerSuite({
                   Azienda attiva
                 </label>
               </div>
+
+              <div className="mt-4 rounded-3xl border border-emerald-200 bg-white/80 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Qualificazione azienda</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <input value={aziendaEditForm.durc_url} onChange={(e) => updateAziendaEdit('durc_url', e.target.value)} placeholder="URL DURC aggiornato" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                  <input type="date" value={aziendaEditForm.durc_scadenza} onChange={(e) => updateAziendaEdit('durc_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza DURC" />
+                  <input value={aziendaEditForm.polizza_url} onChange={(e) => updateAziendaEdit('polizza_url', e.target.value)} placeholder="URL polizza assicurativa" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                  <input type="date" value={aziendaEditForm.polizza_scadenza} onChange={(e) => updateAziendaEdit('polizza_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza polizza" />
+                  <input value={aziendaEditForm.certificazioni_iso} onChange={(e) => updateAziendaEdit('certificazioni_iso', e.target.value)} placeholder="Certificazioni ISO" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                  <input value={aziendaEditForm.certificazioni_soa} onChange={(e) => updateAziendaEdit('certificazioni_soa', e.target.value)} placeholder="Certificazioni SOA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                </div>
+                <textarea value={aziendaEditForm.schema_garanzie} onChange={(e) => updateAziendaEdit('schema_garanzie', e.target.value)} placeholder="Schema garanzie lavori" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <textarea value={aziendaEditForm.note_qualificazione} onChange={(e) => updateAziendaEdit('note_qualificazione', e.target.value)} placeholder="Note qualificazione / punti di forza da presentare in assemblea" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              </div>
+
               <textarea value={aziendaEditForm.note} onChange={(e) => updateAziendaEdit('note', e.target.value)} placeholder="Note" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
               <button type="button" onClick={salvaModificaAzienda} className="mt-3 w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">
                 Salva modifiche fornitore
@@ -6320,21 +6459,30 @@ function FatturazionePartnerSuite({
                   <th className="px-3 py-3">Azienda</th>
                   <th className="px-3 py-3">Referente</th>
                   <th className="px-3 py-3">Provvigione</th>
+                  <th className="px-3 py-3">Documenti</th>
                   <th className="px-3 py-3">Stato</th>
                   <th className="px-3 py-3 text-right">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {aziendeFiltrate.length === 0 ? (
-                  <tr><td colSpan="5" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
+                  <tr><td colSpan="6" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
                 ) : aziendeFiltrate.map((azienda) => {
                   const provv = provvigioneAttivaAzienda(azienda.id);
+                  const durc = statoDocumentoAzienda(azienda.durc_scadenza);
+                  const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
                   return (
                     <tr key={azienda.id} className="border-t border-slate-100 hover:bg-emerald-50/40">
                       <td className="px-3 py-3">
                         <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
                         <p className="text-xs text-slate-500">{azienda.tipo_attivita || 'Attività n.d.'} • {azienda.citta || ''} {azienda.provincia || ''}</p>
                         <p className="text-xs text-slate-400">{azienda.partita_iva || 'P.IVA n.d.'}</p>
+                        {(azienda.durc_url || azienda.polizza_url) && (
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {azienda.durc_url && <a href={azienda.durc_url} target="_blank" rel="noreferrer" className="text-[11px] font-black text-emerald-700">DURC</a>}
+                            {azienda.polizza_url && <a href={azienda.polizza_url} target="_blank" rel="noreferrer" className="text-[11px] font-black text-emerald-700">Polizza</a>}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         <p className="font-semibold text-slate-700">{azienda.referente || 'n.d.'}</p>
@@ -6342,6 +6490,17 @@ function FatturazionePartnerSuite({
                         <p className="text-xs text-slate-500">{azienda.email || ''}</p>
                       </td>
                       <td className="px-3 py-3 font-black text-emerald-700">{provv ? `${Number(provv.percentuale_gestore || 0)}%` : '0%'}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-1">
+                          <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(durc.tone)}`}>DURC: {durc.label}</span>
+                          <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(polizza.tone)}`}>Polizza: {polizza.label}</span>
+                          {(azienda.certificazioni_iso || azienda.certificazioni_soa) && (
+                            <span className="w-fit rounded-full border border-sky-200 bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">
+                              {[azienda.certificazioni_iso, azienda.certificazioni_soa].filter(Boolean).join(' • ')}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-3">
                         <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${azienda.attiva !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
                           {azienda.attiva !== false ? 'Attiva' : 'Disattiva'}
