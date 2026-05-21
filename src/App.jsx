@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.10';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.11';
+const APP_VERSION_LABEL = 'CSP v1.0.11';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3289,6 +3289,26 @@ function CapitolatoSenzaPensieriSuite({
     alert('Valore offerta salvato correttamente.');
   };
 
+  const salvaFornitoreOffertaCapitolato = async (item, aziendaId) => {
+    const id = Number(aziendaId || 0);
+    const azienda = aziendaById(id);
+
+    if (!id || !azienda) {
+      await aggiornaWorkflowTecnico(item, {
+        azienda_partner_id: null,
+        azienda_partner_nome: '',
+      });
+      return;
+    }
+
+    await aggiornaWorkflowTecnico(item, {
+      azienda_partner_id: id,
+      azienda_partner_nome: azienda.ragione_sociale || '',
+    });
+
+    alert('Fornitore offerta collegato correttamente.');
+  };
+
   const azioneAmministratoreOfferta = async (item, azione) => {
     const oggi = new Date().toISOString().slice(0, 10);
 
@@ -3775,7 +3795,7 @@ function CapitolatoSenzaPensieriSuite({
                 <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <p className="text-sm font-semibold text-slate-600">Disponibile per questo condominio CSP attivo: presentazione fullscreen con offerta, timeline, votazione live e affidabilità azienda.</p>
                   <button type="button" onClick={() => apriPresentazioneAssemblea(capitolatoAperto.id)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
-                    Presenta in assemblea
+                    Apri presentazione fullscreen
                   </button>
                 </div>
               ) : canPresentareAssemblea ? (
@@ -3864,6 +3884,18 @@ function CapitolatoSenzaPensieriSuite({
                         />
                       </div>
                       <p className="mt-1 text-xs font-semibold text-slate-500">Attuale: {formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
+                      <div className="mt-3 rounded-xl border border-emerald-100 bg-white p-2">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Fornitore collegato all'offerta</p>
+                        <select
+                          value={capitolatoAperto.azienda_partner_id || capitolatoAperto.azienda_vincitrice_id || ''}
+                          onChange={(e) => salvaFornitoreOffertaCapitolato(capitolatoAperto, e.target.value)}
+                          className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-2 py-2 text-xs font-bold"
+                        >
+                          <option value="">Seleziona fornitore</option>
+                          {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                        </select>
+                        <p className="mt-1 text-[11px] font-semibold text-slate-500">Serve per mostrare DURC, polizza, certificazioni e garanzie nella modalità assemblea.</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -4148,6 +4180,18 @@ function CapitolatoSenzaPensieriSuite({
                       }}
                     />
                     <p className="mt-1 text-xs font-semibold text-slate-500">Attuale: {formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
+                    <div className="mt-3 rounded-xl border border-emerald-100 bg-white p-2">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Fornitore collegato all'offerta</p>
+                      <select
+                        value={capitolatoAperto.azienda_partner_id || capitolatoAperto.azienda_vincitrice_id || ''}
+                        onChange={(e) => salvaFornitoreOffertaCapitolato(capitolatoAperto, e.target.value)}
+                        className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-2 py-2 text-xs font-bold"
+                      >
+                        <option value="">Seleziona fornitore</option>
+                        {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                      </select>
+                      <p className="mt-1 text-[11px] font-semibold text-slate-500">Serve per mostrare DURC, polizza, certificazioni e garanzie nella modalità assemblea.</p>
+                    </div>
                   </div>
                 </div>
               )}
