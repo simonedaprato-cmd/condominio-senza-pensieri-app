@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.16';
+const APP_VERSION_LABEL = 'CSP v1.0.16';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -101,7 +101,7 @@ async function loadUserProfile(email) {
 
   const { data: utente, error } = await supabase
     .from('utenti')
-    .select('email, ruolo, condominio, telefono, nome')
+    .select('email, ruolo, condominio, telefono, nome, studio')
     .ilike('email', normalizedEmail)
     .maybeSingle();
 
@@ -969,7 +969,7 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
       return 'Operatività su ' + condominiVisibili.length + ' condomini';
     }
 
-    if (ruolo === 'condominio' && userProfile?.condominio) {
+    if ((ruolo === 'condominio' || ruolo === 'condomino') && userProfile?.condominio) {
       return 'Condominio: ' + userProfile.condominio;
     }
 
@@ -5714,14 +5714,14 @@ function FatturazionePartnerSuite({
     .filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore')
     .map((u) => ({
       email: u.email,
-      nome: u.nome || u.ragione_sociale || u.studio || u.nome_studio || '',
+      nome: u.studio || u.ragione_sociale || u.nome_studio || u.nome || '',
     }));
 
   const amministratoriDaLead = (leadAmministratori || [])
     .filter((lead) => lead.email)
     .map((lead) => ({
       email: lead.email,
-      nome: lead.nome || lead.ragione_sociale || lead.studio || lead.nome_studio || lead.amministratore || lead.cliente || '',
+      nome: lead.studio || lead.ragione_sociale || lead.nome_studio || lead.nome || lead.amministratore || lead.cliente || '',
     }));
 
   const amministratoriMap = new Map();
@@ -7894,7 +7894,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
   const emailCondominiAbilitati = new Set(
     (utentiSistema || [])
-      .filter((utente) => String(utente.ruolo || '').toLowerCase().trim() === 'condominio')
+      .filter((utente) => ['condominio', 'condomino'].includes(String(utente.ruolo || '').toLowerCase().trim()))
       .map((utente) => String(utente.email || '').toLowerCase().trim())
       .filter(Boolean)
   );
@@ -8061,13 +8061,13 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
               </div>
             )}
-            {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
+            {segnalazione.preventivourl && (!['condominio', 'condomino'].includes(ruolo) || segnalazione.preventivo_condiviso_condomini) && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
                   Apri preventivo
                 </a>
 
-                {(ruolo === 'condominio' || isAmministratoreOperativoDettaglio || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
+                {(['condominio', 'condomino'].includes(ruolo) || isAmministratoreOperativoDettaglio || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
                   <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3">
                     <div>
                       <p className="text-sm font-semibold text-sky-800">
@@ -8078,7 +8078,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       </p>
                     </div>
 
-                    {ruolo === 'condominio' && (
+                    {['condominio', 'condomino'].includes(ruolo) && (
                       <div className="space-y-2 border-t border-sky-200 pt-3">
                         <p className="text-xs font-bold uppercase tracking-wide text-sky-800">
                           Voto consultivo condomino
@@ -8115,7 +8115,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       </div>
                     )}
 
-                    {(ruolo === 'condominio' || ruolo === 'gestore') && (
+                    {(['condominio', 'condomino'].includes(ruolo) || ruolo === 'gestore') && (
                       <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
@@ -8875,7 +8875,7 @@ export default function App() {
   const isAmministratoreOperativo = ruoloNormalizzato === 'amministratore' || isCollaboratore;
   const puoVedereGuadagniAmministratore = ruoloNormalizzato === 'amministratore';
   const puoVedereFattureOperative = isAmministratoreOperativo;
-  const puoCreareSegnalazioni = isAmministratoreOperativo || ruoloNormalizzato === 'condominio';
+  const puoCreareSegnalazioni = isAmministratoreOperativo || ['condominio', 'condomino'].includes(ruoloNormalizzato);
 
   // Elenco amministratori censiti per Gestione Anagrafiche.
   // La selezione operativa avviene per nome studio/ragione sociale; l'email resta il riferimento tecnico nascosto.
@@ -9077,7 +9077,7 @@ export default function App() {
   }, [reportCondominio, ruoloNormalizzato, condomini, userProfile]);
 
 
-  const hasPreventiviBanner = ruoloNormalizzato !== 'condominio' && segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
+  const hasPreventiviBanner = !['condominio', 'condomino'].includes(ruoloNormalizzato) && segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
 
   const normalizzaSegnalazioni = (data) => (data || []).map((item) => {
     const statoDb = item.stato || '';
@@ -9301,7 +9301,7 @@ export default function App() {
 
       const { data: utentiSistemaData, error: utentiSistemaError } = await supabase
         .from('utenti')
-        .select('email, ruolo, nome, onesignal_subscription_id');
+        .select('email, ruolo, nome, studio, onesignal_subscription_id');
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
@@ -11125,7 +11125,7 @@ export default function App() {
           />
         )}
 
-        {ruoloNormalizzato === 'condominio' && (
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
