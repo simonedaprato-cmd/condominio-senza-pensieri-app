@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.17';
+const APP_VERSION_LABEL = 'CSP v1.0.17';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -101,7 +101,7 @@ async function loadUserProfile(email) {
 
   const { data: utente, error } = await supabase
     .from('utenti')
-    .select('email, ruolo, condominio, telefono, nome, studio')
+    .select('email, ruolo, condominio, telefono, nome, studio, amministratore_email')
     .ilike('email', normalizedEmail)
     .maybeSingle();
 
@@ -129,10 +129,9 @@ async function loadUserProfile(email) {
   let collegamentiFinali = collegamenti || [];
 
   // Collaboratore: eredita automaticamente i condomìni dell'amministratore collegato.
-  // L'email dell'amministratore viene salvata nel campo testuale `condominio` del profilo utente
-  // dalla funzione gestione-anagrafiche. Manteniamo comunque eventuali collegamenti diretti già presenti.
+  // Il riferimento corretto è utenti.amministratore_email; utenti.condominio resta solo come legacy/fallback.
   if (String(utente.ruolo || '').toLowerCase().trim() === 'collaboratore') {
-    const amministratoreCollegatoEmail = normalizeEmail(utente.condominio);
+    const amministratoreCollegatoEmail = normalizeEmail(utente.amministratore_email || utente.condominio);
 
     if (amministratoreCollegatoEmail) {
       const { data: collegamentiAmministratore, error: collegamentiAdminError } = await supabase
@@ -7419,7 +7418,7 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
   const [tab, setTab] = useState('amministratore');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '' });
+  const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '', provincia: 'Firenze', citta: '', indirizzo: '', numero_condomini: '', numero_condomini_interessati: '', origine: 'Gestione anagrafiche', stato_pipeline: 'cliente_attivo', note: '' });
   const [collaboratoreForm, setCollaboratoreForm] = useState({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
   const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
   const [condominoForm, setCondominoForm] = useState({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
@@ -7525,13 +7524,28 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
           onSubmit={async (event) => {
             event.preventDefault();
             const data = await invokeGestione({ action: 'crea_amministratore', ...adminForm });
-            if (data?.success) setAdminForm({ nome: '', email: '', telefono: '', studio: '' });
+            if (data?.success) setAdminForm({ nome: '', email: '', telefono: '', studio: '', provincia: 'Firenze', citta: '', indirizzo: '', numero_condomini: '', numero_condomini_interessati: '', origine: 'Gestione anagrafiche', stato_pipeline: 'cliente_attivo', note: '' });
           }}
         >
+          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Nome studio / ragione sociale" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.nome} onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })} placeholder="Nome referente amministratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.telefono} onChange={(e) => setAdminForm({ ...adminForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Nome studio / ragione sociale" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.provincia} onChange={(e) => setAdminForm({ ...adminForm, provincia: e.target.value })} placeholder="Provincia" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.citta} onChange={(e) => setAdminForm({ ...adminForm, citta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.indirizzo} onChange={(e) => setAdminForm({ ...adminForm, indirizzo: e.target.value })} placeholder="Indirizzo studio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.numero_condomini} onChange={(e) => setAdminForm({ ...adminForm, numero_condomini: e.target.value })} placeholder="Condomìni gestiti stimati" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.numero_condomini_interessati} onChange={(e) => setAdminForm({ ...adminForm, numero_condomini_interessati: e.target.value })} placeholder="Condomìni papabili CSP" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <select value={adminForm.stato_pipeline} onChange={(e) => setAdminForm({ ...adminForm, stato_pipeline: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="cliente_attivo">Cliente attivo</option>
+            <option value="potenziale">Potenziale</option>
+            <option value="in_trattativa">In trattativa</option>
+            <option value="presentazione_effettuata">Presentazione effettuata</option>
+          </select>
+          <textarea value={adminForm.note} onChange={(e) => setAdminForm({ ...adminForm, note: e.target.value })} placeholder="Note commerciali / condomìni papabili" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-xs font-bold text-indigo-800 md:col-span-2">
+            L’amministratore viene creato come utente operativo e aggiornato anche nel CRM lead amministratori, così lo studio resta tracciato sia come cliente attivo sia come potenziale commerciale sui condomìni ancora papabili.
+          </div>
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva amministratore'}
           </button>
@@ -8829,7 +8843,7 @@ export default function App() {
   };
   const [utente, setUtente] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [ruolo, setRuolo] = useState('gestore');
+  const [ruolo, setRuolo] = useState('');
   const [condomini, setCondomini] = useState([]);
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9141,7 +9155,7 @@ export default function App() {
       setUtente(currentUser);
       const profile = await loadUserProfile(currentUser.email);
       setUserProfile(profile);
-      setRuolo(profile.ruolo || 'non_configurato');
+      setRuolo(String(profile.ruolo || 'non_configurato').toLowerCase().trim());
 
       const { data: condominiData, error: condominiError } = await supabase.from('condomini').select('id, nome, indirizzo').order('nome');
       if (condominiError) throw condominiError;
@@ -10729,7 +10743,7 @@ export default function App() {
 
       setUtente(null);
       setUserProfile(null);
-      setRuolo('gestore');
+      setRuolo('');
       setDettaglioAperto(null);
 
       window.location.replace(`/?logout=${Date.now()}`);
