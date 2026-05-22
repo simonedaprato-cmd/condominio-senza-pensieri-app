@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.18';
-const APP_VERSION_LABEL = 'CSP v1.0.18';
+const APP_VERSION = '1.0.19';
+const APP_VERSION_LABEL = 'CSP v1.0.19';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -96,6 +96,37 @@ function LogoMark({ className = 'h-[4.5rem] w-auto md:h-24', alt = 'Condominio S
   );
 }
 
+
+
+function getCurrentAppBaseUrl() {
+  if (typeof window === 'undefined') return '';
+  return window.location.origin + window.location.pathname;
+}
+
+function buildAppDeepLink(params = {}) {
+  if (typeof window === 'undefined') return '';
+  const url = new URL(getCurrentAppBaseUrl() || window.location.href);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim() !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+}
+
+function isPushLaunchContext() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search || '');
+  return (
+    params.get('fromPush') === '1' ||
+    params.get('source') === 'push' ||
+    params.get('utm_source') === 'onesignal' ||
+    params.has('pratica') ||
+    params.has('segnalazione') ||
+    params.has('segnalazioneId') ||
+    params.has('capitolato')
+  );
+}
 
 function normalizeEmail(value) {
   return String(value || '').toLowerCase().trim();
@@ -377,6 +408,7 @@ function NotifichePushBox({ utenteEmail }) {
   });
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
+  const apertaDaPush = isPushLaunchContext();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -744,6 +776,10 @@ function NotifichePushBox({ utenteEmail }) {
   };
 
   if (!supportate && !iosInfo.isIOS) return null;
+
+  // Quando l'app viene aperta da una push/deep link, non mostriamo il box
+  // installazione/registrazione: deve aprirsi direttamente la pratica.
+  if (apertaDaPush) return null;
 
   const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
 
@@ -9138,6 +9174,9 @@ export default function App() {
       params.delete('pratica');
       params.delete('segnalazione');
       params.delete('segnalazioneId');
+      params.delete('fromPush');
+      params.delete('source');
+      params.delete('utm_source');
 
       const query = params.toString();
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
@@ -9444,6 +9483,8 @@ export default function App() {
           allegatonome,
           amministratoreEmail: utente?.email || '',
           amministratoreTelefono: userProfile?.telefono || '',
+          appUrl: getCurrentAppBaseUrl(),
+          launchUrl: buildAppDeepLink({ fromPush: '1' }),
           source: 'App.jsx',
           release: APP_VERSION,
         },
