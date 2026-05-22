@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.19';
-const APP_VERSION_LABEL = 'CSP v1.0.19';
+const APP_VERSION = '1.0.1';
+const APP_VERSION_LABEL = 'CSP v1.0.1';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3071,6 +3071,18 @@ function CapitolatoSenzaPensieriSuite({
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
+  const amministratoreRiferimentoEmail = String(
+    userProfile?.amministratore_email ||
+    userProfile?.amministratoreEmail ||
+    userProfile?.amministratore_riferimento ||
+    ''
+  ).toLowerCase().trim();
+  const amministratoreOperativoEmail = isCollaboratore && amministratoreRiferimentoEmail
+    ? amministratoreRiferimentoEmail
+    : amministratoreEmail;
+  const amministratoreOperativoNome = isCollaboratore
+    ? (userProfile?.amministratore_nome || userProfile?.studio || amministratoreOperativoEmail || amministratoreNome)
+    : amministratoreNome;
 
   const [form, setForm] = useState({
     condominio_id: '',
@@ -3400,8 +3412,8 @@ function CapitolatoSenzaPensieriSuite({
     const payload = {
       ...form,
       condominio_id: form.condominio_id ? Number(form.condominio_id) : null,
-      amministratore_email: amministratoreEmail,
-      amministratore_nome: amministratoreNome,
+      amministratore_email: amministratoreOperativoEmail,
+      amministratore_nome: amministratoreOperativoNome,
       importo_presunto: Number(form.importo_presunto || 0),
       stato: 'Nuovo capitolato',
     };
@@ -3433,7 +3445,17 @@ function CapitolatoSenzaPensieriSuite({
   };
 
   const capitolatiVisibili = (capitolati || [])
-    .filter((item) => isGestore || String(item.amministratore_email || '').toLowerCase() === String(amministratoreEmail || '').toLowerCase())
+    .filter((item) => {
+      if (isGestore) return true;
+      const adminPratica = String(item.amministratore_email || '').toLowerCase().trim();
+      const adminOperativo = String(amministratoreOperativoEmail || '').toLowerCase().trim();
+      if (adminOperativo && adminPratica === adminOperativo) return true;
+      if (isCollaboratore) {
+        const idsCollaboratore = (userProfile?.condominiIds || []).map((id) => Number(id));
+        return idsCollaboratore.includes(Number(item.condominio_id));
+      }
+      return false;
+    })
     .filter((item) => !filtroStato || item.stato === filtroStato)
     .filter((item) => {
       const haystack = [
@@ -4220,18 +4242,6 @@ function CapitolatoSenzaPensieriSuite({
                       }}
                     />
                     <p className="mt-1 text-xs font-semibold text-slate-500">Attuale: {formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
-                    <div className="mt-3 rounded-xl border border-emerald-100 bg-white p-2">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Fornitore collegato all'offerta</p>
-                      <select
-                        value={capitolatoAperto.azienda_partner_id || capitolatoAperto.azienda_vincitrice_id || ''}
-                        onChange={(e) => salvaFornitoreOffertaCapitolato(capitolatoAperto, e.target.value)}
-                        className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-2 py-2 text-xs font-bold"
-                      >
-                        <option value="">Seleziona fornitore</option>
-                        {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
-                      </select>
-                      <p className="mt-1 text-[11px] font-semibold text-slate-500">Serve per mostrare DURC, polizza, certificazioni e garanzie nella modalità assemblea.</p>
-                    </div>
                   </div>
                 </div>
               )}
