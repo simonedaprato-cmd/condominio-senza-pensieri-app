@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.14';
-const APP_VERSION_LABEL = 'CSP v1.0.14';
+const APP_VERSION = '1.0.15';
+const APP_VERSION_LABEL = 'CSP v1.0.15';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -6482,7 +6482,7 @@ function FatturazionePartnerSuite({
             <select value={adminProvvigioniSelezionato} onChange={(e) => setAdminProvvigioniSelezionato(e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-700 md:min-w-[320px]">
               <option value="">Seleziona amministratore</option>
               {provvigioniPerAmministratore.map((admin) => (
-                <option key={admin.email} value={admin.email}>{admin.nome || admin.email}</option>
+                <option key={admin.email} value={admin.email}>{admin.label}</option>
               ))}
             </select>
           </div>
@@ -7427,12 +7427,19 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
   const [importText, setImportText] = useState('');
   const amministratoriOptions = useMemo(() => (amministratori || [])
     .filter((admin) => admin?.email)
-    .map((admin) => ({
-      email: String(admin.email || '').toLowerCase().trim(),
-      nome: admin.nome || admin.studio || admin.email,
-    }))
+    .map((admin) => {
+      const email = String(admin.email || '').toLowerCase().trim();
+      const studio = String(admin.studio || admin.nome_studio || admin.ragione_sociale || '').trim();
+      const referente = String(admin.nome || '').trim();
+      return {
+        email,
+        studio,
+        referente,
+        label: studio || referente || email,
+      };
+    })
     .filter((admin, index, array) => admin.email && array.findIndex((item) => item.email === admin.email) === index)
-    .sort((a, b) => String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || ''))), [amministratori]);
+    .sort((a, b) => String(a.label || a.email || '').localeCompare(String(b.label || b.email || ''))), [amministratori]);
 
   const invokeGestione = async (payload) => {
     setSaving(true);
@@ -7521,10 +7528,10 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
             if (data?.success) setAdminForm({ nome: '', email: '', telefono: '', studio: '' });
           }}
         >
-          <input value={adminForm.nome} onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })} placeholder="Nome amministratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.nome} onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })} placeholder="Nome referente amministratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.telefono} onChange={(e) => setAdminForm({ ...adminForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Studio / riferimento" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Nome studio / ragione sociale" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva amministratore'}
           </button>
@@ -7544,13 +7551,13 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
           <input value={collaboratoreForm.email} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, email: e.target.value })} placeholder="Email collaboratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={collaboratoreForm.telefono} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <select value={collaboratoreForm.amministratoreEmail} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, amministratoreEmail: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-            <option value="">Seleziona amministratore collegato</option>
+            <option value="">Seleziona studio amministratore collegato</option>
             {amministratoriOptions.map((admin) => (
-              <option key={admin.email} value={admin.email}>{admin.nome || admin.email} — {admin.email}</option>
+              <option key={admin.email} value={admin.email}>{admin.label}</option>
             ))}
           </select>
           <div className="rounded-2xl border border-sky-100 bg-sky-50 p-3 text-xs font-bold text-sky-800 md:col-span-2">
-            Il collaboratore eredita i condomìni dell’amministratore collegato, vede l’operatività e le fatture interventi, ma non vede guadagni, provvigioni o dashboard economiche dell’amministratore.
+            Il collaboratore eredita i condomìni dello studio amministrativo collegato, vede l’operatività e le fatture interventi, ma non vede guadagni, provvigioni o dashboard economiche dell’amministratore.
           </div>
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva collaboratore'}
@@ -7571,14 +7578,14 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
           <input value={condominioForm.condominioIndirizzo} onChange={(e) => setCondominioForm({ ...condominioForm, condominioIndirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioCitta} onChange={(e) => setCondominioForm({ ...condominioForm, condominioCitta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <select value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-            <option value="">Seleziona amministratore associato</option>
+            <option value="">Seleziona studio amministratore associato</option>
             {amministratoriOptions.map((admin) => (
-              <option key={admin.email} value={admin.email}>{admin.nome || admin.email}</option>
+              <option key={admin.email} value={admin.email}>{admin.label}</option>
             ))}
           </select>
           {amministratoriOptions.length === 0 && (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold text-amber-800 md:col-span-2">
-              Prima crea almeno un amministratore: il condominio viene collegato scegliendolo dall’elenco, senza scrivere email manualmente.
+              Prima crea almeno uno studio amministrativo: il condominio viene collegato scegliendolo dall’elenco, senza scrivere email manualmente.
             </div>
           )}
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
@@ -8871,20 +8878,22 @@ export default function App() {
   const puoCreareSegnalazioni = isAmministratoreOperativo || ruoloNormalizzato === 'condominio';
 
   // Elenco amministratori censiti per Gestione Anagrafiche.
-  // Serve al form collaboratore: selezione da menu invece di email manuale.
+  // La selezione operativa avviene per nome studio/ragione sociale; l'email resta il riferimento tecnico nascosto.
   const amministratoriAnagrafiche = useMemo(() => {
     const daUtenti = (utentiSistema || [])
       .filter((u) => String(u.ruolo || '').toLowerCase().trim() === 'amministratore')
       .map((u) => ({
         email: u.email,
-        nome: u.nome || u.ragione_sociale || u.studio || u.nome_studio || u.email,
+        nome: u.nome || '',
+        studio: u.studio || u.ragione_sociale || u.nome_studio || '',
       }));
 
     const daCondomini = (condomini || [])
       .filter((c) => c.amministratore_email)
       .map((c) => ({
         email: c.amministratore_email,
-        nome: c.amministratore_nome || c.nome_amministratore || c.amministratore || c.amministratore_email,
+        nome: c.amministratore_nome || c.nome_amministratore || c.amministratore || '',
+        studio: c.amministratore_studio || c.studio_amministratore || '',
       }));
 
     const mappa = new Map();
@@ -8896,13 +8905,16 @@ export default function App() {
         ...precedente,
         ...admin,
         email,
-        nome: admin.nome || precedente.nome || email,
+        nome: admin.nome || precedente.nome || '',
+        studio: admin.studio || precedente.studio || '',
       });
     });
 
-    return [...mappa.values()].sort((a, b) =>
-      String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || ''))
-    );
+    return [...mappa.values()].sort((a, b) => {
+      const labelA = a.studio || a.nome || a.email || '';
+      const labelB = b.studio || b.nome || b.email || '';
+      return String(labelA).localeCompare(String(labelB));
+    });
   }, [utentiSistema, condomini]);
 
 
