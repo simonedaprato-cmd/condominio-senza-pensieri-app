@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.1';
-const APP_VERSION_LABEL = 'CSP v1.0.1';
+const APP_VERSION = '1.0.2';
+const APP_VERSION_LABEL = 'CSP v1.0.2';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1940,6 +1940,66 @@ function GestioneLeadAmministratori({ onCreateLead }) {
   );
 }
 
+
+function DashboardLeadTecnici({ leadTecnici = [], onCreateLeadTecnico, onUpdateLeadTecnico, onImportLeadTecnici }) {
+  const emptyForm = { nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' };
+  const [form, setForm] = useState(emptyForm);
+  const [search, setSearch] = useState('');
+  const [provinciaFiltro, setProvinciaFiltro] = useState('');
+  const [importText, setImportText] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const provinceDisponibili = [...new Set((leadTecnici || []).map((tecnico) => tecnico.provincia).filter(Boolean))].sort();
+  const filtrati = (leadTecnici || []).filter((tecnico) => {
+    const haystack = [tecnico.nome, tecnico.cognome, tecnico.studio_tecnico, tecnico.email, tecnico.telefono, tecnico.indirizzo, tecnico.citta, tecnico.provincia, tecnico.note].join(' ').toLowerCase();
+    return (!search || haystack.includes(search.toLowerCase())) && (!provinciaFiltro || tecnico.provincia === provinciaFiltro);
+  });
+  const parseImportRows = () => importText.split('\n').map((row) => row.trim()).filter(Boolean).map((row) => {
+    const parts = row.includes(';') ? row.split(';') : row.split(',');
+    return { nome: String(parts[0] || '').trim(), cognome: String(parts[1] || '').trim(), studio_tecnico: String(parts[2] || '').trim(), email: String(parts[3] || '').trim(), telefono: String(parts[4] || '').trim(), indirizzo: String(parts[5] || '').trim(), citta: String(parts[6] || '').trim(), provincia: String(parts[7] || '').trim(), note: String(parts.slice(8).join(' ') || '').trim() };
+  });
+  const exportCsv = () => {
+    const headers = ['nome', 'cognome', 'studio_tecnico', 'email', 'telefono', 'indirizzo', 'citta', 'provincia', 'note'];
+    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const rows = [headers.join(';'), ...filtrati.map((tecnico) => headers.map((header) => escapeCsv(tecnico[header])).join(';'))];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lead-tecnici-casp-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+  const startEdit = (tecnico) => { setEditingId(tecnico.id); setForm({ nome: tecnico.nome || '', cognome: tecnico.cognome || '', studio_tecnico: tecnico.studio_tecnico || '', email: tecnico.email || '', telefono: tecnico.telefono || '', indirizzo: tecnico.indirizzo || '', citta: tecnico.citta || '', provincia: tecnico.provincia || '', note: tecnico.note || '' }); };
+  const reset = () => { setEditingId(null); setForm(emptyForm); };
+  return (
+    <section className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">CRM Tecnici CaSP</p><h2 className="mt-1 text-xl font-black text-slate-900">Tecnici e studi tecnici</h2><p className="mt-1 text-sm font-semibold text-slate-500">Archivio tecnico-commerciale per newsletter, campagne CaSP e futuri cantieri.</p></div><button type="button" onClick={exportCsv} className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black text-white">Esporta CSV</button></div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <form className="grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2" onSubmit={async (event) => { event.preventDefault(); if (editingId) { await onUpdateLeadTecnico(editingId, form); } else { await onCreateLeadTecnico(form); } reset(); }}>
+          <input value={form.nome} onChange={(e) => updateField('nome', e.target.value)} placeholder="Nome" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.cognome} onChange={(e) => updateField('cognome', e.target.value)} placeholder="Cognome" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.studio_tecnico} onChange={(e) => updateField('studio_tecnico', e.target.value)} placeholder="Studio tecnico" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.email} onChange={(e) => updateField('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.telefono} onChange={(e) => updateField('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.indirizzo} onChange={(e) => updateField('indirizzo', e.target.value)} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.citta} onChange={(e) => updateField('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.provincia} onChange={(e) => updateField('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <textarea value={form.note} onChange={(e) => updateField('note', e.target.value)} placeholder="Note" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm md:col-span-2" />
+          <div className="flex flex-wrap gap-2 md:col-span-2"><button className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white">{editingId ? 'Aggiorna tecnico' : 'Salva tecnico'}</button>{editingId && <button type="button" onClick={reset} className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">Annulla</button>}</div>
+        </form>
+        <form className="space-y-3 rounded-3xl border border-emerald-100 bg-emerald-50 p-4" onSubmit={async (event) => { event.preventDefault(); await onImportLeadTecnici(parseImportRows()); setImportText(''); }}>
+          <div><p className="text-sm font-black text-emerald-900">Importa lista Excel/CSV</p><p className="mt-1 text-xs font-semibold text-emerald-700">Formato: nome; cognome; studio; email; telefono; indirizzo; città; provincia; note</p></div>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} rows={8} className="w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-sm" placeholder="Mario; Rossi; Studio Rossi; mario@email.it; 333...; Via Roma 1; Pisa; PI; Interessato a CaSP" />
+          <button className="rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-black text-white">Importa tecnici</button>
+        </form>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-4"><div className="rounded-2xl bg-sky-50 p-4"><p className="text-xs font-black uppercase text-sky-700">Totale</p><p className="mt-1 text-2xl font-black text-slate-900">{leadTecnici.length}</p></div><div className="rounded-2xl bg-emerald-50 p-4"><p className="text-xs font-black uppercase text-emerald-700">Filtrati</p><p className="mt-1 text-2xl font-black text-slate-900">{filtrati.length}</p></div><div className="rounded-2xl bg-amber-50 p-4"><p className="text-xs font-black uppercase text-amber-700">Province</p><p className="mt-1 text-2xl font-black text-slate-900">{provinceDisponibili.length}</p></div><div className="rounded-2xl bg-violet-50 p-4"><p className="text-xs font-black uppercase text-violet-700">Newsletter</p><p className="mt-1 text-sm font-black text-slate-900">Pronto per AI Marketing</p></div></div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca tecnico, studio, città..." className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" /><select value={provinciaFiltro} onChange={(e) => setProvinciaFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm"><option value="">Tutte le province</option>{provinceDisponibili.map((provincia) => <option key={provincia} value={provincia}>{provincia}</option>)}</select></div>
+      <div className="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">{filtrati.length === 0 ? (<EmptyState icon="📐" title="Nessun tecnico presente" text="Inserisci tecnici dalle pratiche CaSeP, manualmente o tramite import CSV." action="CRM pronto" tone="sky" />) : filtrati.map((tecnico) => (<div key={tecnico.id || tecnico.email} className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><p className="text-sm font-black text-slate-900">{[tecnico.nome, tecnico.cognome].filter(Boolean).join(' ') || tecnico.email || 'Tecnico'}</p><p className="mt-1 text-xs font-bold text-slate-500">{tecnico.studio_tecnico || 'Studio non indicato'} • {tecnico.citta || 'Città n.d.'} {tecnico.provincia ? `(${tecnico.provincia})` : ''}</p><p className="mt-1 text-xs font-semibold text-slate-500">{tecnico.email || 'Email n.d.'} • {tecnico.telefono || 'Telefono n.d.'}</p>{tecnico.note && <p className="mt-2 text-xs font-semibold text-slate-600">{tecnico.note}</p>}</div><button type="button" onClick={() => startEdit(tecnico)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">Modifica</button></div></div>))}</div>
+    </section>
+  );
+}
+
 function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
   const [leadInModifica, setLeadInModifica] = useState(null);
   const [formLead, setFormLead] = useState({
@@ -3097,9 +3157,13 @@ function CapitolatoSenzaPensieriSuite({
     note: '',
     capitolato_pdf_url: '',
     tecnico_nome: '',
+    tecnico_cognome: '',
     tecnico_studio: '',
     tecnico_email: '',
     tecnico_telefono: '',
+    tecnico_indirizzo: '',
+    tecnico_citta: '',
+    tecnico_provincia: '',
     tecnico_note: '',
   });
 
@@ -3766,9 +3830,13 @@ function CapitolatoSenzaPensieriSuite({
               <p className="text-sm font-black text-emerald-800">Tecnico incaricato alla redazione del capitolato</p>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <input value={form.tecnico_nome} onChange={(e) => updateForm('tecnico_nome', e.target.value)} placeholder="Nome tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={form.tecnico_studio} onChange={(e) => updateForm('tecnico_studio', e.target.value)} placeholder="Studio / società" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_cognome} onChange={(e) => updateForm('tecnico_cognome', e.target.value)} placeholder="Cognome tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_studio} onChange={(e) => updateForm('tecnico_studio', e.target.value)} placeholder="Studio tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
                 <input value={form.tecnico_email} onChange={(e) => updateForm('tecnico_email', e.target.value)} placeholder="Email tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
                 <input value={form.tecnico_telefono} onChange={(e) => updateForm('tecnico_telefono', e.target.value)} placeholder="Telefono tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_indirizzo} onChange={(e) => updateForm('tecnico_indirizzo', e.target.value)} placeholder="Indirizzo studio tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_citta} onChange={(e) => updateForm('tecnico_citta', e.target.value)} placeholder="Città tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_provincia} onChange={(e) => updateForm('tecnico_provincia', e.target.value)} placeholder="Provincia tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
               </div>
               <textarea value={form.tecnico_note} onChange={(e) => updateForm('tecnico_note', e.target.value)} placeholder="Note tecniche" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
             </div>
@@ -7473,6 +7541,8 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
   const [collaboratoreForm, setCollaboratoreForm] = useState({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
   const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
   const [condominoForm, setCondominoForm] = useState({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+  const [tecnicoForm, setTecnicoForm] = useState({ nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' });
+  const [importTecniciText, setImportTecniciText] = useState('');
   const [importCondominioId, setImportCondominioId] = useState('');
   const [importText, setImportText] = useState('');
   const amministratoriOptions = useMemo(() => (amministratori || [])
@@ -7532,6 +7602,25 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
       });
   };
 
+  const parseImportTecniciRows = () => importTecniciText
+    .split('\n')
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) => {
+      const parts = row.includes(';') ? row.split(';') : row.split(',');
+      return {
+        nome: String(parts[0] || '').trim(),
+        cognome: String(parts[1] || '').trim(),
+        studio_tecnico: String(parts[2] || '').trim(),
+        email: String(parts[3] || '').trim(),
+        telefono: String(parts[4] || '').trim(),
+        indirizzo: String(parts[5] || '').trim(),
+        citta: String(parts[6] || '').trim(),
+        provincia: String(parts[7] || '').trim(),
+        note: String(parts.slice(8).join(' ') || '').trim(),
+      };
+    });
+
   return (
     <section className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -7546,6 +7635,8 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
             ['collaboratore', 'Collaboratore'],
             ['condominio', 'Condominio'],
             ['condomino', 'Condòmino'],
+            ['tecnico', 'Tecnico'],
+            ['import-tecnici', 'Import tecnici'],
             ['import', 'Import condòmini'],
           ].map(([key, label]) => (
             <button
@@ -7680,6 +7771,29 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva condòmino'}
           </button>
+        </form>
+      )}
+
+
+      {tab === 'tecnico' && (
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={async (event) => { event.preventDefault(); const data = await invokeGestione({ action: 'crea_tecnico', ...tecnicoForm }); if (data?.success) setTecnicoForm({ nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' }); }}>
+          <input value={tecnicoForm.nome} onChange={(e) => setTecnicoForm({ ...tecnicoForm, nome: e.target.value })} placeholder="Nome tecnico" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.cognome} onChange={(e) => setTecnicoForm({ ...tecnicoForm, cognome: e.target.value })} placeholder="Cognome tecnico" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.studio_tecnico} onChange={(e) => setTecnicoForm({ ...tecnicoForm, studio_tecnico: e.target.value })} placeholder="Studio tecnico" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.email} onChange={(e) => setTecnicoForm({ ...tecnicoForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.telefono} onChange={(e) => setTecnicoForm({ ...tecnicoForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.indirizzo} onChange={(e) => setTecnicoForm({ ...tecnicoForm, indirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.citta} onChange={(e) => setTecnicoForm({ ...tecnicoForm, citta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.provincia} onChange={(e) => setTecnicoForm({ ...tecnicoForm, provincia: e.target.value })} placeholder="Provincia" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <textarea value={tecnicoForm.note} onChange={(e) => setTecnicoForm({ ...tecnicoForm, note: e.target.value })} placeholder="Note" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
+          <button disabled={saving} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">{saving ? 'Salvataggio...' : 'Salva tecnico'}</button>
+        </form>
+      )}
+
+      {tab === 'import-tecnici' && (
+        <form className="space-y-3" onSubmit={async (event) => { event.preventDefault(); const rows = parseImportTecniciRows(); const data = await invokeGestione({ action: 'importa_tecnici', tecnici: rows }); if (data?.success || data?.partial_success) setImportTecniciText(''); }}>
+          <textarea value={importTecniciText} onChange={(e) => setImportTecniciText(e.target.value)} rows={8} placeholder={'Formato: Nome; cognome; studio tecnico; email; telefono; indirizzo; città; provincia; note\nMario; Rossi; Studio Rossi; mario@email.it; 333000000; Via Roma 1; Pisa; PI; Interessato a CaSP'} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <button disabled={saving} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{saving ? 'Importazione...' : 'Importa tecnici'}</button>
         </form>
       )}
 
@@ -8916,6 +9030,7 @@ export default function App() {
   const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
+  const [leadTecnici, setLeadTecnici] = useState([]);
   const [aziendePartner, setAziendePartner] = useState([]);
   const [provvigioniPartner, setProvvigioniPartner] = useState([]);
   const [fatturePartner, setFatturePartner] = useState([]);
@@ -9261,6 +9376,14 @@ export default function App() {
 
       if (leadError && leadError.code !== 'PGRST116') throw leadError;
       setLeadAmministratori(leadData || []);
+
+      const { data: leadTecniciData, error: leadTecniciError } = await supabase
+        .from('lead_tecnici')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (leadTecniciError && leadTecniciError.code !== 'PGRST116' && leadTecniciError.code !== '42P01') throw leadTecniciError;
+      setLeadTecnici(leadTecniciData || []);
 
       const { data: aziendePartnerData, error: aziendePartnerError } = await supabase
         .from('aziende_partner')
@@ -10166,6 +10289,54 @@ export default function App() {
     }
   };
 
+
+  const normalizzaLeadTecnico = (tecnico = {}) => ({
+    nome: String(tecnico.nome || '').trim(),
+    cognome: String(tecnico.cognome || tecnico.tecnico_cognome || '').trim(),
+    studio_tecnico: String(tecnico.studio_tecnico || tecnico.tecnico_studio || '').trim(),
+    email: String(tecnico.email || tecnico.tecnico_email || '').toLowerCase().trim(),
+    telefono: String(tecnico.telefono || tecnico.tecnico_telefono || '').trim(),
+    indirizzo: String(tecnico.indirizzo || tecnico.tecnico_indirizzo || '').trim(),
+    citta: String(tecnico.citta || tecnico.tecnico_citta || '').trim(),
+    provincia: String(tecnico.provincia || tecnico.tecnico_provincia || '').trim(),
+    note: String(tecnico.note || tecnico.tecnico_note || '').trim(),
+  });
+
+  const upsertLeadTecnico = async (tecnico = {}) => {
+    const payload = normalizzaLeadTecnico(tecnico);
+    if (!payload.email) return null;
+    const { data: existing, error: existingError } = await supabase.from('lead_tecnici').select('id').eq('email', payload.email).maybeSingle();
+    if (existingError && existingError.code !== 'PGRST116') throw existingError;
+    if (existing?.id) {
+      const { data, error } = await supabase.from('lead_tecnici').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single();
+      if (error) throw error;
+      return data;
+    }
+    const { data, error } = await supabase.from('lead_tecnici').insert(payload).select().single();
+    if (error) throw error;
+    return data;
+  };
+
+  const creaLeadTecnico = async (tecnico) => {
+    try { await upsertLeadTecnico(tecnico); setStatusMessage('Lead tecnico salvato con successo.'); await carica(); }
+    catch (error) { console.error(error); alert('Errore salvataggio tecnico: ' + (error.message || 'sconosciuto')); }
+  };
+
+  const aggiornaLeadTecnico = async (tecnicoId, updatePayload) => {
+    try {
+      const payload = normalizzaLeadTecnico(updatePayload);
+      const { error } = await supabase.from('lead_tecnici').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', tecnicoId);
+      if (error) throw error;
+      setLeadTecnici((prev) => prev.map((tecnico) => Number(tecnico.id) === Number(tecnicoId) ? { ...tecnico, ...payload } : tecnico));
+      setStatusMessage('Lead tecnico aggiornato con successo.'); await carica();
+    } catch (error) { console.error(error); alert('Errore aggiornamento tecnico: ' + (error.message || 'sconosciuto')); }
+  };
+
+  const importaLeadTecnici = async (rows = []) => {
+    try { let salvati = 0; for (const row of rows || []) { const payload = normalizzaLeadTecnico(row); if (!payload.email) continue; await upsertLeadTecnico(payload); salvati += 1; } setStatusMessage(`Import tecnici completato: ${salvati} contatti salvati.`); await carica(); }
+    catch (error) { console.error(error); alert('Errore import tecnici: ' + (error.message || 'sconosciuto')); }
+  };
+
   const creaAziendaPartner = async (azienda) => {
     try {
       const percentualeGestore = Number(azienda.percentuale_gestore || 0);
@@ -10453,8 +10624,36 @@ export default function App() {
     try {
       const numeroPratica = capitolato.numero_pratica || `CASEP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
 
+      let tecnicoLead = null;
+      if (capitolato.tecnico_email) {
+        try {
+          tecnicoLead = await upsertLeadTecnico({
+            nome: capitolato.tecnico_nome,
+            cognome: capitolato.tecnico_cognome,
+            studio_tecnico: capitolato.tecnico_studio,
+            email: capitolato.tecnico_email,
+            telefono: capitolato.tecnico_telefono,
+            indirizzo: capitolato.tecnico_indirizzo,
+            citta: capitolato.tecnico_citta,
+            provincia: capitolato.tecnico_provincia,
+            note: capitolato.tecnico_note,
+          });
+        } catch (leadTecnicoError) {
+          console.warn('Lead tecnico non salvato automaticamente:', leadTecnicoError);
+        }
+      }
+
+      const {
+        tecnico_cognome,
+        tecnico_indirizzo,
+        tecnico_citta,
+        tecnico_provincia,
+        ...capitolatoDbPayload
+      } = capitolato;
+
       const payload = {
-        ...capitolato,
+        ...capitolatoDbPayload,
+        tecnico_id: tecnicoLead?.id || capitolato.tecnico_id || null,
         numero_pratica: numeroPratica,
         stato: capitolato.stato || 'Nuovo capitolato',
       };
@@ -10846,6 +11045,7 @@ export default function App() {
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche, contratti e report' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
+    { id: 'tecnici', label: 'Tecnici', subtitle: 'CRM tecnico CaSP' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
@@ -11096,6 +11296,13 @@ export default function App() {
             <DashboardRanking contratti={contratti} condomini={condomini} />
             <DashboardEspansione contratti={contratti} condomini={condomini} />
             <DashboardLeadPipeline contratti={contratti} condomini={condomini} />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'tecnici' && (
+          <>
+            {renderGestoreSectionTitle('Tecnici', 'CRM tecnici, studi tecnici, import/export e sviluppo CaSP.')}
+            <DashboardLeadTecnici leadTecnici={leadTecnici} onCreateLeadTecnico={creaLeadTecnico} onUpdateLeadTecnico={aggiornaLeadTecnico} onImportLeadTecnici={importaLeadTecnici} />
           </>
         )}
 
