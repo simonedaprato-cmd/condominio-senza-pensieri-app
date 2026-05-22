@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -8860,6 +8860,41 @@ export default function App() {
   const puoVedereFattureOperative = isAmministratoreOperativo;
   const puoCreareSegnalazioni = isAmministratoreOperativo || ruoloNormalizzato === 'condominio';
 
+  // Elenco amministratori censiti per Gestione Anagrafiche.
+  // Serve al form collaboratore: selezione da menu invece di email manuale.
+  const amministratoriAnagrafiche = useMemo(() => {
+    const daUtenti = (utentiSistema || [])
+      .filter((u) => String(u.ruolo || '').toLowerCase().trim() === 'amministratore')
+      .map((u) => ({
+        email: u.email,
+        nome: u.nome || u.ragione_sociale || u.studio || u.nome_studio || u.email,
+      }));
+
+    const daCondomini = (condomini || [])
+      .filter((c) => c.amministratore_email)
+      .map((c) => ({
+        email: c.amministratore_email,
+        nome: c.amministratore_nome || c.nome_amministratore || c.amministratore || c.amministratore_email,
+      }));
+
+    const mappa = new Map();
+    [...daUtenti, ...daCondomini].forEach((admin) => {
+      const email = String(admin.email || '').toLowerCase().trim();
+      if (!email) return;
+      const precedente = mappa.get(email) || {};
+      mappa.set(email, {
+        ...precedente,
+        ...admin,
+        email,
+        nome: admin.nome || precedente.nome || email,
+      });
+    });
+
+    return [...mappa.values()].sort((a, b) =>
+      String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || ''))
+    );
+  }, [utentiSistema, condomini]);
+
 
   const mostraToast = (title, message = '', tone = 'info') => {
     setToastInterno({ title, message, tone, createdAt: Date.now() });
@@ -10946,7 +10981,7 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'condominio' && (
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
-            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratori} onSaved={carica} />
+            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} onSaved={carica} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
