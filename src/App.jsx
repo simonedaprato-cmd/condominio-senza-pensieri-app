@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -7570,7 +7570,17 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
           <input value={condominioForm.condominioNome} onChange={(e) => setCondominioForm({ ...condominioForm, condominioNome: e.target.value })} placeholder="Nome condominio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioIndirizzo} onChange={(e) => setCondominioForm({ ...condominioForm, condominioIndirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioCitta} onChange={(e) => setCondominioForm({ ...condominioForm, condominioCitta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-          <input value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} placeholder="Email amministratore associato" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <select value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="">Seleziona amministratore associato</option>
+            {amministratoriOptions.map((admin) => (
+              <option key={admin.email} value={admin.email}>{admin.nome || admin.email}</option>
+            ))}
+          </select>
+          {amministratoriOptions.length === 0 && (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold text-amber-800 md:col-span-2">
+              Prima crea almeno un amministratore: il condominio viene collegato scegliendolo dall’elenco, senza scrivere email manualmente.
+            </div>
+          )}
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva condominio'}
           </button>
