@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3235,7 +3235,16 @@ function CapitolatoSenzaPensieriSuite({
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
 
+  const valoreBooleanoAttivo = (valore) => {
+    if (valore === true || valore === 1) return true;
+    const normalizzato = String(valore || '').toLowerCase().trim();
+    return ['true', '1', 'si', 'sì', 'yes', 'attivo', 'attiva'].includes(normalizzato);
+  };
+
   const condominioCspAttivo = (condominioId) => {
+    const condominio = (condomini || []).find((item) => Number(item.id) === Number(condominioId));
+    if (valoreBooleanoAttivo(condominio?.csp_attivo)) return true;
+
     const oggi = new Date().toISOString().slice(0, 10);
     return (contratti || []).some((contratto) => {
       if (Number(contratto.condominio_id) !== Number(condominioId)) return false;
@@ -9358,7 +9367,7 @@ export default function App() {
       setUserProfile(profile);
       setRuolo(String(profile.ruolo || 'non_configurato').toLowerCase().trim());
 
-      const { data: condominiData, error: condominiError } = await supabase.from('condomini').select('id, nome, indirizzo').order('nome');
+      const { data: condominiData, error: condominiError } = await supabase.from('condomini').select('id, nome, indirizzo, csp_attivo').order('nome');
       if (condominiError) throw condominiError;
       setCondomini(condominiData || []);
 
