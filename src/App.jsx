@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -7569,7 +7569,7 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
   const [message, setMessage] = useState('');
   const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '', provincia: 'Firenze', citta: '', indirizzo: '', numero_condomini: '', numero_condomini_interessati: '', origine: 'Gestione anagrafiche', stato_pipeline: 'cliente_attivo', note: '' });
   const [collaboratoreForm, setCollaboratoreForm] = useState({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
-  const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
+  const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', codiceFiscale: '', codiceSdi: '', amministratoreEmail: '' });
   const [condominoForm, setCondominoForm] = useState({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
   const [tecnicoForm, setTecnicoForm] = useState({ nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' });
   const [importTecniciText, setImportTecniciText] = useState('');
@@ -7757,12 +7757,14 @@ function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
           onSubmit={async (event) => {
             event.preventDefault();
             const data = await invokeGestione({ action: 'crea_condominio', ...condominioForm });
-            if (data?.success) setCondominioForm({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
+            if (data?.success) setCondominioForm({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', codiceFiscale: '', codiceSdi: '', amministratoreEmail: '' });
           }}
         >
           <input value={condominioForm.condominioNome} onChange={(e) => setCondominioForm({ ...condominioForm, condominioNome: e.target.value })} placeholder="Nome condominio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioIndirizzo} onChange={(e) => setCondominioForm({ ...condominioForm, condominioIndirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioCitta} onChange={(e) => setCondominioForm({ ...condominioForm, condominioCitta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.codiceFiscale} onChange={(e) => setCondominioForm({ ...condominioForm, codiceFiscale: e.target.value.toUpperCase() })} placeholder="Codice fiscale condominio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.codiceSdi} onChange={(e) => setCondominioForm({ ...condominioForm, codiceSdi: e.target.value.toUpperCase() })} placeholder="Codice univoco SDI condominio" maxLength={7} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <select value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
             <option value="">Seleziona studio amministratore associato</option>
             {amministratoriOptions.map((admin) => (
