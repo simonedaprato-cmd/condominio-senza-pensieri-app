@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.3';
+const APP_VERSION_LABEL = 'CSP v1.0.3';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -4127,13 +4127,15 @@ function CapitolatoSenzaPensieriSuite({
                 >
                   Chiudi
                 </button>
-                <button
-                  type="button"
-                  onClick={() => cancellaCapitolato(capitolatoAperto)}
-                  className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-50"
-                >
-                  Cancella pratica
-                </button>
+                {isGestore && (
+                  <button
+                    type="button"
+                    onClick={() => cancellaCapitolato(capitolatoAperto)}
+                    className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-50"
+                  >
+                    Cancella pratica
+                  </button>
+                )}
               </div>
             </div>
 
@@ -4332,18 +4334,7 @@ function CapitolatoSenzaPensieriSuite({
                       <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCapitolatoApertoId(Number(item.id));
-                          setTimeout(() => {
-                            document.querySelector('[data-casep-open-panel]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }, 50);
-                        }}
-                        className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
-                      >
-                        Apri / Gestisci
-                      </button>
+                      <span className="text-xs font-black uppercase tracking-wide text-emerald-700">Tocca la riga</span>
                     </td>
                   </tr>
                 ))
@@ -9233,7 +9224,19 @@ function LavoriPrivatiSuite({
   const renderCard = (lavoro) => {
     const fattura = fatturaDelLavoro(lavoro.id);
     return (
-      <article key={lavoro.id} className={`rounded-3xl border border-slate-200 bg-white p-4 shadow-sm ${MOTION_CARD}`}>
+      <article
+        key={lavoro.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => setLavoroAperto(lavoro)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setLavoroAperto(lavoro);
+          }
+        }}
+        className={`cursor-pointer rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-md ${MOTION_CARD}`}
+      >
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Lavoro privato #{lavoro.id}</p>
@@ -9245,7 +9248,7 @@ function LavoriPrivatiSuite({
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{lavoro.stato}</span>
             {lavoro.importo_preventivo ? <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">{formatEuro(lavoro.importo_preventivo)} compreso IVA 22%</span> : null}
             {fattura ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Fattura: {fattura.stato}</span> : null}
-            <button onClick={() => setLavoroAperto(lavoro)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-emerald-700">Apri</button>
+            <span className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Tocca per gestire</span>
           </div>
         </div>
         <p className="mt-3 line-clamp-2 text-sm text-slate-600">{lavoro.descrizione}</p>
