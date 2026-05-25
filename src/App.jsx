@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.11';
-const APP_VERSION_LABEL = 'CSP v1.0.11';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -124,7 +124,10 @@ function isPushLaunchContext() {
     params.has('pratica') ||
     params.has('segnalazione') ||
     params.has('segnalazioneId') ||
-    params.has('capitolato')
+    params.has('capitolato') ||
+    params.has('rivista') ||
+    params.has('magazine') ||
+    params.get('section') === 'rivista'
   );
 }
 
@@ -9836,6 +9839,9 @@ export default function App() {
     message,
     tipo = 'generica',
     riferimentoId = null,
+    url = '',
+    deepLink = '',
+    iconUrl = '',
   }) => {
     try {
       if (!condominioId) return null;
@@ -9848,6 +9854,10 @@ export default function App() {
           message,
           tipo,
           riferimentoId,
+          url: url || deepLink || '',
+          deepLink: deepLink || url || '',
+          iconUrl,
+          icon: iconUrl,
         },
       });
 
@@ -10000,14 +10010,24 @@ export default function App() {
         }, ...(prev || [])]);
       }
 
+      const rivistaDeepLink = buildAppDeepLink({
+        section: 'rivista',
+        rivista: rivistaId || 'ultima',
+        fromPush: '1',
+      });
+      const rivistaPushIcon = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/push_icon3.png';
+
       const condominiDaNotificare = (condomini || []).filter((condominio) => condominio?.id);
       await Promise.allSettled(condominiDaNotificare.map((condominio) => inviaNotificaCondominio({
         condominioId: condominio.id,
         destinatari: 'tutti',
         title: 'Nuova rivista disponibile',
-        message: `È disponibile una nuova uscita della rivista Condominio Senza Pensieri: ${titolo.trim()}. Apri l’app per leggerla.`,
+        message: 'Il nuovo numero della rivista Condominio Senza Pensieri è ora disponibile nell’app.\nIdee, approfondimenti e soluzioni per il condominio di oggi.',
         tipo: 'rivista_disponibile',
         riferimentoId: rivistaId,
+        url: rivistaDeepLink,
+        deepLink: rivistaDeepLink,
+        iconUrl: rivistaPushIcon,
       })));
 
       mostraToast('Rivista pubblicata', 'La nuova uscita è disponibile nell’archivio e gli utenti collegati sono stati avvisati.', 'success');
@@ -10130,6 +10150,31 @@ export default function App() {
       window.history.replaceState({}, document.title, nextUrl);
     }
   }, [utente, lavoriPrivati, ruoloNormalizzato]);
+
+  useEffect(() => {
+    if (!utente) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('section');
+    const rivistaId = params.get('rivista') || params.get('magazine');
+
+    if (section !== 'rivista' && !rivistaId) return;
+
+    if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
+    if (isAmministratoreOperativo) setAmministratoreSection('rivista');
+    if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('rivista');
+
+    params.delete('section');
+    params.delete('rivista');
+    params.delete('magazine');
+    params.delete('fromPush');
+    params.delete('source');
+    params.delete('utm_source');
+
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({}, document.title, nextUrl);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
 
 
   const carica = async () => {
