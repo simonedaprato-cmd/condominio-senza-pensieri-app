@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -8883,6 +8883,7 @@ function LavoriPrivatiSuite({
   const getCondominioNome = (id) => condomini.find((c) => Number(c.id) === Number(id))?.nome || 'Condominio non indicato';
   const fatturaDelLavoro = (id) => fattureLavoriPrivati.find((f) => Number(f.lavoro_privato_id) === Number(id));
   const updateDraft = (id, patch) => setDrafts((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
+  const imponibileDaLordo22 = (valoreLordo) => Math.round((Number(valoreLordo || 0) / 1.22) * 100) / 100;
 
   const creaRichiesta = async (e) => {
     e.preventDefault();
@@ -8996,6 +8997,7 @@ function LavoriPrivatiSuite({
         azienda_partner_id: draft.azienda_partner_id ? Number(draft.azienda_partner_id) : null,
         fornitore: draft.azienda_partner_id ? ((aziendePartner || []).find((azienda) => Number(azienda.id) === Number(draft.azienda_partner_id))?.ragione_sociale || '') : '',
         importo: Number(String(draft.importo).replace(',', '.')),
+        importo_imponibile: Math.round((Number(String(draft.importo).replace(',', '.')) / 1.22) * 100) / 100,
         data_fattura: draft.data_fattura || new Date().toISOString().slice(0, 10),
         data_scadenza: draft.data_scadenza,
         stato: draft.stato_fattura || 'Da pagare',
@@ -9035,7 +9037,7 @@ function LavoriPrivatiSuite({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{lavoro.stato}</span>
-            {lavoro.importo_preventivo ? <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">{formatEuro(lavoro.importo_preventivo)}</span> : null}
+            {lavoro.importo_preventivo ? <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">{formatEuro(lavoro.importo_preventivo)} compreso IVA 22%</span> : null}
             {fattura ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Fattura: {fattura.stato}</span> : null}
             <button onClick={() => setLavoroAperto(lavoro)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-emerald-700">Apri</button>
           </div>
@@ -9124,7 +9126,7 @@ function LavoriPrivatiSuite({
                 {lavoroAperto.preventivo_url && (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                     <h4 className="font-black text-emerald-900">Preventivo disponibile</h4>
-                    <p className="mt-1 text-sm font-bold text-emerald-700">{formatEuro(lavoroAperto.importo_preventivo)}</p>
+                    <p className="mt-1 text-sm font-bold text-emerald-700">{formatEuro(lavoroAperto.importo_preventivo)} <span className="text-xs font-black uppercase tracking-wide text-emerald-600">compreso IVA 22%</span></p>
                     <a href={lavoroAperto.preventivo_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">Apri preventivo</a>
                     {isCondomino && !lavoroAperto.esito_preventivo && (
                       <div className="mt-3 flex gap-2">
@@ -9157,7 +9159,8 @@ function LavoriPrivatiSuite({
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <h4 className="font-black text-slate-900">Carica preventivo</h4>
                     <div className="mt-3 grid gap-2">
-                      <input type="number" step="0.01" placeholder="Importo preventivo" value={drafts[lavoroAperto.id]?.importo_preventivo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo_preventivo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <input type="number" step="0.01" placeholder="Importo preventivo compreso IVA 22%" value={drafts[lavoroAperto.id]?.importo_preventivo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo_preventivo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <p className="text-xs font-bold text-slate-500">Importo da mostrare al condòmino: totale compreso IVA 22%. La provvigione interna verrà calcolata sull’imponibile.</p>
                       <input type="file" onChange={(e) => updateDraft(lavoroAperto.id, { preventivoFile: e.target.files?.[0] || null })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <button onClick={() => caricaPreventivo(lavoroAperto)} disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white">Invia preventivo</button>
                     </div>
@@ -9181,7 +9184,7 @@ function LavoriPrivatiSuite({
                         <option value="">Seleziona fornitore</option>
                         {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
                       </select>
-                      <input type="number" step="0.01" placeholder="Importo fattura" value={drafts[lavoroAperto.id]?.importo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <input type="number" step="0.01" placeholder="Importo fattura compreso IVA 22%" value={drafts[lavoroAperto.id]?.importo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <input type="date" value={drafts[lavoroAperto.id]?.data_scadenza || ''} onChange={(e) => updateDraft(lavoroAperto.id, { data_scadenza: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <input type="file" onChange={(e) => updateDraft(lavoroAperto.id, { fatturaFile: e.target.files?.[0] || null })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <button onClick={() => salvaFattura(lavoroAperto)} disabled={saving} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-black text-white">Salva fattura</button>
