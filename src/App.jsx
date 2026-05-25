@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1079,31 +1079,36 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading }) {
   });
 
   return (
-    <div className="sticky top-0 z-50 -mx-1 space-y-2 rounded-b-3xl border border-white/70 bg-white/90 px-3 py-2 shadow-lg shadow-emerald-900/10 backdrop-blur-2xl md:mx-0">
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onOpenMenu}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-xl font-black leading-none text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-          aria-label="Apri menu"
-        >
-          ☰
-        </button>
-        <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-slate-500 md:text-sm">
-          <span>{formattedDate}</span>
-          <span className="mx-2 text-emerald-500">•</span>
-          <span className="text-slate-900">{formattedTime}</span>
+    <>
+      <div className="fixed left-0 right-0 top-0 z-[70] border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-2">
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-xl font-black leading-none text-emerald-800 shadow-md shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg active:translate-y-0 active:shadow-sm"
+            aria-label="Apri menu"
+          >
+            ☰
+          </button>
+          <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-slate-500 md:text-sm">
+            <span>{formattedDate}</span>
+            <span className="mx-2 text-emerald-500">•</span>
+            <span className="text-slate-900">{formattedTime}</span>
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-4xl px-4 pb-2">
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="w-full rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800 shadow-md shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-lg active:translate-y-0 active:shadow-sm disabled:opacity-60"
+          >
+            {loading ? 'Sincronizzo live...' : 'Aggiorna live'}
+          </button>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onRefresh}
-        disabled={loading}
-        className="w-full rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800 shadow-sm transition hover:bg-emerald-100 disabled:opacity-60"
-      >
-        {loading ? 'Sincronizzo live...' : 'Aggiorna live'}
-      </button>
-    </div>
+      <div className="h-[98px] shrink-0" aria-hidden="true" />
+    </>
   );
 }
 
