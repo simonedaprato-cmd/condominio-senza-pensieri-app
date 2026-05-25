@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1827,6 +1827,9 @@ function GestioneLeadAmministratori({ onCreateLead }) {
 
     await onCreateLead({
       ...form,
+      data_appuntamento: form.data_appuntamento || null,
+      ora_appuntamento: form.ora_appuntamento || null,
+      prossimo_followup: form.prossimo_followup || null,
       numero_condomini: numeroCondomini,
       numero_condomini_interessati: numeroCondominiInteressati,
       valore_potenziale: valorePotenziale,
@@ -11181,12 +11184,17 @@ export default function App() {
     }
   };
 
+  const normalizzaPayloadLeadAmministratore = (lead = {}) => ({
+    ...lead,
+    data_appuntamento: lead.data_appuntamento || null,
+    prossimo_followup: lead.prossimo_followup || null,
+    ora_appuntamento: lead.ora_appuntamento || null,
+    stato_pipeline: lead.stato_pipeline || 'potenziale',
+  });
+
   const creaLeadAmministratore = async (lead) => {
     try {
-      const { error } = await supabase.from('lead_amministratori').insert({
-        ...lead,
-        stato_pipeline: lead.stato_pipeline || 'potenziale',
-      });
+      const { error } = await supabase.from('lead_amministratori').insert(normalizzaPayloadLeadAmministratore(lead));
 
       if (error) throw error;
       setStatusMessage('Lead amministratore salvato con successo.');
@@ -11199,15 +11207,16 @@ export default function App() {
 
   const aggiornaLeadAmministratore = async (leadId, updatePayload) => {
     try {
+      const payloadPulito = normalizzaPayloadLeadAmministratore(updatePayload);
       const { error } = await supabase
         .from('lead_amministratori')
-        .update(updatePayload)
+        .update(payloadPulito)
         .eq('id', leadId);
 
       if (error) throw error;
 
       setLeadAmministratori((prev) => prev.map((lead) => (
-        Number(lead.id) === Number(leadId) ? { ...lead, ...updatePayload } : lead
+        Number(lead.id) === Number(leadId) ? { ...lead, ...payloadPulito } : lead
       )));
 
       setStatusMessage('Lead amministratore aggiornato con successo.');
@@ -12147,9 +12156,11 @@ export default function App() {
     ? userProfile.condomini.map((c) => c?.nome).filter(Boolean).join(', ')
     : (userProfile?.condominio || 'non specificato');
   const menuWhatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + menuCondominiLabel + '. Ho bisogno di supporto tecnico.';
-  const ruoloMenuLabel = ruoloNormalizzato
-    ? ruoloNormalizzato.charAt(0).toUpperCase() + ruoloNormalizzato.slice(1)
-    : 'Profilo CSP';
+  const ruoloMenuLabel = (() => {
+    if (!ruoloNormalizzato) return 'Profilo CSP';
+    if (ruoloNormalizzato === 'condominio' || ruoloNormalizzato === 'condomino') return 'Condomino';
+    return ruoloNormalizzato.charAt(0).toUpperCase() + ruoloNormalizzato.slice(1);
+  })();
 
   const apriSezioneDaMenuLaterale = (sectionId) => {
     if (!sectionId) return;
