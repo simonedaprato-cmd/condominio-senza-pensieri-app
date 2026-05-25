@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -12293,7 +12293,7 @@ export default function App() {
           <>
             {menuLateraleAperto && (
               <div className="fixed inset-0 z-[120] flex">
-                <style>{`@keyframes cspMenuSlideIn { from { transform: translateX(-100%); opacity: 0.72; } to { transform: translateX(0); opacity: 1; } }`}</style>
+                <style>{`@keyframes cspMenuSlideIn { from { transform: translateX(-106%); opacity: 0.45; } 65% { transform: translateX(1.5%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }`}</style>
                 <button
                   type="button"
                   className="absolute inset-0 z-[121] bg-slate-950/45 backdrop-blur-[2px]"
@@ -12302,23 +12302,13 @@ export default function App() {
                 />
                 <aside
                   className="relative z-[122] flex h-full w-[86vw] max-w-sm flex-col overflow-hidden border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30"
-                  style={{ animation: 'cspMenuSlideIn 220ms cubic-bezier(0.22, 1, 0.36, 1)' }}
+                  style={{ animation: 'cspMenuSlideIn 520ms cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
                   <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700 p-5 text-white">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-100">Condominio Senza Pensieri</p>
-                        <h2 className="mt-2 text-2xl font-black">Menu</h2>
-                        <p className="mt-1 text-sm font-semibold text-emerald-50/90">Accesso rapido alle aree abilitate.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setMenuLateraleAperto(false)}
-                        className="rounded-2xl bg-white/15 px-3 py-2 text-lg font-black text-white transition hover:bg-white/25"
-                        aria-label="Chiudi menu"
-                      >
-                        ×
-                      </button>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-100">Condominio Senza Pensieri</p>
+                      <h2 className="mt-2 text-2xl font-black">Menu</h2>
+                      <p className="mt-1 text-sm font-semibold text-emerald-50/90">Accesso rapido alle aree abilitate.</p>
                     </div>
                   </div>
                   <nav className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
