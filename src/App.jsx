@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9726,6 +9726,7 @@ export default function App() {
   const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
   const [condominoSection, setCondominoSection] = useState('segnalazioni');
   const [menuLateraleAperto, setMenuLateraleAperto] = useState(false);
+  const [menuLateraleInChiusura, setMenuLateraleInChiusura] = useState(false);
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
   const [leadTecnici, setLeadTecnici] = useState([]);
@@ -12174,12 +12175,26 @@ export default function App() {
     return ruoloNormalizzato.charAt(0).toUpperCase() + ruoloNormalizzato.slice(1);
   })();
 
+  const apriMenuLaterale = () => {
+    setMenuLateraleInChiusura(false);
+    setMenuLateraleAperto(true);
+  };
+
+  const chiudiMenuLaterale = () => {
+    if (!menuLateraleAperto || menuLateraleInChiusura) return;
+    setMenuLateraleInChiusura(true);
+    window.setTimeout(() => {
+      setMenuLateraleAperto(false);
+      setMenuLateraleInChiusura(false);
+    }, 520);
+  };
+
   const apriSezioneDaMenuLaterale = (sectionId) => {
     if (!sectionId) return;
     if (ruoloNormalizzato === 'gestore') setGestoreSection(sectionId);
     else if (isAmministratoreOperativo) setAmministratoreSection(sectionId);
     else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(sectionId);
-    setMenuLateraleAperto(false);
+    chiudiMenuLaterale();
   };
 
   const renderGestoreSectionTitle = (title, subtitle) => (
@@ -12212,7 +12227,7 @@ export default function App() {
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         {sezioniMenuLaterale.length > 0 && (
           <LiveTopBar
-            onOpenMenu={() => setMenuLateraleAperto(true)}
+            onOpenMenu={apriMenuLaterale}
             onRefresh={carica}
             loading={loading}
             userProfile={userProfile}
@@ -12232,18 +12247,19 @@ export default function App() {
 
         {sezioniMenuLaterale.length > 0 && (
           <>
-            {menuLateraleAperto && (
+            {(menuLateraleAperto || menuLateraleInChiusura) && (
               <div className="fixed inset-0 z-[120] flex">
-                <style>{`@keyframes cspMenuSlideIn { from { transform: translateX(-106%); opacity: 0.45; } 65% { transform: translateX(1.5%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }`}</style>
+                <style>{`@keyframes cspMenuSlideIn { from { transform: translateX(-106%); opacity: 0.45; } 65% { transform: translateX(1.5%); opacity: 1; } to { transform: translateX(0); opacity: 1; } } @keyframes cspMenuSlideOut { from { transform: translateX(0); opacity: 1; } 35% { transform: translateX(1.5%); opacity: 1; } to { transform: translateX(-106%); opacity: 0.45; } } @keyframes cspOverlayFadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes cspOverlayFadeOut { from { opacity: 1; } to { opacity: 0; } }`}</style>
                 <button
                   type="button"
                   className="absolute inset-0 z-[121] bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setMenuLateraleAperto(false)}
+                  style={{ animation: menuLateraleInChiusura ? 'cspOverlayFadeOut 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'cspOverlayFadeIn 520ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                  onClick={chiudiMenuLaterale}
                   aria-label="Chiudi menu"
                 />
                 <aside
                   className="relative z-[122] flex h-full w-[86vw] max-w-sm flex-col overflow-hidden border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30"
-                  style={{ animation: 'cspMenuSlideIn 520ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                  style={{ animation: menuLateraleInChiusura ? 'cspMenuSlideOut 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'cspMenuSlideIn 520ms cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
                   <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-800 via-emerald-600 to-teal-700 px-5 py-6 text-white">
                     <div className="flex flex-col items-center text-center">
