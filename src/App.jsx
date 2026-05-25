@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.10';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.11';
+const APP_VERSION_LABEL = 'CSP v1.0.11';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1112,7 +1112,7 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading }) {
   );
 }
 
-function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout }) {
+function Header({ userProfile }) {
   const ora = new Date().getHours();
   let saluto = 'Ciao';
   if (ora >= 5 && ora < 12) saluto = 'Buongiorno';
@@ -1120,106 +1120,20 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
   else if (ora >= 18 && ora < 23) saluto = 'Buonasera';
   else saluto = 'Buonanotte';
 
-  const criticita = segnalazioni.filter((s) => s.priorita === 'Alta').length;
-  const preventiviAperti = segnalazioni.filter((s) => s.stato_invio === 'inviato' && !s.stato_conversione).length;
-
-  const messaggioRuolo = (() => {
-    if (ruolo === 'gestore') {
-      if (criticita > 0) return 'Controllo globale: ' + criticita + ' criticità operative attive';
-      if (preventiviAperti > 0) return preventiviAperti + ' preventivi in attesa di risposta';
-      return 'Controllo globale attivo: situazione sotto controllo';
-    }
-
-    if (ruolo === 'amministratore') {
-      if (criticita > 0) return criticita + ' criticità da monitorare';
-      return 'Gestisci ' + condominiVisibili.length + ' condomini';
-    }
-
-    if (ruolo === 'collaboratore') {
-      if (criticita > 0) return criticita + ' criticità operative da monitorare';
-      return 'Operatività su ' + condominiVisibili.length + ' condomini';
-    }
-
-    if (ruolo === 'condominio' || ruolo === 'condomino') {
-      const numeroCondomini = Array.isArray(userProfile?.condomini) ? userProfile.condomini.length : 0;
-      if (numeroCondomini > 1) return numeroCondomini + ' condomìni collegati al tuo profilo';
-      if (userProfile?.condominio) return 'Condominio: ' + userProfile.condominio;
-    }
-
-    return 'Profilo attivo';
-  })();
-
-  const condominiWhatsapp = Array.isArray(userProfile?.condomini) && userProfile.condomini.length
-    ? userProfile.condomini.map((c) => c?.nome).filter(Boolean).join(', ')
-    : (userProfile?.condominio || 'non specificato');
-  const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + condominiWhatsapp + '. Ho bisogno di supporto.';
+  const nomeUtente = userProfile?.nome || 'benvenuto';
 
   return (
-    <header className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 px-2 pb-6 pt-6 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl transition-all duration-500 ease-out hover:shadow-[0_45px_140px_-35px_rgba(5,150,105,0.95)] md:px-6 md:pb-8 md:pt-12">
-      <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/25 blur-3xl" />
-      <div className="absolute right-1/3 top-0 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl" />
-      <div className="absolute -bottom-20 left-0 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-start gap-2 md:items-center md:gap-4">
-          <LogoMark />
-          <div className="min-w-0 text-white">
-            <h1 className="text-lg font-semibold leading-tight tracking-tight text-white/95 md:text-2xl">Condominio Senza Pensieri</h1>
-            <p className="mt-1 text-xs text-white/75 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
-            {userProfile?.nome && (
-              <div className="mt-3 space-y-3">
-                <p className="text-lg font-black leading-tight tracking-tight text-white drop-shadow md:text-2xl">
-                  {saluto} {userProfile.nome}
-                </p>
-                <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 backdrop-blur-xl md:text-base">
-                  {messaggioRuolo}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2 md:max-w-xl">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
-                    Criticità <strong className="text-white">{criticita}</strong>
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
-                    Preventivi <strong className="text-white">{preventiviAperti}</strong>
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-xl md:text-sm">
-                    Condomini <strong className="text-white">{condominiVisibili.length}</strong>
-                  </span>
-                </div>
-              </div>
-            )}
-            <div className="mt-3 space-y-1 text-[11px] text-white/75 md:text-xs">
-              <p className="break-all">Utente: {utente?.email}</p>
-              <p>Ruolo: {ruolo}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 self-start md:self-auto">
-          
-          <a
-            href={'https://wa.me/393477921965?text=' + encodeURIComponent(whatsappText)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/15 shadow-lg backdrop-blur-xl transition duration-300 hover:scale-110 hover:bg-green-500/80"
-            title="WhatsApp"
-          >
-            <svg viewBox="0 0 32 32" className="h-5 w-5 fill-white" aria-hidden="true">
-              <path d="M16 .4C7.4.4.4 7.4.4 16c0 2.8.7 5.4 2 7.7L.4 31.6l8.1-2c2.2 1.2 4.8 1.9 7.5 1.9 8.6 0 15.6-7 15.6-15.6S24.6.4 16 .4zm0 28.6c-2.4 0-4.7-.7-6.6-1.9l-.5-.3-4.8 1.2 1.3-4.7-.3-.5C4 20.7 3.4 18.4 3.4 16 3.4 8.9 8.9 3.4 16 3.4S28.6 8.9 28.6 16 23.1 29 16 29zm7.4-9.8c-.4-.2-2.3-1.1-2.7-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.4 1.6-.3.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.2-1.3-1.2-2.2-2.7-2.4-3.1-.3-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.3-.4.4-.7.1-.2 0-.5 0-.7 0-.2-1-2.4-1.4-3.3-.3-.8-.7-.7-1-.7h-.8c-.3 0-.7.1-1 .5-.3.4-1.3 1.3-1.3 3.1s1.4 3.5 1.6 3.7c.2.2 2.8 4.3 6.9 6 .9.4 1.6.6 2.1.8.9.3 1.7.2 2.3.1.7-.1 2.3-.9 2.6-1.8.3-.9.3-1.6.2-1.8-.1-.2-.4-.3-.8-.5z" />
-            </svg>
-          </a>
-          <button onClick={onLogout} className="rounded-2xl border border-white/20 bg-white/15 px-5 py-3 text-sm font-bold text-white shadow-lg backdrop-blur-xl transition duration-300 hover:scale-105 hover:bg-white/25">
-            Logout
-          </button>
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black tracking-[0.14em] text-white/80 shadow-sm backdrop-blur">
-        {APP_VERSION_LABEL}
+    <header className="relative overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-600 to-teal-800 px-5 py-5 text-white shadow-[0_28px_90px_-45px_rgba(5,150,105,0.9)] md:px-7 md:py-6">
+      <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-white/20 blur-3xl" />
+      <div className="absolute -bottom-24 left-4 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
+      <div className="relative z-10">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-50/80">Condominio Senza Pensieri</p>
+        <h1 className="mt-2 text-2xl font-black leading-tight tracking-tight text-white md:text-3xl">Gestione evoluta delle pratiche condominiali</h1>
+        <p className="mt-3 text-lg font-semibold text-white/90 md:text-xl">{saluto}, {nomeUtente}</p>
       </div>
     </header>
   );
 }
-
 
 function DashboardEconomicStat({ label, value, tone = 'slate' }) {
   const toneClass = {
@@ -12234,6 +12148,15 @@ export default function App() {
         ? condominoSection
         : '';
 
+
+  const menuCondominiLabel = Array.isArray(userProfile?.condomini) && userProfile.condomini.length
+    ? userProfile.condomini.map((c) => c?.nome).filter(Boolean).join(', ')
+    : (userProfile?.condominio || 'non specificato');
+  const menuWhatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + menuCondominiLabel + '. Ho bisogno di supporto tecnico.';
+  const ruoloMenuLabel = ruoloNormalizzato
+    ? ruoloNormalizzato.charAt(0).toUpperCase() + ruoloNormalizzato.slice(1)
+    : 'Profilo CSP';
+
   const apriSezioneDaMenuLaterale = (sectionId) => {
     if (!sectionId) return;
     if (ruoloNormalizzato === 'gestore') setGestoreSection(sectionId);
@@ -12304,11 +12227,11 @@ export default function App() {
                   className="relative z-[122] flex h-full w-[86vw] max-w-sm flex-col overflow-hidden border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30"
                   style={{ animation: 'cspMenuSlideIn 520ms cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
-                  <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700 p-5 text-white">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-100">Condominio Senza Pensieri</p>
-                      <h2 className="mt-2 text-2xl font-black">Menu</h2>
-                      <p className="mt-1 text-sm font-semibold text-emerald-50/90">Accesso rapido alle aree abilitate.</p>
+                  <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-800 via-emerald-600 to-teal-700 px-5 py-6 text-white">
+                    <div className="flex flex-col items-center text-center">
+                      <LogoMark className="h-20 w-auto drop-shadow-2xl md:h-24" />
+                      <p className="mt-3 text-[10px] font-black uppercase tracking-[0.28em] text-emerald-50/85">Condominio Senza Pensieri</p>
+                      <p className="mt-1 text-xs font-semibold text-emerald-50/75">Gestione evoluta. Serenità reale.</p>
                     </div>
                   </div>
                   <nav className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
@@ -12330,6 +12253,28 @@ export default function App() {
                       </button>
                     ))}
                   </nav>
+                  <div className="border-t border-slate-100 bg-white px-4 py-4">
+                    <a
+                      href={'https://wa.me/393477921965?text=' + encodeURIComponent(menuWhatsappText)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex w-full items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 shadow-md shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-lg"
+                    >
+                      Assistenza tecnica
+                    </a>
+                    <button
+                      type="button"
+                      onClick={logout}
+                      className="mt-2 flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-red-100 hover:bg-red-50 hover:text-red-700 hover:shadow-md"
+                    >
+                      Logout
+                    </button>
+                    <div className="mt-4 bg-white text-center">
+                      <p className="text-sm font-black leading-tight text-slate-900">{userProfile?.nome || utente?.email || 'Utente CSP'}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{ruoloMenuLabel}</p>
+                      <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{APP_VERSION_LABEL}</p>
+                    </div>
+                  </div>
                 </aside>
               </div>
             )}
