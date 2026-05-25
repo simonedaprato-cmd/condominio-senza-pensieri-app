@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.14';
-const APP_VERSION_LABEL = 'CSP v1.0.14';
+const APP_VERSION = '1.0.15';
+const APP_VERSION_LABEL = 'CSP v1.0.15';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -2699,6 +2699,10 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
 
 function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolati = [], lavoriPrivati = [], fattureLavoriPrivati = [], fatturePartner = [], fattureProvvigioniGestore = [] }) {
   const IVA_PRIVATI_LSP = 1.22;
+  const isFatturaPagataGuadagni = (record = {}) => {
+    const stato = String(record.stato || record.status || record.pagamento_stato || '').toLowerCase();
+    return stato.includes('pagat') || stato.includes('saldat') || stato.includes('incassat');
+  };
   const importoImponibilePrivato = (record = {}) => {
     const imponibileEsplicito = Number(record.importo_imponibile || record.imponibile || record.netto || 0);
     if (imponibileEsplicito > 0) return imponibileEsplicito;
@@ -2712,36 +2716,33 @@ function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolat
   const praticheCspChiuse = (segnalazioni || []).filter((s) => ['accettata', 'pianificata', 'chiusa'].includes(String(s.stato || '').toLowerCase()));
   const praticheCsp = praticheCspChiuse.reduce((sum, s) => sum + Number(s.importo_preventivo || s.importo || 0), 0);
 
-  const valoreCasep = (capitolati || []).reduce((sum, c) => sum + Number(c.importo_preventivo || c.importo_offerta || c.valore_offerta || c.importo || 0), 0);
-  const provvigioniCasepDirette = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || f.totale || f.importo || 0), 0);
-  const provvigioniCasep = provvigioniCasepDirette || Math.round(valoreCasep * 0.10);
+  const fattureProvvigioniGestorePagate = (fattureProvvigioniGestore || []).filter(isFatturaPagataGuadagni);
+  const provvigioniCasep = fattureProvvigioniGestorePagate.reduce((sum, f) => sum + Number(f.importo_imponibile || f.totale || f.importo || 0), 0);
 
-  const valoreLspDaLavori = (lavoriPrivati || []).reduce((sum, l) => sum + importoImponibilePrivato(l), 0);
-  const valoreLspDaFatture = (fattureLavoriPrivati || []).reduce((sum, f) => sum + importoImponibilePrivato(f), 0);
-  const lsp = valoreLspDaFatture || valoreLspDaLavori;
+  const fattureLavoriPrivatiPagate = (fattureLavoriPrivati || []).filter(isFatturaPagataGuadagni);
+  const lsp = fattureLavoriPrivatiPagate.reduce((sum, f) => sum + importoImponibilePrivato(f), 0);
 
   const fonti = [
     { key: 'abbonamenti', label: 'Abbonamenti CSP', value: abbonamentiCsp, tone: 'emerald', note: `${contrattiAttivi.length} contratti attivi` },
     { key: 'pratiche', label: 'Pratiche CSP', value: praticheCsp, tone: 'sky', note: `${praticheCspChiuse.length} pratiche valorizzate` },
-    { key: 'casep', label: 'CaSeP', value: provvigioniCasep, tone: 'amber', note: `${(capitolati || []).length} capitolati / cantieri` },
-    { key: 'lsp', label: 'LSP', value: lsp, tone: 'rose', note: `Imponibile netto IVA 22% • ${(lavoriPrivati || []).length} richieste private` },
+    { key: 'casep', label: 'CaSeP', value: provvigioniCasep, tone: 'amber', note: `${fattureProvvigioniGestorePagate.length} fatture provvigione pagate` },
+    { key: 'lsp', label: 'LSP', value: lsp, tone: 'rose', note: `Solo fatture pagate • imponibile netto IVA 22%` },
   ];
 
   const totale = fonti.reduce((sum, f) => sum + Number(f.value || 0), 0);
   const meseCorrente = new Date().getMonth();
   const annoCorrente = new Date().getFullYear();
-  const lavoriMese = (lavoriPrivati || []).filter((l) => {
-    const d = new Date(l.created_at || l.data_richiesta || 0);
+  const lavoriMese = fattureLavoriPrivatiPagate.filter((f) => {
+    const d = new Date(f.data_pagamento || f.paid_at || f.updated_at || f.created_at || 0);
     return d.getFullYear() === annoCorrente && d.getMonth() === meseCorrente;
-  }).reduce((sum, l) => sum + importoImponibilePrivato(l), 0);
+  }).reduce((sum, f) => sum + importoImponibilePrivato(f), 0);
   const praticheMese = praticheCspChiuse.filter((s) => {
     const d = new Date(s.updated_at || s.created_at || 0);
     return d.getFullYear() === annoCorrente && d.getMonth() === meseCorrente;
   }).reduce((sum, s) => sum + Number(s.importo_preventivo || s.importo || 0), 0);
   const totaleMese = lavoriMese + praticheMese;
-  const ticketMedio = totale && (praticheCspChiuse.length + (capitolati || []).length + (lavoriPrivati || []).length)
-    ? totale / (praticheCspChiuse.length + (capitolati || []).length + (lavoriPrivati || []).length)
-    : 0;
+  const numeroOperazioniEconomiche = praticheCspChiuse.length + fattureProvvigioniGestorePagate.length + fattureLavoriPrivatiPagate.length;
+  const ticketMedio = totale && numeroOperazioniEconomiche ? totale / numeroOperazioniEconomiche : 0;
   const fontePrincipale = [...fonti].sort((a, b) => b.value - a.value)[0];
 
   const palette = {
@@ -2766,10 +2767,10 @@ function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolat
       const d = new Date(s.updated_at || s.created_at || 0);
       return d.getFullYear() === annoCorrente && d.getMonth() === index;
     }).reduce((sum, s) => sum + Number(s.importo_preventivo || s.importo || 0), 0);
-    const lspMese = (lavoriPrivati || []).filter((l) => {
-      const d = new Date(l.created_at || l.data_richiesta || 0);
+    const lspMese = fattureLavoriPrivatiPagate.filter((f) => {
+      const d = new Date(f.data_pagamento || f.paid_at || f.updated_at || f.created_at || 0);
       return d.getFullYear() === annoCorrente && d.getMonth() === index;
-    }).reduce((sum, l) => sum + importoImponibilePrivato(l), 0);
+    }).reduce((sum, f) => sum + importoImponibilePrivato(f), 0);
     return { mese, value: pratiche + lspMese };
   });
   const maxMese = Math.max(...andamento.map((m) => m.value), 1);
@@ -2782,11 +2783,11 @@ function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolat
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Guadagni</p>
             <h2 className="mt-1 text-2xl font-black text-slate-900">Control Room economica</h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Una vista chiara delle entrate generate dall’ecosistema: abbonamenti, pratiche CSP, CaSeP e lavori privati LSP.
+              Una vista chiara delle entrate incassate dall’ecosistema: abbonamenti, pratiche CSP, CaSeP e lavori privati LSP.
             </p>
           </div>
           <div className="rounded-3xl border border-emerald-100 bg-white px-5 py-4 text-right shadow-sm">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Totale stimato</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Totale incassato</p>
             <p className="mt-1 text-3xl font-black text-slate-900">{formatEuro(totale)}</p>
           </div>
         </div>
