@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -903,6 +903,11 @@ function Login() {
     setMessaggioTipo(tipo);
   };
 
+  const normalizzaCodiceOtp = (valore) => String(valore || '').replace(/\D/g, '').slice(0, 6);
+
+  const codiceOtpPulito = normalizzaCodiceOtp(codiceOtp);
+  const codiceOtpCompleto = codiceOtpPulito.length === 6;
+
   const verificaEmailAbilitata = async (emailPulita) => {
     const emailNormalizzata = String(emailPulita || '').trim().toLowerCase();
     if (!emailNormalizzata) return false;
@@ -964,11 +969,11 @@ function Login() {
 
   const verificaCodice = async () => {
     const emailPulita = email.trim().toLowerCase();
-    const token = codiceOtp.trim().replace(/\s+/g, '');
+    const token = normalizzaCodiceOtp(codiceOtp);
 
     if (!emailPulita) return mostraMessaggio('Inserisci prima la tua email.', 'error');
     if (!token) return mostraMessaggio('Inserisci il codice ricevuto via email.', 'error');
-    if (token.length < 6) return mostraMessaggio('Il codice deve contenere 6 cifre.', 'error');
+    if (token.length !== 6) return mostraMessaggio('Il codice deve contenere 6 cifre.', 'error');
 
     setInvioInCorso(true);
     mostraMessaggio('Verifica del codice in corso...', 'info');
@@ -999,9 +1004,9 @@ function Login() {
       const testo = await navigator.clipboard.readText();
       if (!testo) return mostraMessaggio('Nessun codice trovato negli appunti.', 'error');
 
-      const codice = testo.replace(/\D/g, '').slice(0, 6);
+      const codice = normalizzaCodiceOtp(testo);
       setCodiceOtp(codice);
-      mostraMessaggio(codice ? 'Codice incollato automaticamente.' : 'Non ho trovato un codice valido negli appunti.', codice ? 'success' : 'error');
+      mostraMessaggio(codice.length === 6 ? 'Codice incollato automaticamente. Puoi procedere con l’accesso.' : 'Non ho trovato un codice valido negli appunti.', codice.length === 6 ? 'success' : 'error');
     } catch (error) {
       console.error(error);
       mostraMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.', 'error');
@@ -1034,6 +1039,7 @@ function Login() {
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
+              setCodiceOtp('');
               setCodiceRichiesto(false);
             }}
             placeholder="nome@email.it"
@@ -1053,10 +1059,18 @@ function Login() {
             <p className="mt-1 text-xs leading-relaxed text-slate-500">Inserisci le 6 cifre ricevute via email. Il codice è temporaneo e protegge il tuo accesso.</p>
             <input
               inputMode="numeric"
+              autoComplete="one-time-code"
               pattern="[0-9]*"
               maxLength={6}
-              value={codiceOtp}
-              onChange={(e) => setCodiceOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              value={codiceOtpPulito}
+              onChange={(e) => setCodiceOtp(normalizzaCodiceOtp(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault();
+                const testo = e.clipboardData?.getData('text') || '';
+                const codice = normalizzaCodiceOtp(testo);
+                setCodiceOtp(codice);
+                if (codice.length === 6) mostraMessaggio('Codice acquisito. Puoi procedere con l’accesso.', 'success');
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') verificaCodice();
               }}
@@ -1074,10 +1088,10 @@ function Login() {
               <button
                 type="button"
                 onClick={verificaCodice}
-                disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
-                className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
+                disabled={invioInCorso || !email.trim() || !codiceOtpCompleto}
+                className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {invioInCorso && codiceRichiesto ? 'Verifico...' : 'Accedi'}
+                {invioInCorso && codiceRichiesto ? 'Verifico...' : codiceOtpCompleto ? 'Accedi' : 'Inserisci 6 cifre'}
               </button>
             </div>
           </div>
