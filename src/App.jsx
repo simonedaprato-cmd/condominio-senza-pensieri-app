@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -7711,6 +7711,105 @@ function ArchivioReportPremium({ reports, ruolo, canSend = false, onOpenInvia })
   );
 }
 
+function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
+  const [condominioId, setCondominioId] = useState(condomini?.[0]?.id ? String(condomini[0].id) : '');
+  const [periodo, setPeriodo] = useState('');
+  const [titolo, setTitolo] = useState('Report semestrale Premium');
+  const [file, setFile] = useState(null);
+  const [errore, setErrore] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+
+    if (!condominioId || !periodo.trim() || !titolo.trim() || !file) {
+      setErrore('Seleziona condominio, periodo, titolo e PDF del report.');
+      return;
+    }
+
+    await onInvia({
+      condominioId: Number(condominioId),
+      periodo: periodo.trim(),
+      titolo: titolo.trim(),
+      file,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[72] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Premium</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Invia report semestrale</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Carica il PDF e invialo via email e push ad amministratore e condòmini.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+            Chiudi
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <select
+            value={condominioId}
+            onChange={(e) => setCondominioId(e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+          >
+            <option value="">Seleziona condominio</option>
+            {(condomini || []).map((condominio) => (
+              <option key={condominio.id} value={condominio.id}>
+                {condominio.nome}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            placeholder="Periodo es. Primo semestre 2026"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <input
+            value={titolo}
+            onChange={(e) => setTitolo(e.target.value)}
+            placeholder="Titolo report"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <label className="block rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <span className="font-black">PDF report</span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-3 block w-full text-sm"
+            />
+            {file && <span className="mt-2 block text-xs font-semibold">{file.name}</span>}
+          </label>
+
+          {errore && (
+            <p className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {errore}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
+          >
+            {saving ? 'Invio in corso...' : 'Invia report Premium'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, filtroStato, onChangeFiltroStato, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -11917,53 +12016,7 @@ export default function App() {
           </>
         )}
 
-        {isAmministratoreOperativo && (
-          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              {amministratoreSections.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setAmministratoreSection(section.id)}
-                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
-                    amministratoreSection === section.id
-                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
-                  }`}
-                >
-                  <span className="block text-sm font-black">{section.label}</span>
-                  <span className={`mt-1 block text-[11px] font-semibold ${amministratoreSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
-                    {section.subtitle}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
-        {['condominio', 'condomino'].includes(ruoloNormalizzato) && (
-          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              {condominoSections.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setCondominoSection(section.id)}
-                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
-                    condominoSection === section.id
-                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
-                  }`}
-                >
-                  <span className="block text-sm font-black">{section.label}</span>
-                  <span className={`mt-1 block text-[11px] font-semibold ${condominoSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
-                    {section.subtitle}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
@@ -11984,29 +12037,6 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'gestore' && (
-          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-              {gestoreSections.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setGestoreSection(section.id)}
-                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
-                    gestoreSection === section.id
-                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
-                  }`}
-                >
-                  <span className="block text-sm font-black">{section.label}</span>
-                  <span className={`mt-1 block text-[11px] font-semibold ${gestoreSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
-                    {section.subtitle}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         {isAmministratoreOperativo && amministratoreSection === 'pratiche' && (
           <section className="space-y-3 pb-36 md:pb-6">
