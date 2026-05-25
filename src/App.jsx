@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9887,6 +9887,56 @@ export default function App() {
     }
   };
 
+
+  const inviaNotificaRivista = async ({
+    title,
+    message,
+    tipo = 'rivista_disponibile',
+    riferimentoId = null,
+    url = '',
+    deepLink = '',
+    iconUrl = '',
+    section = 'rivista',
+    numero = '',
+    periodo = '',
+    titoloRivista = '',
+  }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-rivista', {
+        body: {
+          title,
+          message,
+          tipo,
+          riferimentoId,
+          url: url || deepLink || '',
+          deepLink: deepLink || url || '',
+          iconUrl,
+          icon: iconUrl,
+          section,
+          numero,
+          periodo,
+          titoloRivista,
+        },
+      });
+
+      if (error) {
+        console.warn('Notifica rivista non inviata:', error.message || error);
+        return null;
+      }
+
+      if (data && data.success === false) {
+        console.warn('Notifica rivista non completata:', data);
+        return data;
+      }
+
+      console.info('Notifica rivista inviata:', data);
+      return data;
+    } catch (error) {
+      console.warn('Errore invio notifica rivista:', error);
+      return null;
+    }
+  };
+
   const inviaReportSemestrale = async ({ condominioId, periodo, titolo, file }) => {
     if (ruoloNormalizzato !== 'gestore') {
       mostraToast('Permesso negato', 'L’invio del report Premium è riservato al gestore.', 'warning');
@@ -10016,9 +10066,7 @@ export default function App() {
       });
       const rivistaPushIcon = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/push_icon3.png';
 
-      const notifyRivista = await inviaNotificaCondominio({
-        globale: true,
-        destinatari: 'tutti',
+      const notifyRivista = await inviaNotificaRivista({
         title: 'Nuova uscita disponibile',
         message: 'Il nuovo numero della rivista Condominio Senza Pensieri è ora disponibile nell’app.\nIdee, approfondimenti e soluzioni per il condominio di oggi.',
         tipo: 'rivista_disponibile',
@@ -10027,11 +10075,14 @@ export default function App() {
         deepLink: rivistaDeepLink,
         iconUrl: rivistaPushIcon,
         section: 'rivista',
+        numero: numero?.trim() || '',
+        periodo: periodo?.trim() || '',
+        titoloRivista: titolo.trim(),
       });
 
       if (notifyRivista?.success === false) {
         console.warn('Notifica rivista non completata:', notifyRivista);
-        mostraToast('Rivista pubblicata', 'La rivista è online, ma la push non è stata completata. Controlla i log di notify-condominio.', 'warning');
+        mostraToast('Rivista pubblicata', 'La rivista è online, ma la push non è stata completata. Controlla i log di notify-rivista.', 'warning');
       } else if (notifyRivista?.recipients === 0) {
         console.warn('Rivista pubblicata senza dispositivi push:', notifyRivista);
         mostraToast('Rivista pubblicata', notifyRivista?.message || 'Rivista online, ma nessun dispositivo push registrato.', 'warning');
