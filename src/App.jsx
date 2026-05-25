@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.10';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.11';
+const APP_VERSION_LABEL = 'CSP v1.0.11';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -7417,6 +7417,204 @@ function DashboardOperativa({ ruolo, segnalazioni, condomini, onOpen }) {
   );
 }
 
+function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false }) {
+  const rivisteOrdinate = [...(riviste || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const ultima = rivisteOrdinate[0];
+
+  return (
+    <section className="space-y-4 pb-8">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-50 shadow-sm">
+        <div className="p-5 md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Magazine CSP</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">La tua rivista</h2>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+                Archivio digitale della rivista Condominio Senza Pensieri: uscite bimestrali, contenuti tecnici, legali e pratici per vivere il condominio con più chiarezza.
+              </p>
+            </div>
+            {canPublish && (
+              <button
+                type="button"
+                onClick={onOpenPubblica}
+                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+              >
+                + Pubblica uscita
+              </button>
+            )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Archivio</p>
+              <p className="mt-2 text-3xl font-black text-emerald-700">{rivisteOrdinate.length}</p>
+              <p className="text-xs font-semibold text-slate-500">uscite disponibili</p>
+            </div>
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm md:col-span-2">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Ultima uscita</p>
+              <p className="mt-2 text-lg font-black text-slate-900">{ultima?.titolo || 'Nessuna uscita pubblicata'}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {[ultima?.numero, ultima?.periodo].filter(Boolean).join(' • ') || 'Quando sarà pubblicata, comparirà qui.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {rivisteOrdinate.length === 0 ? (
+        <EmptyState
+          icon="📰"
+          title="Archivio rivista ancora vuoto"
+          text={ruolo === 'gestore' ? 'Pubblica la prima uscita bimestrale per renderla disponibile ad amministratori, collaboratori e condòmini.' : 'Quando sarà disponibile una nuova uscita, la troverai qui pronta da leggere o scaricare.'}
+          action="Archivio pronto"
+          tone="emerald"
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {rivisteOrdinate.map((rivista) => {
+            const fileUrl = rivista.file_url || buildPublicUrl(rivista.file_nome);
+            return (
+              <article key={rivista.id || rivista.file_nome} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">📰</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+                      {[rivista.numero, rivista.periodo].filter(Boolean).join(' • ') || 'Rivista CSP'}
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-slate-900">{rivista.titolo}</h3>
+                    {rivista.descrizione && <p className="mt-2 text-sm font-semibold leading-5 text-slate-500">{rivista.descrizione}</p>}
+                    <p className="mt-2 text-xs font-semibold text-slate-400">
+                      Pubblicata il {rivista.created_at ? new Date(rivista.created_at).toLocaleDateString('it-IT') : 'n.d.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-center text-sm font-black text-white"
+                  >
+                    Leggi rivista
+                  </a>
+                  <a
+                    href={`${fileUrl}?download=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-center text-sm font-black text-emerald-700"
+                  >
+                    Apri / Scarica
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PubblicaRivistaModal({ onClose, onPubblica, saving }) {
+  const [numero, setNumero] = useState('Numero 0');
+  const [periodo, setPeriodo] = useState('');
+  const [titolo, setTitolo] = useState('Condominio Senza Pensieri');
+  const [descrizione, setDescrizione] = useState('');
+  const [file, setFile] = useState(null);
+  const [errore, setErrore] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+
+    if (!titolo.trim() || !file) {
+      setErrore('Inserisci titolo e PDF della rivista.');
+      return;
+    }
+
+    await onPubblica({
+      numero,
+      periodo,
+      titolo,
+      descrizione,
+      file,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[74] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">La tua rivista</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Pubblica nuova uscita</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Carica il PDF della rivista e rendilo disponibile nell’archivio digitale.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+            Chiudi
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <input
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            placeholder="Numero es. Numero 0"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+          <input
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            placeholder="Periodo es. Maggio/Giugno 2026"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+          <input
+            value={titolo}
+            onChange={(e) => setTitolo(e.target.value)}
+            placeholder="Titolo uscita"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+          <textarea
+            value={descrizione}
+            onChange={(e) => setDescrizione(e.target.value)}
+            placeholder="Descrizione breve, facoltativa"
+            rows={3}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <label className="block rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <span className="font-black">PDF rivista</span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-3 block w-full text-sm"
+            />
+            {file && <span className="mt-2 block text-xs font-semibold">{file.name}</span>}
+          </label>
+
+          {errore && (
+            <p className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {errore}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
+          >
+            {saving ? 'Pubblicazione in corso...' : 'Pubblica rivista'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ArchivioReportPremium({ reports }) {
   if (!reports || reports.length === 0) {
     return null;
@@ -9570,6 +9768,9 @@ export default function App() {
 
 
   const [reportCondominio, setReportCondominio] = useState([]);
+  const [rivisteCondominio, setRivisteCondominio] = useState([]);
+  const [showRivistaModal, setShowRivistaModal] = useState(false);
+  const [sendingRivista, setSendingRivista] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const isCollaboratore = ruoloNormalizzato === 'collaboratore';
@@ -9745,6 +9946,82 @@ export default function App() {
   };
 
 
+  const pubblicaRivistaCondominio = async ({ numero, periodo, titolo, descrizione, file }) => {
+    if (ruoloNormalizzato !== 'gestore') {
+      mostraToast('Permesso negato', 'La pubblicazione della rivista è riservata al gestore.', 'warning');
+      return;
+    }
+
+    if (!file || !titolo?.trim()) return;
+
+    setSendingRivista(true);
+
+    try {
+      const safeName = file.name.split(' ').join('-');
+      const fileName = `rivista-condominio-senza-pensieri-${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('allegati')
+        .upload(fileName, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const fileUrl = buildPublicUrl(fileName);
+      let rivistaId = null;
+
+      try {
+        const { data: rivistaData, error: rivistaError } = await supabase
+          .from('riviste_condominio')
+          .insert({
+            numero: numero?.trim() || '',
+            periodo: periodo?.trim() || '',
+            titolo: titolo.trim(),
+            descrizione: descrizione?.trim() || '',
+            file_nome: fileName,
+            file_url: fileUrl,
+            pubblicato_da: utente?.email || '',
+          })
+          .select()
+          .single();
+
+        if (rivistaError) throw rivistaError;
+        rivistaId = rivistaData?.id || null;
+      } catch (rivistaError) {
+        console.warn('Rivista caricata ma non salvata in riviste_condominio:', rivistaError);
+        setRivisteCondominio((prev) => [{
+          id: `local-${Date.now()}`,
+          numero: numero?.trim() || '',
+          periodo: periodo?.trim() || '',
+          titolo: titolo.trim(),
+          descrizione: descrizione?.trim() || '',
+          file_nome: fileName,
+          file_url: fileUrl,
+          created_at: new Date().toISOString(),
+        }, ...(prev || [])]);
+      }
+
+      const condominiDaNotificare = (condomini || []).filter((condominio) => condominio?.id);
+      await Promise.allSettled(condominiDaNotificare.map((condominio) => inviaNotificaCondominio({
+        condominioId: condominio.id,
+        destinatari: 'tutti',
+        title: 'Nuova rivista disponibile',
+        message: `È disponibile una nuova uscita della rivista Condominio Senza Pensieri: ${titolo.trim()}. Apri l’app per leggerla.`,
+        tipo: 'rivista_disponibile',
+        riferimentoId: rivistaId,
+      })));
+
+      mostraToast('Rivista pubblicata', 'La nuova uscita è disponibile nell’archivio e gli utenti collegati sono stati avvisati.', 'success');
+      setStatusMessage('Rivista Condominio Senza Pensieri pubblicata correttamente.');
+      setShowRivistaModal(false);
+      await carica();
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore rivista', error.message || 'Pubblicazione rivista non riuscita.', 'error');
+    } finally {
+      setSendingRivista(false);
+    }
+  };
+
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
     const ids = userProfile?.condominiIds || [];
@@ -9914,6 +10191,14 @@ export default function App() {
 
       if (reportError && reportError.code !== 'PGRST116') throw reportError;
       setReportCondominio(reportData || []);
+
+      const { data: rivisteData, error: rivisteError } = await supabase
+        .from('riviste_condominio')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (rivisteError && rivisteError.code !== 'PGRST116' && rivisteError.code !== '42P01') throw rivisteError;
+      setRivisteCondominio(rivisteData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -11738,7 +12023,8 @@ export default function App() {
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
     { id: 'campagne', label: 'Campagne', subtitle: 'Invii partner CaSP' },
-    { id: 'lavori-privati', label: '🏠 Lavori privati', subtitle: 'Canale diretto condòmini' },
+    { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto condòmini' },
+    { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
 
   const amministratoreSections = [
@@ -11746,6 +12032,7 @@ export default function App() {
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture interventi, scadenze e PDF' },
     ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
+    { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
 
   const renderGestoreSectionTitle = (title, subtitle) => (
@@ -11766,6 +12053,13 @@ export default function App() {
           onClose={() => setShowReportSemestrale(false)}
           onInvia={inviaReportSemestrale}
           saving={sendingReportSemestrale}
+        />
+      )}
+      {showRivistaModal && (
+        <PubblicaRivistaModal
+          onClose={() => setShowRivistaModal(false)}
+          onPubblica={pubblicaRivistaCondominio}
+          saving={sendingRivista}
         />
       )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
@@ -11806,10 +12100,11 @@ export default function App() {
 
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               {[
                 { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
-                { id: 'lavori-privati', label: '🏠 Lavori privati', subtitle: 'Canale diretto con il gestore' },
+                { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto con il gestore' },
+                { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
               ].map((section) => (
                 <button
                   key={section.id}
@@ -12100,7 +12395,7 @@ export default function App() {
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'lavori-privati' && (
           <>
-            {renderGestoreSectionTitle('Lavori Privati Senza Pensieri', 'Canale diretto tra singolo condòmino e gestore, con preventivi, interventi e fatture.')}
+            {renderGestoreSectionTitle('La tua casa Senza Pensieri', 'Canale diretto tra singolo condòmino e gestore, con preventivi, interventi e fatture.')}
             <LavoriPrivatiSuite
               ruolo={ruoloNormalizzato}
               userProfile={userProfile}
@@ -12118,6 +12413,26 @@ export default function App() {
               onRefresh={carica}
             />
           </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'rivista' && (
+          <>
+            {renderGestoreSectionTitle('La tua rivista', 'Magazine Condominio Senza Pensieri, uscite bimestrali e archivio digitale.')}
+            <LaTuaRivistaSuite
+              riviste={rivisteCondominio}
+              ruolo={ruoloNormalizzato}
+              canPublish={true}
+              onOpenPubblica={() => setShowRivistaModal(true)}
+            />
+          </>
+        )}
+
+        {isAmministratoreOperativo && amministratoreSection === 'rivista' && (
+          <LaTuaRivistaSuite
+            riviste={rivisteCondominio}
+            ruolo={ruoloNormalizzato}
+            canPublish={false}
+          />
         )}
 
         {isAmministratoreOperativo && amministratoreSection === 'capitolato' && (
@@ -12159,6 +12474,13 @@ export default function App() {
               </div>
             )}
           </section>
+        )}
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'rivista' && (
+          <LaTuaRivistaSuite
+            riviste={rivisteCondominio}
+            ruolo={ruoloNormalizzato}
+            canPublish={false}
+          />
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
           <LavoriPrivatiSuite
