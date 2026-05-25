@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -8838,6 +8838,7 @@ function LavoriPrivatiSuite({
   condomini = [],
   lavoriPrivati = [],
   fattureLavoriPrivati = [],
+  aziendePartner = [],
   lavoroApertoId = null,
   onClearDeepLink = () => {},
   onCreateLavoro,
@@ -8992,7 +8993,8 @@ function LavoriPrivatiSuite({
         lavoro_privato_id: lavoro.id,
         condomino_email: lavoro.condomino_email,
         numero_fattura: draft.numero_fattura,
-        fornitore: draft.fornitore || '',
+        azienda_partner_id: draft.azienda_partner_id ? Number(draft.azienda_partner_id) : null,
+        fornitore: draft.azienda_partner_id ? ((aziendePartner || []).find((azienda) => Number(azienda.id) === Number(draft.azienda_partner_id))?.ragione_sociale || '') : '',
         importo: Number(String(draft.importo).replace(',', '.')),
         data_fattura: draft.data_fattura || new Date().toISOString().slice(0, 10),
         data_scadenza: draft.data_scadenza,
@@ -9132,6 +9134,15 @@ function LavoriPrivatiSuite({
                     )}
                   </div>
                 )}
+                {lavoroAperto.data_pianificazione && (
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                    <h4 className="font-black text-sky-900">Intervento pianificato</h4>
+                    <p className="mt-1 text-sm font-bold text-sky-800">
+                      Data: {lavoroAperto.data_pianificazione || 'n.d.'}{lavoroAperto.ora_pianificazione ? ` • Ore ${String(lavoroAperto.ora_pianificazione).slice(0, 5)}` : ''}
+                    </p>
+                    {lavoroAperto.note_pianificazione && <p className="mt-2 whitespace-pre-wrap text-sm text-sky-800">{lavoroAperto.note_pianificazione}</p>}
+                  </div>
+                )}
                 {fatturaDelLavoro(lavoroAperto.id) && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                     <h4 className="font-black text-amber-900">Fattura</h4>
@@ -9166,7 +9177,10 @@ function LavoriPrivatiSuite({
                       <textarea placeholder="Note chiusura" value={drafts[lavoroAperto.id]?.note_chiusura || ''} onChange={(e) => updateDraft(lavoroAperto.id, { note_chiusura: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <button onClick={() => chiudi(lavoroAperto)} disabled={saving} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi intervento</button>
                       <input placeholder="Numero fattura" value={drafts[lavoroAperto.id]?.numero_fattura || ''} onChange={(e) => updateDraft(lavoroAperto.id, { numero_fattura: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
-                      <input placeholder="Fornitore" value={drafts[lavoroAperto.id]?.fornitore || ''} onChange={(e) => updateDraft(lavoroAperto.id, { fornitore: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <select value={drafts[lavoroAperto.id]?.azienda_partner_id || ''} onChange={(e) => updateDraft(lavoroAperto.id, { azienda_partner_id: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="">Seleziona fornitore</option>
+                        {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                      </select>
                       <input type="number" step="0.01" placeholder="Importo fattura" value={drafts[lavoroAperto.id]?.importo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <input type="date" value={drafts[lavoroAperto.id]?.data_scadenza || ''} onChange={(e) => updateDraft(lavoroAperto.id, { data_scadenza: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
                       <input type="file" onChange={(e) => updateDraft(lavoroAperto.id, { fatturaFile: e.target.files?.[0] || null })} className="rounded-xl border border-slate-200 px-3 py-2" />
@@ -11985,6 +11999,7 @@ export default function App() {
               condomini={condomini}
               lavoriPrivati={lavoriPrivati}
               fattureLavoriPrivati={fattureLavoriPrivati}
+              aziendePartner={aziendePartner}
               lavoroApertoId={lavoroPrivatoApertoId}
               onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
               onCreateLavoro={creaLavoroPrivato}
@@ -12044,6 +12059,7 @@ export default function App() {
             condomini={condominiVisibili}
             lavoriPrivati={lavoriPrivati}
             fattureLavoriPrivati={fattureLavoriPrivati}
+            aziendePartner={aziendePartner}
             lavoroApertoId={lavoroPrivatoApertoId}
             onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
             onCreateLavoro={creaLavoroPrivato}
