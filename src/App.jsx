@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.3';
+const APP_VERSION_LABEL = 'CSP v1.0.3';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9204,12 +9204,12 @@ function LavoriPrivatiSuite({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Lavori Privati Senza Pensieri</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-900">Canale diretto condòmino ↔ gestore</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">Richieste private, preventivi, pianificazione, fatture e reminder. Nessun passaggio da amministratore o collaboratore.</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">Contatto diretto con l’impresa</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Uno spazio dedicato ai lavori e alla cura della tua casa. Richieste, preventivi, documenti e aggiornamenti sempre disponibili in modo semplice e ordinato.</p>
           </div>
           <div className="flex gap-2">
             <button onClick={onRefresh} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">Aggiorna</button>
-            {isCondomino && <button onClick={() => setShowForm(true)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-emerald-700">Richiedi lavoro privato</button>}
+            {isCondomino && <button onClick={() => setShowForm(true)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-emerald-700">Richiedi un preventivo</button>}
           </div>
         </div>
       </div>
@@ -9302,7 +9302,7 @@ function LavoriPrivatiSuite({
 
       <div className="grid gap-3">
         {lavoriVisibili.length === 0 ? (
-          <EmptyState icon="🏠" title="Nessun lavoro privato" text={isCondomino ? 'Apri una richiesta privata per ricevere un preventivo dedicato.' : 'Le nuove richieste private dei condòmini compariranno qui.'} action="Canale pronto" tone="emerald" />
+          <EmptyState icon="🏠" title="Nessun lavoro privato" text={isCondomino ? 'Richiedi un preventivo per i lavori e la cura della tua casa.' : 'Le nuove richieste private dei condòmini compariranno qui.'} action="Canale pronto" tone="emerald" />
         ) : lavoriVisibili.map(renderCard)}
       </div>
 
@@ -12037,7 +12037,7 @@ export default function App() {
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
     { id: 'campagne', label: 'Campagne', subtitle: 'Invii partner CaSP' },
-    { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto condòmini' },
+    { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
@@ -12053,7 +12053,7 @@ export default function App() {
 
   const condominoSections = [
     { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
-    { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto con il gestore' },
+    { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
@@ -12429,7 +12429,7 @@ export default function App() {
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'lavori-privati' && (
           <>
-            {renderGestoreSectionTitle('La tua casa Senza Pensieri', 'Canale diretto tra singolo condòmino e gestore, con preventivi, interventi e fatture.')}
+            {renderGestoreSectionTitle('La tua casa Senza Pensieri', 'Spazio dedicato ai lavori e alla cura della casa, con preventivi, documenti e aggiornamenti sempre disponibili.')}
             <LavoriPrivatiSuite
               ruolo={ruoloNormalizzato}
               userProfile={userProfile}
