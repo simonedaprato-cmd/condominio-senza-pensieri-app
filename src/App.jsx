@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -4292,7 +4292,7 @@ function CapitolatoSenzaPensieriSuite({
                 <th className="px-3 py-3 text-right">Importo</th>
                 <th className="px-3 py-3">Priorità</th>
                 <th className="px-3 py-3">Stato</th>
-                <th className="px-3 py-3 text-right">Azione</th>
+                <th className="px-3 py-3 text-right">Scheda</th>
               </tr>
             </thead>
             <tbody>
@@ -4304,7 +4304,16 @@ function CapitolatoSenzaPensieriSuite({
                 </tr>
               ) : (
                 capitolatiVisibili.map((item) => (
-                  <tr key={item.id} className="border-t border-slate-100 hover:bg-emerald-50/30">
+                  <tr
+                    key={item.id}
+                    onClick={() => {
+                      setCapitolatoApertoId(Number(item.id));
+                      setTimeout(() => {
+                        document.querySelector('[data-casep-open-panel]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    className="group cursor-pointer border-t border-slate-100 transition hover:bg-emerald-50/60 active:bg-emerald-100"
+                  >
                     <td className="px-3 py-3">
                       <p className="font-black text-slate-900">{item.numero_pratica || `#${item.id}`}</p>
                       <p className="text-xs text-slate-500">{item.titolo}</p>
@@ -4334,7 +4343,7 @@ function CapitolatoSenzaPensieriSuite({
                       <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <span className="text-xs font-black uppercase tracking-wide text-emerald-700">Tocca la riga</span>
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-700 text-lg font-black text-white shadow-md shadow-emerald-900/20 transition group-hover:scale-105">›</span>
                     </td>
                   </tr>
                 ))
@@ -5096,7 +5105,7 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
                 <th className="px-3 py-3">Canale</th>
                 <th className="px-3 py-3">Priorità</th>
                 <th className="px-3 py-3">Stato operativo</th>
-                <th className="px-3 py-3 text-right">Azione</th>
+                <th className="px-3 py-3 text-right">Scheda</th>
               </tr>
             </thead>
             <tbody>
