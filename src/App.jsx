@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.11';
-const APP_VERSION_LABEL = 'CSP v1.0.11';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1060,7 +1060,7 @@ function MultiCondominioSwitcher({ ruolo, condomini = [], filtroCondominioId, on
 }
 
 
-function LiveTopBar({ onOpenMenu, onRefresh, loading }) {
+function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -1078,61 +1078,56 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading }) {
     minute: '2-digit',
   });
 
+  const ora = now.getHours();
+  let saluto = 'CIAO';
+  if (ora >= 5 && ora < 12) saluto = 'BUONGIORNO';
+  else if (ora >= 12 && ora < 18) saluto = 'BUON POMERIGGIO';
+  else if (ora >= 18 && ora < 23) saluto = 'BUONASERA';
+  else saluto = 'BUONANOTTE';
+
+  const nomeUtente = String(userProfile?.nome || 'BENVENUTO').toUpperCase();
+
   return (
     <>
-      <div className="fixed left-0 right-0 top-0 z-[70] border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+      <div className="fixed left-0 right-0 top-0 z-[70] border-b border-emerald-900/20 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-800 text-white">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-2">
           <button
             type="button"
             onClick={onOpenMenu}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-xl font-black leading-none text-emerald-800 shadow-md shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg active:translate-y-0 active:shadow-sm"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/25 bg-white text-xl font-black leading-none text-emerald-800 shadow-md shadow-emerald-950/25 transition hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg active:translate-y-0 active:shadow-sm"
             aria-label="Apri menu"
           >
             ☰
           </button>
-          <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-slate-500 md:text-sm">
+          <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
             <span>{formattedDate}</span>
-            <span className="mx-2 text-emerald-500">•</span>
-            <span className="text-slate-900">{formattedTime}</span>
+            <span className="mx-2 text-white/45">•</span>
+            <span className="text-white">{formattedTime}</span>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-4xl px-4 pb-2">
+        <div className="mx-auto w-full max-w-4xl px-5 pb-3 pt-1 text-center md:px-7">
+          <p className="text-lg font-black uppercase leading-tight tracking-[0.18em] text-white md:text-xl">CONDOMINIO SENZA PENSIERI</p>
+          <p className="mt-1 text-xs font-semibold leading-snug tracking-[0.08em] text-white/65 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
+          <p className="mt-2 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base">{saluto} {nomeUtente}</p>
+        </div>
+        <div className="mx-auto w-full max-w-4xl px-4 pb-3">
           <button
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className="w-full rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800 shadow-md shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-lg active:translate-y-0 active:shadow-sm disabled:opacity-60"
+            className="w-full rounded-2xl border border-white/20 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800 shadow-md shadow-emerald-950/25 transition hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-lg active:translate-y-0 active:shadow-sm disabled:opacity-60"
           >
             {loading ? 'Sincronizzo live...' : 'Aggiorna live'}
           </button>
         </div>
       </div>
-      <div className="h-[98px] shrink-0" aria-hidden="true" />
+      <div className="h-[186px] shrink-0 md:h-[194px]" aria-hidden="true" />
     </>
   );
 }
 
-function Header({ userProfile }) {
-  const ora = new Date().getHours();
-  let saluto = 'Ciao';
-  if (ora >= 5 && ora < 12) saluto = 'Buongiorno';
-  else if (ora >= 12 && ora < 18) saluto = 'Buon pomeriggio';
-  else if (ora >= 18 && ora < 23) saluto = 'Buonasera';
-  else saluto = 'Buonanotte';
-
-  const nomeUtente = userProfile?.nome || 'benvenuto';
-
-  return (
-    <header className="relative overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-600 to-teal-800 px-5 py-5 text-white shadow-[0_28px_90px_-45px_rgba(5,150,105,0.9)] md:px-7 md:py-6">
-      <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-white/20 blur-3xl" />
-      <div className="absolute -bottom-24 left-4 h-52 w-52 rounded-full bg-emerald-100/20 blur-3xl" />
-      <div className="relative z-10">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-50/80">Condominio Senza Pensieri</p>
-        <h1 className="mt-2 text-2xl font-black leading-tight tracking-tight text-white md:text-3xl">Gestione evoluta delle pratiche condominiali</h1>
-        <p className="mt-3 text-lg font-semibold text-white/90 md:text-xl">{saluto}, {nomeUtente}</p>
-      </div>
-    </header>
-  );
+function Header() {
+  return null;
 }
 
 function DashboardEconomicStat({ label, value, tone = 'slate' }) {
@@ -12198,6 +12193,7 @@ export default function App() {
             onOpenMenu={() => setMenuLateraleAperto(true)}
             onRefresh={carica}
             loading={loading}
+            userProfile={userProfile}
           />
         )}
 
