@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.11';
-const APP_VERSION_LABEL = 'CSP v1.0.11';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -3827,10 +3827,6 @@ function CapitolatoSenzaPensieriSuite({
     if (!capitolato) return;
 
     setCapitolatoApertoId(Number(capitolato.id));
-    window.setTimeout(() => {
-      document.querySelector('[data-casep-open-panel]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 250);
-
     params.delete('capitolato');
     params.delete('casep');
     params.delete('capitolatoId');
@@ -4226,8 +4222,8 @@ function CapitolatoSenzaPensieriSuite({
           </div>
         </div>
 
-        {capitolatoAperto && (
-          <div data-casep-open-panel className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+        {false && capitolatoAperto && (
+          <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Pratica aperta</p>
@@ -4432,9 +4428,7 @@ function CapitolatoSenzaPensieriSuite({
                     key={item.id}
                     onClick={() => {
                       setCapitolatoApertoId(Number(item.id));
-                      setTimeout(() => {
-                        document.querySelector('[data-casep-open-panel]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }, 50);
+
                     }}
                     className="group cursor-pointer border-t border-slate-100 transition hover:bg-emerald-50/60 active:bg-emerald-100"
                   >
@@ -4478,7 +4472,15 @@ function CapitolatoSenzaPensieriSuite({
       </section>
 
       {capitolatoAperto && (
-        <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <section
+          data-casep-open-panel
+          className="fixed inset-0 z-[10050] overflow-y-auto bg-slate-950/50 px-3 py-5 backdrop-blur-sm md:px-6"
+          onClick={() => setCapitolatoApertoId(null)}
+        >
+          <div
+            className="mx-auto max-w-7xl rounded-3xl border border-emerald-100 bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Scheda pratica capitolato</p>
@@ -4746,6 +4748,7 @@ function CapitolatoSenzaPensieriSuite({
                   </div>
                 ))}
             </div>
+          </div>
           </div>
         </section>
       )}
