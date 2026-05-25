@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1105,12 +1105,11 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile }) {
             <span className="text-white">{formattedTime}</span>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-4xl px-5 pb-3 pt-1 text-center md:px-7">
-          <p className="text-lg font-black uppercase leading-tight tracking-[0.18em] text-white md:text-xl">CONDOMINIO SENZA PENSIERI</p>
-          <p className="mt-1 text-xs font-semibold leading-snug tracking-[0.08em] text-white/65 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
-          <p className="mt-2 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base">{saluto} {nomeUtente}</p>
+        <div className="mx-auto w-full max-w-4xl px-5 pb-2 pt-1 text-center md:px-7">
+          <p className="text-xs font-semibold leading-snug tracking-[0.08em] text-white/65 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
+          <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base">{saluto} {nomeUtente}</p>
         </div>
-        <div className="mx-auto w-full max-w-4xl px-4 pb-3">
+        <div className="mx-auto w-full max-w-4xl px-4 pb-2">
           <button
             type="button"
             onClick={onRefresh}
@@ -1121,7 +1120,7 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile }) {
           </button>
         </div>
       </div>
-      <div className="h-[186px] shrink-0 md:h-[194px]" aria-hidden="true" />
+      <div className="h-[138px] shrink-0 md:h-[146px]" aria-hidden="true" />
     </>
   );
 }
@@ -4000,7 +3999,7 @@ function CapitolatoSenzaPensieriSuite({
           </section>
 
           {showNuovoCapitolatoModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3">
+            <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-3">
               <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl csp-scroll">
                 <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
                   <div>
@@ -7720,7 +7719,7 @@ function PubblicaRivistaModal({ onClose, onPubblica, saving }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[74] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
       <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -7936,7 +7935,7 @@ function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[72] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
       <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -8363,7 +8362,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
       <div className="min-h-full w-full max-w-4xl rounded-2xl border border-white/60 bg-white shadow-2xl md:flex md:h-[90vh] md:min-h-0 md:flex-col md:overflow-hidden md:rounded-3xl">
         <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur-xl md:p-5">
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
@@ -9324,7 +9323,7 @@ function LavoriPrivatiSuite({
       )}
 
       {showForm && isCondomino && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-3">
           <form onSubmit={creaRichiesta} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-5 shadow-2xl csp-scroll">
             <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
@@ -9376,7 +9375,7 @@ function LavoriPrivatiSuite({
       </div>
 
       {lavoroAperto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-3">
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
               <div>
@@ -9477,7 +9476,7 @@ function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
   if (!updateInfo) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[100] mx-auto max-w-4xl rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl shadow-emerald-950/20 backdrop-blur md:bottom-5">
+    <div className="fixed inset-x-3 bottom-3 z-[230] mx-auto max-w-4xl rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl shadow-emerald-950/20 backdrop-blur md:bottom-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-black text-slate-900">Nuova versione disponibile</p>
@@ -12671,7 +12670,7 @@ export default function App() {
         (isAmministratoreOperativo && amministratoreSection === 'pratiche') ||
         (['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'segnalazioni')
       ) && showNuovaSegnalazione && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/40 p-3 md:p-4">
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
               <div>
