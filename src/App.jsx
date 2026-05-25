@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -7961,18 +7961,23 @@ function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
 
 
 function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, filtroStato, onChangeFiltroStato, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const showCondominioSelect = ruoloNorm === 'gestore' || (Array.isArray(condomini) && condomini.length > 1);
+
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-[2rem] border border-emerald-100 bg-white p-4 shadow-sm csp-enter">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Azioni rapide</p>
-          <p className="mt-1 text-sm text-slate-500">Filtra, cerca e aggiorna le pratiche.</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Control Center</p>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Contesto operativo, filtri e azioni rapide in un unico pannello.</p>
         </div>
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[1fr_1fr_1fr_auto]">
-          <select value={filtroCondominioId} onChange={(e) => onChangeFiltroCondominio(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-            <option value="">Tutti i condomini</option>
-            {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
+          {showCondominioSelect && (
+            <select value={filtroCondominioId} onChange={(e) => onChangeFiltroCondominio(e.target.value)} className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm font-bold text-emerald-950 outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100">
+              <option value="">{ruoloNorm === 'gestore' ? 'Tutti i condomini' : 'Tutti i tuoi condomini'}</option>
+              {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          )}
           {(ruolo === 'amministratore' || ruolo === 'collaboratore') && (
             <select value={filtroStato} onChange={(e) => onChangeFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
               <option value="">Tutti gli stati</option>
@@ -12116,16 +12121,9 @@ export default function App() {
           onLogout={logout}
         />
 
-        <MultiCondominioSwitcher
-          ruolo={ruoloNormalizzato}
-          condomini={condominiVisibili}
-          filtroCondominioId={filtroCondominioId}
-          onChangeCondominio={cambiaCondominioOperativo}
-        />
-
         {sezioniMenuLaterale.length > 0 && (
           <>
-            <div className="sticky top-3 z-30 flex justify-start">
+            <div className="sticky top-3 z-40 flex justify-start">
               <button
                 type="button"
                 onClick={() => setMenuLateraleAperto(true)}
@@ -12133,7 +12131,7 @@ export default function App() {
                 aria-label="Apri menu sezioni"
               >
                 <span className="text-xl leading-none">☰</span>
-                <span>Menu</span>
+                <span>Menu sezioni</span>
               </button>
             </div>
             {menuLateraleAperto && (
