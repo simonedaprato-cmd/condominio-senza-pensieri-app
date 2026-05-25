@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9388,6 +9388,7 @@ export default function App() {
   const [gestoreSection, setGestoreSection] = useState('pratiche');
   const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
   const [condominoSection, setCondominoSection] = useState('segnalazioni');
+  const [menuLateraleAperto, setMenuLateraleAperto] = useState(false);
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
   const [leadTecnici, setLeadTecnici] = useState([]);
@@ -11769,6 +11770,7 @@ export default function App() {
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
     { id: 'campagne', label: 'Campagne', subtitle: 'Invii partner CaSP' },
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto condòmini' },
+    { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
 
@@ -11780,6 +11782,37 @@ export default function App() {
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
+
+  const condominoSections = [
+    { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
+    { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto con il gestore' },
+    { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
+    { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
+  ];
+
+  const sezioniMenuLaterale = ruoloNormalizzato === 'gestore'
+    ? gestoreSections
+    : isAmministratoreOperativo
+      ? amministratoreSections
+      : ['condominio', 'condomino'].includes(ruoloNormalizzato)
+        ? condominoSections
+        : [];
+
+  const sezioneAttivaMenuLaterale = ruoloNormalizzato === 'gestore'
+    ? gestoreSection
+    : isAmministratoreOperativo
+      ? amministratoreSection
+      : ['condominio', 'condomino'].includes(ruoloNormalizzato)
+        ? condominoSection
+        : '';
+
+  const apriSezioneDaMenuLaterale = (sectionId) => {
+    if (!sectionId) return;
+    if (ruoloNormalizzato === 'gestore') setGestoreSection(sectionId);
+    else if (isAmministratoreOperativo) setAmministratoreSection(sectionId);
+    else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(sectionId);
+    setMenuLateraleAperto(false);
+  };
 
   const renderGestoreSectionTitle = (title, subtitle) => (
     <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
@@ -11820,6 +11853,70 @@ export default function App() {
           onLogout={logout}
         />
 
+        {sezioniMenuLaterale.length > 0 && (
+          <>
+            <div className="sticky top-3 z-30 flex justify-start">
+              <button
+                type="button"
+                onClick={() => setMenuLateraleAperto(true)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white/95 px-4 py-3 text-sm font-black text-emerald-800 shadow-lg shadow-emerald-900/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-emerald-50"
+                aria-label="Apri menu sezioni"
+              >
+                <span className="text-xl leading-none">☰</span>
+                <span>Menu</span>
+              </button>
+            </div>
+            {menuLateraleAperto && (
+              <div className="fixed inset-0 z-50 flex">
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
+                  onClick={() => setMenuLateraleAperto(false)}
+                  aria-label="Chiudi menu sezioni"
+                />
+                <aside className="relative z-10 flex h-full w-[86vw] max-w-sm flex-col overflow-hidden rounded-r-[2rem] border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30">
+                  <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700 p-5 text-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-100">Condominio Senza Pensieri</p>
+                        <h2 className="mt-2 text-2xl font-black">Menu sezioni</h2>
+                        <p className="mt-1 text-sm font-semibold text-emerald-50/90">Accesso rapido alle aree abilitate.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMenuLateraleAperto(false)}
+                        className="rounded-2xl bg-white/15 px-3 py-2 text-lg font-black text-white transition hover:bg-white/25"
+                        aria-label="Chiudi menu"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  <nav className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
+                    {sezioniMenuLaterale.map((section) => (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => apriSezioneDaMenuLaterale(section.id)}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
+                          sezioneAttivaMenuLaterale === section.id
+                            ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                        }`}
+                      >
+                        <span className="block text-sm font-black">{section.label}</span>
+                        <span className={`mt-1 block text-[11px] font-semibold ${sezioneAttivaMenuLaterale === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
+                          {section.subtitle}
+                        </span>
+                      </button>
+                    ))}
+                  </nav>
+                </aside>
+              </div>
+            )}
+          </>
+        )}
+
         {isAmministratoreOperativo && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -11847,12 +11944,7 @@ export default function App() {
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              {[
-                { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
-                { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Canale diretto con il gestore' },
-                { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
-                { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
-              ].map((section) => (
+              {condominoSections.map((section) => (
                 <button
                   key={section.id}
                   type="button"
@@ -12154,6 +12246,18 @@ export default function App() {
               onUpdateFattura={aggiornaFatturaLavoroPrivato}
               onUploadFile={uploadLavoroPrivatoFile}
               onRefresh={carica}
+            />
+          </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'report' && (
+          <>
+            {renderGestoreSectionTitle('I tuoi report', 'Archivio report semestrali e documentazione premium pubblicata per i condomini.')}
+            <ArchivioReportPremium
+              reports={reportVisibili}
+              ruolo={ruoloNormalizzato}
+              canSend={true}
+              onOpenInvia={() => setShowReportSemestrale(true)}
             />
           </>
         )}
