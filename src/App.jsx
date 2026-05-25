@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -2695,6 +2695,191 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
 
 
 
+
+
+function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolati = [], lavoriPrivati = [], fattureLavoriPrivati = [], fatturePartner = [], fattureProvvigioniGestore = [] }) {
+  const contrattiAttivi = (contratti || []).filter((c) => String(c.stato || '').toLowerCase() === 'attivo');
+  const abbonamentiCsp = contrattiAttivi.reduce((sum, c) => sum + Number(c.ricavo_annuo || (Number(c.ricavo_mensile || 0) * 12) || 0), 0);
+
+  const praticheCspChiuse = (segnalazioni || []).filter((s) => ['accettata', 'pianificata', 'chiusa'].includes(String(s.stato || '').toLowerCase()));
+  const praticheCsp = praticheCspChiuse.reduce((sum, s) => sum + Number(s.importo_preventivo || s.importo || 0), 0);
+
+  const valoreCasep = (capitolati || []).reduce((sum, c) => sum + Number(c.importo_preventivo || c.importo_offerta || c.valore_offerta || c.importo || 0), 0);
+  const provvigioniCasepDirette = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || f.totale || f.importo || 0), 0);
+  const provvigioniCasep = provvigioniCasepDirette || Math.round(valoreCasep * 0.10);
+
+  const valoreLspDaLavori = (lavoriPrivati || []).reduce((sum, l) => sum + Number(l.importo_preventivo || l.importo || 0), 0);
+  const valoreLspDaFatture = (fattureLavoriPrivati || []).reduce((sum, f) => sum + Number(f.importo || f.totale || f.importo_imponibile || 0), 0);
+  const lsp = valoreLspDaFatture || valoreLspDaLavori;
+
+  const fonti = [
+    { key: 'abbonamenti', label: 'Abbonamenti CSP', value: abbonamentiCsp, tone: 'emerald', note: `${contrattiAttivi.length} contratti attivi` },
+    { key: 'pratiche', label: 'Pratiche CSP', value: praticheCsp, tone: 'sky', note: `${praticheCspChiuse.length} pratiche valorizzate` },
+    { key: 'casep', label: 'CaSeP', value: provvigioniCasep, tone: 'amber', note: `${(capitolati || []).length} capitolati / cantieri` },
+    { key: 'lsp', label: 'LSP', value: lsp, tone: 'rose', note: `${(lavoriPrivati || []).length} richieste private` },
+  ];
+
+  const totale = fonti.reduce((sum, f) => sum + Number(f.value || 0), 0);
+  const meseCorrente = new Date().getMonth();
+  const annoCorrente = new Date().getFullYear();
+  const lavoriMese = (lavoriPrivati || []).filter((l) => {
+    const d = new Date(l.created_at || l.data_richiesta || 0);
+    return d.getFullYear() === annoCorrente && d.getMonth() === meseCorrente;
+  }).reduce((sum, l) => sum + Number(l.importo_preventivo || l.importo || 0), 0);
+  const praticheMese = praticheCspChiuse.filter((s) => {
+    const d = new Date(s.updated_at || s.created_at || 0);
+    return d.getFullYear() === annoCorrente && d.getMonth() === meseCorrente;
+  }).reduce((sum, s) => sum + Number(s.importo_preventivo || s.importo || 0), 0);
+  const totaleMese = lavoriMese + praticheMese;
+  const ticketMedio = totale && (praticheCspChiuse.length + (capitolati || []).length + (lavoriPrivati || []).length)
+    ? totale / (praticheCspChiuse.length + (capitolati || []).length + (lavoriPrivati || []).length)
+    : 0;
+  const fontePrincipale = [...fonti].sort((a, b) => b.value - a.value)[0];
+
+  const palette = {
+    emerald: { bar: 'bg-emerald-600', chip: 'bg-emerald-50 text-emerald-700 border-emerald-100', stroke: '#059669' },
+    sky: { bar: 'bg-sky-500', chip: 'bg-sky-50 text-sky-700 border-sky-100', stroke: '#0ea5e9' },
+    amber: { bar: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 border-amber-100', stroke: '#f59e0b' },
+    rose: { bar: 'bg-rose-500', chip: 'bg-rose-50 text-rose-700 border-rose-100', stroke: '#f43f5e' },
+  };
+
+  let offset = 0;
+  const donutParts = fonti.map((f) => {
+    const percent = totale ? Math.round((f.value / totale) * 100) : 0;
+    const dash = `${percent} ${100 - percent}`;
+    const part = { ...f, percent, dash, offset: -offset, color: palette[f.tone]?.stroke || '#64748b' };
+    offset += percent;
+    return part;
+  });
+
+  const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+  const andamento = mesi.map((mese, index) => {
+    const pratiche = praticheCspChiuse.filter((s) => {
+      const d = new Date(s.updated_at || s.created_at || 0);
+      return d.getFullYear() === annoCorrente && d.getMonth() === index;
+    }).reduce((sum, s) => sum + Number(s.importo_preventivo || s.importo || 0), 0);
+    const lspMese = (lavoriPrivati || []).filter((l) => {
+      const d = new Date(l.created_at || l.data_richiesta || 0);
+      return d.getFullYear() === annoCorrente && d.getMonth() === index;
+    }).reduce((sum, l) => sum + Number(l.importo_preventivo || l.importo || 0), 0);
+    return { mese, value: pratiche + lspMese };
+  });
+  const maxMese = Math.max(...andamento.map((m) => m.value), 1);
+
+  return (
+    <section className="space-y-4 pb-10">
+      <section className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Guadagni</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">Control Room economica</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Una vista chiara delle entrate generate dall’ecosistema: abbonamenti, pratiche CSP, CaSeP e lavori privati LSP.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-emerald-100 bg-white px-5 py-4 text-right shadow-sm">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Totale stimato</p>
+            <p className="mt-1 text-3xl font-black text-slate-900">{formatEuro(totale)}</p>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <DashboardStat label="Totale generale" value={formatEuro(totale)} tone="emerald" />
+          <DashboardStat label="Questo mese" value={formatEuro(totaleMese)} tone="sky" />
+          <DashboardStat label="Ticket medio" value={formatEuro(ticketMedio)} tone="amber" />
+          <DashboardStat label="Fonte principale" value={fontePrincipale?.label || 'n.d.'} tone="slate" />
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Composizione</p>
+              <h3 className="mt-1 text-xl font-black text-slate-900">Ripartizione fatturato</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Peso percentuale di ogni componente sul totale.</p>
+            </div>
+          </div>
+          <div className="mt-6 flex flex-col items-center gap-5 md:flex-row md:items-center md:justify-center">
+            <div className="relative h-52 w-52">
+              <svg viewBox="0 0 42 42" className="h-full w-full -rotate-90">
+                <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#e2e8f0" strokeWidth="6" />
+                {donutParts.map((part) => part.percent > 0 && (
+                  <circle
+                    key={part.key}
+                    cx="21"
+                    cy="21"
+                    r="15.915"
+                    fill="transparent"
+                    stroke={part.color}
+                    strokeWidth="6"
+                    strokeDasharray={part.dash}
+                    strokeDashoffset={part.offset}
+                    strokeLinecap="round"
+                  />
+                ))}
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Totale</p>
+                <p className="text-2xl font-black text-slate-900">{formatEuro(totale)}</p>
+              </div>
+            </div>
+            <div className="w-full space-y-3">
+              {fonti.map((f) => {
+                const percent = totale ? Math.round((f.value / totale) * 100) : 0;
+                return (
+                  <div key={f.key} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-slate-900">{f.label}</p>
+                        <p className="text-xs font-semibold text-slate-500">{f.note}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-slate-900">{formatEuro(f.value)}</p>
+                        <p className="text-xs font-black text-emerald-700">{percent}%</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                      <div className={`h-full rounded-full ${palette[f.tone]?.bar || 'bg-slate-500'}`} style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Andamento</p>
+          <h3 className="mt-1 text-xl font-black text-slate-900">Entrate valorizzate nell’anno</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Barre mensili calcolate sulle pratiche e richieste valorizzate.</p>
+          <div className="mt-6 flex h-72 items-end gap-2 rounded-3xl border border-slate-100 bg-slate-50 p-4">
+            {andamento.map((m) => {
+              const height = Math.max(8, Math.round((m.value / maxMese) * 100));
+              return (
+                <div key={m.mese} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+                  <div className="flex w-full items-end justify-center rounded-t-2xl bg-gradient-to-t from-emerald-700 to-emerald-400 shadow-sm" style={{ height: `${height}%` }} title={`${m.mese}: ${formatEuro(m.value)}`} />
+                  <span className="text-[10px] font-black uppercase text-slate-400">{m.mese}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-4">
+        {fonti.map((f) => (
+          <article key={f.key} className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <span className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${palette[f.tone]?.chip || 'border-slate-100 bg-slate-50 text-slate-600'}`}>
+              {f.label}
+            </span>
+            <p className="mt-4 text-2xl font-black text-slate-900">{formatEuro(f.value)}</p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{f.note}</p>
+          </article>
+        ))}
+      </section>
+    </section>
+  );
+}
 
 function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmministratori, aziendePartner }) {
   const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
@@ -12386,6 +12571,7 @@ export default function App() {
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
     { id: 'campagne', label: 'Campagne', subtitle: 'Invii partner CaSP' },
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
+    { id: 'guadagni', label: '💰 Guadagni', subtitle: 'Control Room economica' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
@@ -12838,6 +13024,18 @@ export default function App() {
               onRefresh={carica}
             />
           </>
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'guadagni' && (
+          <GuadagniGestoreDashboard
+            contratti={contratti}
+            segnalazioni={segnalazioni}
+            capitolati={capitolatiSenzaPensieri}
+            lavoriPrivati={lavoriPrivati}
+            fattureLavoriPrivati={fattureLavoriPrivati}
+            fatturePartner={fatturePartner}
+            fattureProvvigioniGestore={fattureProvvigioniGestore}
+          />
         )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'report' && (
