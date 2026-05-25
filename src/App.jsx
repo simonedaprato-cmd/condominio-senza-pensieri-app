@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -440,6 +440,58 @@ function FlussoOperativoPratica({ titolo = 'Stato avanzamento', stato = '', step
         })}
       </div>
     </div>
+  );
+}
+
+
+
+function resolveWorkflowStepKey(stato = '', steps = []) {
+  const statoNorm = String(stato || '').toLowerCase().trim();
+  const found = (steps || []).find((step) => {
+    const label = String(step.label || '').toLowerCase().trim();
+    const aliases = (step.aliases || []).map((item) => String(item || '').toLowerCase().trim());
+    return statoNorm === label || (label && statoNorm.includes(label)) || aliases.some((alias) => alias && statoNorm.includes(alias));
+  });
+  return found?.label || steps?.[0]?.label || 'Senza stato';
+}
+
+function groupItemsByWorkflowStatus(items = [], steps = []) {
+  const base = (steps || []).map((step) => ({ step, items: [] }));
+  const extra = [];
+  (items || []).forEach((item) => {
+    const key = resolveWorkflowStepKey(item?.stato, steps);
+    const bucket = base.find((group) => group.step.label === key);
+    if (bucket) bucket.items.push(item);
+    else extra.push(item);
+  });
+  const groups = base.filter((group) => group.items.length > 0);
+  if (extra.length) groups.push({ step: { label: 'Altri stati', text: 'Pratiche non classificate' }, items: extra });
+  return groups;
+}
+
+function WorkflowStatusGroup({ step, count, tone = 'emerald', children }) {
+  const toneMap = {
+    emerald: 'border-emerald-100 bg-emerald-50 text-emerald-800',
+    sky: 'border-sky-100 bg-sky-50 text-sky-800',
+    amber: 'border-amber-100 bg-amber-50 text-amber-800',
+    slate: 'border-slate-100 bg-slate-50 text-slate-800',
+  };
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">Stato pratica</p>
+          <h3 className="mt-1 text-lg font-black text-slate-900">{step?.label || 'Senza stato'}</h3>
+          {step?.text && <p className="mt-1 text-sm font-semibold text-slate-500">{step.text}</p>}
+        </div>
+        <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-black ${toneMap[tone] || toneMap.emerald}`}>
+          {count} {count === 1 ? 'pratica' : 'pratiche'}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -4657,72 +4709,60 @@ function CapitolatoSenzaPensieriSuite({
           </div>
         )}
 
-        <div className="mt-4 max-h-[650px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
-          <table className="min-w-[1080px] w-full border-collapse text-sm">
-            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-3">Pratica</th>
-                <th className="px-3 py-3">Condominio</th>
-                <th className="px-3 py-3">Tecnico</th>
-                <th className="px-3 py-3 text-right">Importo</th>
-                <th className="px-3 py-3">Priorità</th>
-                <th className="px-3 py-3">Stato</th>
-                <th className="px-3 py-3 text-right">Scheda</th>
-              </tr>
-            </thead>
-            <tbody>
-              {capitolatiVisibili.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
-                    Nessun capitolato presente.
-                  </td>
-                </tr>
-              ) : (
-                capitolatiVisibili.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => {
-                      setCapitolatoApertoId(Number(item.id));
-
-                    }}
-                    className="group cursor-pointer border-t border-slate-100 transition hover:bg-emerald-50/60 active:bg-emerald-100"
-                  >
-                    <td className="px-3 py-3">
-                      <p className="font-black text-slate-900">{item.numero_pratica || `#${item.id}`}</p>
-                      <p className="text-xs text-slate-500">{item.titolo}</p>
-                      {isGestore && <p className="text-xs text-slate-400">{item.amministratore_nome || item.amministratore_email}</p>}
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-semibold text-slate-700">{item.condominio_nome || 'n.d.'}</p>
-                      <p className="text-xs text-slate-500">{item.indirizzo || ''} {item.citta || ''}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-semibold text-slate-700">{item.tecnico_nome || 'n.d.'}</p>
-                      <p className="text-xs text-slate-500">{item.tecnico_email || ''}</p>
-                    </td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900">
-                      {Number(item.valore_offerta || 0) > 0 ? formatEuro(item.valore_offerta || 0) : <span className="text-xs font-bold text-slate-400">Offerta non caricata</span>}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
-                        item.priorita === 'Alta' ? 'bg-red-100 text-red-700' :
-                        item.priorita === 'Bassa' ? 'bg-slate-100 text-slate-600' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {item.priorita || 'Media'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-700 text-lg font-black text-white shadow-md shadow-emerald-900/20 transition group-hover:scale-105">›</span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="mt-4 max-h-[650px] overflow-y-auto pr-1 csp-scroll">
+          {capitolatiVisibili.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center text-sm font-semibold text-slate-500">
+              Nessun capitolato presente.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {groupItemsByWorkflowStatus(capitolatiVisibili, flussoCasepSteps).map((group) => (
+                <WorkflowStatusGroup key={group.step.label} step={group.step} count={group.items.length} tone="sky">
+                  {group.items.map((item) => (
+                    <article
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCapitolatoApertoId(Number(item.id))}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setCapitolatoApertoId(Number(item.id));
+                        }
+                      }}
+                      className={`group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-sky-50/50 hover:shadow-md active:bg-sky-100 ${MOTION_CARD}`}
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-black text-slate-900">{item.numero_pratica || `#${item.id}`}</p>
+                            <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                              item.priorita === 'Alta' ? 'bg-red-100 text-red-700' :
+                              item.priorita === 'Bassa' ? 'bg-slate-100 text-slate-600' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              {item.priorita || 'Media'}
+                            </span>
+                          </div>
+                          <h4 className="mt-1 text-base font-black text-slate-900">{item.titolo || 'Capitolato senza titolo'}</h4>
+                          <p className="mt-1 text-sm font-semibold text-slate-500">{item.condominio_nome || 'Condominio n.d.'}</p>
+                          <p className="mt-1 text-xs font-semibold text-slate-400">{item.indirizzo || ''} {item.citta || ''}</p>
+                          {isGestore && <p className="mt-1 text-xs font-semibold text-slate-400">{item.amministratore_nome || item.amministratore_email || 'Amministratore n.d.'}</p>}
+                        </div>
+                        <div className="flex flex-col items-start gap-2 md:items-end">
+                          <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black uppercase text-sky-700">{item.stato || 'Nuovo capitolato'}</span>
+                          <span className="text-sm font-black text-slate-900">
+                            {Number(item.valore_offerta || 0) > 0 ? formatEuro(item.valore_offerta || 0) : <span className="text-xs font-bold text-slate-400">Offerta non caricata</span>}
+                          </span>
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-700 text-lg font-black text-white shadow-md shadow-sky-900/20 transition group-hover:scale-105">›</span>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </WorkflowStatusGroup>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -9656,7 +9696,7 @@ function LavoriPrivatiSuite({
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{lavoro.stato}</span>
             {lavoro.importo_preventivo ? <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">{formatEuro(lavoro.importo_preventivo)} compreso IVA 22%</span> : null}
             {fattura ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Fattura: {fattura.stato}</span> : null}
-            <span className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-700">Tocca per gestire</span>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white shadow-md shadow-emerald-900/20 transition group-hover:scale-105">›</span>
           </div>
         </div>
         <p className="mt-3 line-clamp-2 text-sm text-slate-600">{lavoro.descrizione}</p>
@@ -9782,10 +9822,16 @@ function LavoriPrivatiSuite({
         </div>
       )}
 
-      <div className="grid gap-3">
+      <div className="space-y-4">
         {lavoriVisibili.length === 0 ? (
           <EmptyState icon="🏠" title="Nessun lavoro privato" text={isCondomino ? 'Richiedi un preventivo per i lavori e la cura della tua casa.' : 'Le nuove richieste private dei condòmini compariranno qui.'} action="Canale pronto" tone="emerald" />
-        ) : lavoriVisibili.map(renderCard)}
+        ) : (
+          groupItemsByWorkflowStatus(lavoriVisibili, flussoLspSteps).map((group) => (
+            <WorkflowStatusGroup key={group.step.label} step={group.step} count={group.items.length} tone="emerald">
+              {group.items.map(renderCard)}
+            </WorkflowStatusGroup>
+          ))
+        )}
       </div>
 
       {lavoroAperto && (
