@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3805,10 +3805,10 @@ function CapitolatoSenzaPensieriSuite({
       <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Capitolato Senza Pensieri</p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">Grandi lavori e ponte verso CaSP</h2>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Control Center CaSeP</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Capitolato Senza Pensieri</h2>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Pratiche riservate amministratore ↔ gestore, senza accesso ai condòmini.
+              Grandi lavori, capitolati e passaggi operativi raccolti in un unico spazio chiaro e sempre consultabile.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 md:min-w-[520px] md:grid-cols-4">
@@ -4004,7 +4004,7 @@ function CapitolatoSenzaPensieriSuite({
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Capitolato Senza Pensieri</p>
                 <h2 className="mt-1 text-xl font-black text-slate-900">Nuova pratica Capitolato</h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Apri la richiesta in una finestra dedicata: meno ingombro, più controllo, nessun invio accidentale.</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Uno spazio pensato per semplificare ogni nuova richiesta. Tutto organizzato in un flusso chiaro, rapido e sempre consultabile.</p>
               </div>
               <button type="button" onClick={() => setShowNuovoCapitolatoModal(true)} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-sky-800">
                 Apri nuova pratica
@@ -7811,15 +7811,25 @@ function PubblicaRivistaModal({ onClose, onPubblica, saving }) {
 }
 
 function ArchivioReportPremium({ reports, ruolo, canSend = false, onOpenInvia }) {
-  const reportsOrdinati = [...(reports || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const canFilterCondominio = !['condominio', 'condomino'].includes(ruolo);
+  const [filtroReportCondominio, setFiltroReportCondominio] = useState('tutti');
+  const reportCondomini = Array.from(new Set((reports || [])
+    .map((report) => report.condominio || report.nome_condominio || report.condominio_nome || 'Condominio')
+    .filter(Boolean)))
+    .sort((a, b) => String(a).localeCompare(String(b), 'it'));
+  const reportsFiltrati = canFilterCondominio && filtroReportCondominio !== 'tutti'
+    ? (reports || []).filter((report) => String(report.condominio || report.nome_condominio || report.condominio_nome || 'Condominio') === String(filtroReportCondominio))
+    : (reports || []);
+  const reportsOrdinati = [...reportsFiltrati].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   const ultimo = reportsOrdinati[0];
+  const memoriaLabel = canFilterCondominio ? 'La memoria dei tuoi immobili' : 'La memoria del tuo immobile';
 
   return (
     <section className="space-y-4">
       <div className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-50 p-5 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.26em] text-emerald-700">La memoria del tuo immobile</p>
+            <p className="text-xs font-black uppercase tracking-[0.26em] text-emerald-700">{memoriaLabel}</p>
             <h2 className="mt-1 text-2xl font-black text-slate-900">I tuoi report</h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold text-slate-600">
               Report, aggiornamenti e documenti raccolti nel tempo in un unico spazio dedicato.
@@ -7838,6 +7848,22 @@ function ArchivioReportPremium({ reports, ruolo, canSend = false, onOpenInvia })
             </div>
           </div>
         </div>
+
+        {canFilterCondominio && reportCondomini.length > 1 && (
+          <div className="mt-5 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Filtra per condominio</label>
+            <select
+              value={filtroReportCondominio}
+              onChange={(e) => setFiltroReportCondominio(e.target.value)}
+              className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold text-slate-700"
+            >
+              <option value="tutti">Tutti i condomìni</option>
+              {reportCondomini.map((nome) => (
+                <option key={nome} value={nome}>{nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {canSend && (
           <div className="mt-5 flex flex-wrap gap-2">
             <button
@@ -12626,7 +12652,11 @@ export default function App() {
 
       </div>
 
-      {puoCreareSegnalazioni && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
+      {puoCreareSegnalazioni && (
+        (ruoloNormalizzato === 'gestore' && gestoreSection === 'pratiche') ||
+        (isAmministratoreOperativo && amministratoreSection === 'pratiche') ||
+        (['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'segnalazioni')
+      ) && (
         <button
           onClick={() => setShowNuovaSegnalazione(true)}
           style={{ bottom: hasPreventiviBanner ? '110px' : '1.25rem' }}
@@ -12640,7 +12670,11 @@ export default function App() {
         </button>
       )}
 
-      {puoCreareSegnalazioni && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && showNuovaSegnalazione && (
+      {puoCreareSegnalazioni && (
+        (ruoloNormalizzato === 'gestore' && gestoreSection === 'pratiche') ||
+        (isAmministratoreOperativo && amministratoreSection === 'pratiche') ||
+        (['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'segnalazioni')
+      ) && showNuovaSegnalazione && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4">
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
