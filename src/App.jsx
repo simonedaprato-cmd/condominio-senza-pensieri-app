@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.16';
+const APP_VERSION_LABEL = 'CSP v1.0.16';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -392,6 +392,56 @@ function StatoBadge({ stato }) {
   );
 }
 
+
+
+
+function FlussoOperativoPratica({ titolo = 'Stato avanzamento', stato = '', steps = [] }) {
+  const statoNorm = String(stato || '').toLowerCase();
+  const activeIndex = Math.max(0, steps.findIndex((step) => {
+    const label = String(step.label || '').toLowerCase();
+    const aliases = (step.aliases || []).map((item) => String(item || '').toLowerCase());
+    return statoNorm === label || statoNorm.includes(label) || aliases.some((alias) => statoNorm.includes(alias));
+  }));
+  const resolvedIndex = activeIndex >= 0 ? activeIndex : 0;
+
+  return (
+    <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/50 to-white p-4 shadow-sm">
+      <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">{titolo}</p>
+          <h4 className="mt-1 text-base font-black text-slate-900">Flusso operativo</h4>
+        </div>
+        <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 shadow-sm ring-1 ring-emerald-100">
+          {stato || steps[0]?.label || 'Nuova pratica'}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step, index) => {
+          const done = index < resolvedIndex;
+          const active = index === resolvedIndex;
+          const cls = active
+            ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+            : done
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-slate-200 bg-white text-slate-500';
+          return (
+            <div key={`${step.label}-${index}`} className={`rounded-2xl border p-3 transition-all ${cls}`}>
+              <div className="flex items-center gap-2">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${active ? 'bg-white text-emerald-700' : done ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  {done ? '✓' : index + 1}
+                </span>
+                <div>
+                  <p className="text-xs font-black leading-tight">{step.label}</p>
+                  {step.text && <p className={`mt-0.5 text-[11px] font-semibold leading-snug ${active ? 'text-emerald-50' : done ? 'text-emerald-700' : 'text-slate-400'}`}>{step.text}</p>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function ToastInterno({ toast, onClose }) {
   if (!toast) return null;
@@ -3619,6 +3669,17 @@ function CapitolatoSenzaPensieriSuite({
     'Non aggiudicata',
   ];
 
+  const flussoCasepSteps = [
+    { label: 'Nuovo capitolato', text: 'Richiesta aperta', aliases: ['nuova pratica'] },
+    { label: 'Sopralluogo programmato', text: 'Verifica tecnica' },
+    { label: 'Sopralluogo effettuato', text: 'Rilievo completato' },
+    { label: 'Relazione inviata', text: 'Documenti tecnici' },
+    { label: 'Offerta inviata', text: 'Preventivo disponibile' },
+    { label: 'Assemblea programmata', text: 'Decisione condominio', aliases: ['presenza csp richiesta'] },
+    { label: 'Offerta accettata', text: 'Esito amministratore', aliases: ['aggiudicata', 'convertita in casp'] },
+    { label: 'Offerta rifiutata', text: 'Pratica conclusa', aliases: ['non aggiudicata'] },
+  ];
+
   const estraiOraAssemblea = (luogo = '') => {
     const match = String(luogo || '').match(/(?:\s*[—-]\s*)?ore\s+([0-2]?\d:[0-5]\d)\s*$/i);
     return match?.[1] || '';
@@ -4688,6 +4749,14 @@ function CapitolatoSenzaPensieriSuite({
             >
               Chiudi scheda
             </button>
+          </div>
+
+          <div className="mt-4">
+            <FlussoOperativoPratica
+              titolo="Avanzamento CaSeP"
+              stato={capitolatoAperto.stato || 'Nuovo capitolato'}
+              steps={flussoCasepSteps}
+            />
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-5">
@@ -9335,6 +9404,15 @@ function LavoriPrivatiSuite({
     file: null,
   });
 
+  const flussoLspSteps = [
+    { label: 'Nuova richiesta', text: 'Richiesta ricevuta', aliases: ['nuovo'] },
+    { label: 'Preventivo caricato', text: 'Valutazione disponibile' },
+    { label: 'Preventivo accettato', text: 'Conferma cliente', aliases: ['accettato'] },
+    { label: 'Intervento pianificato', text: 'Data fissata', aliases: ['pianificato'] },
+    { label: 'Intervento chiuso', text: 'Lavoro completato', aliases: ['chiuso', 'chiusa'] },
+    { label: 'Preventivo rifiutato', text: 'Pratica conclusa', aliases: ['rifiutato'] },
+  ];
+
   useEffect(() => {
     if (!lavoroApertoId || !lavoriPrivati.length) return;
     const trovato = lavoriPrivati.find((item) => Number(item.id) === Number(lavoroApertoId));
@@ -9720,6 +9798,13 @@ function LavoriPrivatiSuite({
                 <p className="text-sm font-semibold text-slate-500">{getCondominioNome(lavoroAperto.condominio_id)} • {lavoroAperto.stato}</p>
               </div>
               <button onClick={() => setLavoroAperto(null)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
+            </div>
+            <div className="px-4 pt-4">
+              <FlussoOperativoPratica
+                titolo="Avanzamento LSP"
+                stato={lavoroAperto.stato || 'Nuova richiesta'}
+                steps={flussoLspSteps}
+              />
             </div>
             <div className="grid gap-4 p-4 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-4">
