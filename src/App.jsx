@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -8884,6 +8884,61 @@ function LavoriPrivatiSuite({
   const fatturaDelLavoro = (id) => fattureLavoriPrivati.find((f) => Number(f.lavoro_privato_id) === Number(id));
   const updateDraft = (id, patch) => setDrafts((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
   const imponibileDaLordo22 = (valoreLordo) => Math.round((Number(valoreLordo || 0) / 1.22) * 100) / 100;
+  const isFatturaPagata = (fattura) => String(fattura?.stato || '').toLowerCase().includes('pagat');
+  const giorniAllaScadenza = (dataScadenza) => {
+    if (!dataScadenza) return null;
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    const scadenza = new Date(dataScadenza);
+    scadenza.setHours(0, 0, 0, 0);
+    if (Number.isNaN(scadenza.getTime())) return null;
+    return Math.ceil((scadenza.getTime() - oggi.getTime()) / (1000 * 60 * 60 * 24));
+  };
+  const lavoroDaFattura = (fattura) => lavoriPrivati.find((item) => Number(item.id) === Number(fattura?.lavoro_privato_id));
+  const fattureVisibili = useMemo(() => {
+    const email = String(userProfile?.email || '').toLowerCase();
+    if (isGestore) return fattureLavoriPrivati || [];
+    return (fattureLavoriPrivati || []).filter((fattura) => String(fattura.condomino_email || '').toLowerCase() === email);
+  }, [fattureLavoriPrivati, isGestore, userProfile]);
+  const fattureAperte = useMemo(() => fattureVisibili.filter((fattura) => !isFatturaPagata(fattura)), [fattureVisibili]);
+  const fattureInScadenza = useMemo(() => fattureAperte.filter((fattura) => {
+    const giorni = giorniAllaScadenza(fattura.data_scadenza);
+    return giorni !== null && giorni >= 0 && giorni <= 15;
+  }).sort((a, b) => new Date(a.data_scadenza || 0) - new Date(b.data_scadenza || 0)), [fattureAperte]);
+  const fattureScadute = useMemo(() => fattureAperte.filter((fattura) => {
+    const giorni = giorniAllaScadenza(fattura.data_scadenza);
+    return giorni !== null && giorni < 0;
+  }).sort((a, b) => new Date(a.data_scadenza || 0) - new Date(b.data_scadenza || 0)), [fattureAperte]);
+  const totaleFattureAperte = fattureAperte.reduce((sum, fattura) => sum + Number(fattura.importo || 0), 0);
+  const totaleFattureInScadenza = fattureInScadenza.reduce((sum, fattura) => sum + Number(fattura.importo || 0), 0);
+  const totaleFattureScadute = fattureScadute.reduce((sum, fattura) => sum + Number(fattura.importo || 0), 0);
+  const renderMiniFattura = (fattura, tone = 'amber') => {
+    const lavoro = lavoroDaFattura(fattura);
+    const giorni = giorniAllaScadenza(fattura.data_scadenza);
+    const toneClass = tone === 'red'
+      ? 'border-red-200 bg-red-50 text-red-800'
+      : 'border-amber-200 bg-amber-50 text-amber-800';
+    return (
+      <div key={fattura.id} className={`rounded-2xl border p-3 ${toneClass}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.15em] opacity-70">Fattura #{fattura.numero_fattura || fattura.id}</p>
+            <p className="mt-1 text-sm font-black">{lavoro?.titolo || 'Lavoro privato'}</p>
+            <p className="mt-1 text-xs font-bold opacity-80">{fattura.fornitore || 'Fornitore non indicato'} • scadenza {fattura.data_scadenza || 'n.d.'}</p>
+            {isGestore && <p className="mt-1 text-xs font-semibold opacity-70">{fattura.condomino_email}</p>}
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-black">{formatEuro(fattura.importo || 0)}</p>
+            <p className="text-[11px] font-black">{giorni === null ? 'scadenza n.d.' : giorni < 0 ? `${Math.abs(giorni)} gg scaduta` : `${giorni} gg`}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="rounded-xl bg-white/80 px-3 py-1.5 text-xs font-black shadow-sm">Apri fattura</a>}
+          {isGestore && lavoro && <button type="button" onClick={() => setLavoroAperto(lavoro)} className="rounded-xl bg-white/80 px-3 py-1.5 text-xs font-black shadow-sm">Apri lavoro</button>}
+        </div>
+      </div>
+    );
+  };
 
   const creaRichiesta = async (e) => {
     e.preventDefault();
@@ -9062,6 +9117,56 @@ function LavoriPrivatiSuite({
           </div>
         </div>
       </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Fatture aperte</p>
+          <p className="mt-2 text-2xl font-black text-slate-900">{fattureAperte.length}</p>
+          <p className="mt-1 text-sm font-bold text-slate-500">{formatEuro(totaleFattureAperte)} da monitorare</p>
+        </div>
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">In scadenza</p>
+          <p className="mt-2 text-2xl font-black text-amber-900">{fattureInScadenza.length}</p>
+          <p className="mt-1 text-sm font-bold text-amber-800">Entro 15 giorni • {formatEuro(totaleFattureInScadenza)}</p>
+        </div>
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Scadute</p>
+          <p className="mt-2 text-2xl font-black text-red-900">{fattureScadute.length}</p>
+          <p className="mt-1 text-sm font-bold text-red-800">Da sollecitare • {formatEuro(totaleFattureScadute)}</p>
+        </div>
+      </div>
+
+      {(fattureInScadenza.length > 0 || fattureScadute.length > 0 || fattureVisibili.length > 0) && (
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Control room fatture private</p>
+              <h3 className="mt-1 text-xl font-black text-slate-900">Scadenze e fatture lavori privati</h3>
+            </div>
+            <p className="text-sm font-bold text-slate-500">Reminder automatici: -7, -2, scadenza, +7, +15 giorni se non pagata.</p>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <h4 className="mb-2 text-sm font-black text-amber-800">Fatture in scadenza entro 15 giorni</h4>
+              <div className="space-y-2">
+                {fattureInScadenza.length ? fattureInScadenza.map((fattura) => renderMiniFattura(fattura, 'amber')) : <p className="rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza nei prossimi 15 giorni.</p>}
+              </div>
+            </div>
+            <div>
+              <h4 className="mb-2 text-sm font-black text-red-800">Fatture scadute</h4>
+              <div className="space-y-2">
+                {fattureScadute.length ? fattureScadute.map((fattura) => renderMiniFattura(fattura, 'red')) : <p className="rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">Nessuna fattura scaduta.</p>}
+              </div>
+            </div>
+          </div>
+          <details className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+            <summary className="cursor-pointer text-sm font-black text-slate-700">Mostra elenco completo fatture private ({fattureVisibili.length})</summary>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {fattureVisibili.length ? fattureVisibili.map((fattura) => renderMiniFattura(fattura, giorniAllaScadenza(fattura.data_scadenza) < 0 ? 'red' : 'amber')) : <p className="text-sm font-semibold text-slate-500">Nessuna fattura privata presente.</p>}
+            </div>
+          </details>
+        </div>
+      )}
 
       {showForm && isCondomino && (
         <form onSubmit={creaRichiesta} className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
