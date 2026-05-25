@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -11762,7 +11762,6 @@ export default function App() {
   const gestoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche e contratti' },
-    { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
     { id: 'tecnici', label: 'Tecnici', subtitle: 'CRM tecnico CaSP' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
@@ -11775,10 +11774,10 @@ export default function App() {
 
   const amministratoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
-    { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture interventi, scadenze e PDF' },
-    ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
+    ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
+    { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
 
@@ -12025,17 +12024,6 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'gestore' && gestoreSection === 'report' && (
-          <>
-            {renderGestoreSectionTitle('I tuoi report', 'Archivio report semestrali e documenti premium del condominio, separati dalle pratiche operative.')}
-            <ArchivioReportPremium
-              reports={reportVisibili}
-              ruolo={ruoloNormalizzato}
-              canSend={true}
-              onOpenInvia={() => setShowReportSemestrale(true)}
-            />
-          </>
-        )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'condominio' && (
           <>
