@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -12292,14 +12292,18 @@ export default function App() {
         {sezioniMenuLaterale.length > 0 && (
           <>
             {menuLateraleAperto && (
-              <div className="fixed inset-0 z-50 flex">
+              <div className="fixed inset-0 z-[120] flex">
+                <style>{`@keyframes cspMenuSlideIn { from { transform: translateX(-100%); opacity: 0.72; } to { transform: translateX(0); opacity: 1; } }`}</style>
                 <button
                   type="button"
-                  className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
+                  className="absolute inset-0 z-[121] bg-slate-950/45 backdrop-blur-[2px]"
                   onClick={() => setMenuLateraleAperto(false)}
                   aria-label="Chiudi menu"
                 />
-                <aside className="relative z-10 flex h-full w-[86vw] max-w-sm flex-col overflow-hidden rounded-r-[2rem] border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30">
+                <aside
+                  className="relative z-[122] flex h-full w-[86vw] max-w-sm flex-col overflow-hidden border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30"
+                  style={{ animation: 'cspMenuSlideIn 220ms cubic-bezier(0.22, 1, 0.36, 1)' }}
+                >
                   <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700 p-5 text-white">
                     <div className="flex items-start justify-between gap-3">
                       <div>
