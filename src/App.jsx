@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -1016,13 +1016,13 @@ function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-white p-0 shadow-2xl shadow-emerald-950/40 csp-enter csp-touch-card">
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 px-7 py-8 text-center text-white">
+      <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/10 bg-white p-0 shadow-2xl shadow-emerald-950/40 csp-enter csp-touch-card">
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 px-7 py-10 text-center text-white">
           <div className="absolute inset-x-10 top-8 h-24 rounded-full bg-emerald-400/10 blur-3xl csp-splash-glow" />
-          <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/40 p-3 shadow-2xl shadow-black/35">
+          <div className="relative mx-auto flex h-[21rem] w-[21rem] max-h-[72vw] max-w-[72vw] items-center justify-center overflow-hidden rounded-[2.2rem] border border-white/10 bg-black/40 p-5 shadow-2xl shadow-black/35">
             <img src={OTP_MAIL_LOGO_URL} alt="Condominio Senza Pensieri" className="h-full w-full object-contain" />
           </div>
-          <p className="relative mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-emerald-100">Accesso riservato CSP</p>
+          <p className="relative mt-7 text-[11px] font-black uppercase tracking-[0.28em] text-emerald-100">Accesso riservato CSP</p>
           <h1 className="relative mt-2 text-2xl font-black tracking-tight">Entra con codice sicuro</h1>
           <p className="relative mt-2 text-sm leading-relaxed text-white/70">Un accesso unico, semplice e uniforme da smartphone, tablet e computer.</p>
         </div>
