@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1121,6 +1121,76 @@ function DashboardStat({ label, value, tone = 'slate' }) {
       <p className="text-xs text-slate-500">{label}</p>
       <p className={'mt-2 inline-flex min-w-14 justify-center rounded-xl px-3 py-2 text-lg font-bold ' + toneClass}>{value}</p>
     </div>
+  );
+}
+
+
+function GestioneAnagraficheBox({ condomini = [], amministratori = [], onSaved }) {
+  const condominiAttivi = Array.isArray(condomini) ? condomini : [];
+  const amministratoriAttivi = Array.isArray(amministratori) ? amministratori : [];
+
+  return (
+    <section className="space-y-4 rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Anagrafiche</p>
+          <h3 className="mt-1 text-xl font-black text-slate-900">Condomini e amministratori</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Vista rapida delle anagrafiche già presenti nel sistema.</p>
+        </div>
+        {typeof onSaved === 'function' && (
+          <button
+            type="button"
+            onClick={onSaved}
+            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700"
+          >
+            Aggiorna dati
+          </button>
+        )}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="font-black text-slate-900">Condomini</h4>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{condominiAttivi.length}</span>
+          </div>
+          {condominiAttivi.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-500">Nessun condominio censito.</p>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 csp-scroll">
+              {condominiAttivi.map((condominio) => (
+                <div key={condominio.id || condominio.nome} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                  <p className="font-black text-slate-900">{condominio.nome || `Condominio #${condominio.id}`}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{condominio.indirizzo || condominio.citta || 'Indirizzo non indicato'}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="font-black text-slate-900">Amministratori</h4>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{amministratoriAttivi.length}</span>
+          </div>
+          {amministratoriAttivi.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-500">Nessun amministratore censito.</p>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 csp-scroll">
+              {amministratoriAttivi.map((amministratore) => {
+                const email = amministratore.email || amministratore.amministratore_email || amministratore.id;
+                return (
+                  <div key={email || amministratore.nome} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                    <p className="font-black text-slate-900">{amministratore.nome || amministratore.studio || email || 'Amministratore'}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{email || 'Email non indicata'}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
