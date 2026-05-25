@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -3840,7 +3840,7 @@ function CapitolatoSenzaPensieriSuite({
 
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState({}, document.title, nextUrl);
+    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
   }, [capitolatiVisibili, setCapitolatoApertoId]);
 
   const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
@@ -9885,6 +9885,50 @@ export default function App() {
   const puoVedereGuadagniAmministratore = ruoloNormalizzato === 'amministratore';
   const puoVedereFattureOperative = isAmministratoreOperativo;
   const puoCreareSegnalazioni = isAmministratoreOperativo || ['condominio', 'condomino'].includes(ruoloNormalizzato);
+  const historySyncRef = useRef({ ready: false, applyingPop: false });
+
+  const getCspHistoryRoute = () => {
+    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: gestoreSection || 'pratiche' };
+    if (isAmministratoreOperativo) return { role: 'amministratore', section: amministratoreSection || 'pratiche' };
+    if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: condominoSection || 'segnalazioni' };
+    return { role: ruoloNormalizzato || 'utente', section: 'home' };
+  };
+
+  const buildCspSectionUrl = (route = getCspHistoryRoute()) => {
+    try {
+      const url = new URL(window.location.href);
+      if (route?.section) url.searchParams.set('section', route.section);
+      if (route?.role) url.searchParams.set('role', route.role);
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch (_) {
+      return window.location.pathname || '/';
+    }
+  };
+
+  const applicaCspHistoryRoute = (route) => {
+    if (!route?.section) return;
+    historySyncRef.current.applyingPop = true;
+    if (route.role === 'gestore' || ruoloNormalizzato === 'gestore') setGestoreSection(route.section);
+    else if (route.role === 'amministratore' || isAmministratoreOperativo) setAmministratoreSection(route.section);
+    else if (route.role === 'condomino' || ['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(route.section);
+    setDettaglioAperto(null);
+    setShowNuovaSegnalazione(false);
+    setShowReportSemestrale(false);
+    setShowRivistaModal(false);
+    setLavoroPrivatoApertoId(null);
+    chiudiMenuLaterale();
+    window.setTimeout(() => {
+      historySyncRef.current.applyingPop = false;
+    }, 0);
+  };
+
+  const registraNavigazioneCsp = (route) => {
+    if (typeof window === 'undefined' || !window.history || historySyncRef.current.applyingPop) return;
+    const nextRoute = route || getCspHistoryRoute();
+    const currentRoute = window.history.state?.cspRoute;
+    if (currentRoute?.role === nextRoute.role && currentRoute?.section === nextRoute.section) return;
+    window.history.pushState({ ...(window.history.state || {}), cspRoute: nextRoute }, '', buildCspSectionUrl(nextRoute));
+  };
 
   // Elenco amministratori censiti per Gestione Anagrafiche.
   // La selezione operativa avviene per nome studio/ragione sociale; l'email resta il riferimento tecnico nascosto.
@@ -9934,6 +9978,55 @@ export default function App() {
       setFiltroCondominioId('');
     }
   }, [userProfile, selectedCondominioId, filtroCondominioId, ruoloNormalizzato]);
+
+  useEffect(() => {
+    if (!utente || showSplash || !ruoloNormalizzato || typeof window === 'undefined' || !window.history) return;
+
+    const routeFromUrl = (() => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const section = params.get('section');
+        if (!section) return null;
+        if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section };
+        if (isAmministratoreOperativo) return { role: 'amministratore', section };
+        if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section };
+        return null;
+      } catch (_) {
+        return null;
+      }
+    })();
+
+    const initialRoute = routeFromUrl || getCspHistoryRoute();
+    if (!historySyncRef.current.ready) {
+      window.history.replaceState({ ...(window.history.state || {}), cspRoute: initialRoute }, '', buildCspSectionUrl(initialRoute));
+      if (routeFromUrl) applicaCspHistoryRoute(routeFromUrl);
+      historySyncRef.current.ready = true;
+    }
+
+    const onPopState = (event) => {
+      if (menuLateraleAperto || menuLateraleInChiusura) {
+        chiudiMenuLaterale();
+        return;
+      }
+      if (showNuovaSegnalazione) {
+        setShowNuovaSegnalazione(false);
+        return;
+      }
+      if (showReportSemestrale) {
+        setShowReportSemestrale(false);
+        return;
+      }
+      if (showRivistaModal) {
+        setShowRivistaModal(false);
+        return;
+      }
+      const route = event.state?.cspRoute;
+      if (route?.section) applicaCspHistoryRoute(route);
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal]);
 
   const cambiaCondominioOperativo = (condominioId) => {
     const next = condominioId ? String(condominioId) : '';
@@ -10300,7 +10393,7 @@ export default function App() {
 
       const query = params.toString();
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-      window.history.replaceState({}, document.title, nextUrl);
+      window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
     }
   }, [utente, segnalazioni]);
 
@@ -10324,7 +10417,7 @@ export default function App() {
 
       const query = params.toString();
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-      window.history.replaceState({}, document.title, nextUrl);
+      window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
     }
   }, [utente, lavoriPrivati, ruoloNormalizzato]);
 
@@ -10350,7 +10443,7 @@ export default function App() {
 
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState({}, document.title, nextUrl);
+    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
   }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
 
 
@@ -12317,9 +12410,18 @@ export default function App() {
 
   const apriSezioneDaMenuLaterale = (sectionId) => {
     if (!sectionId) return;
-    if (ruoloNormalizzato === 'gestore') setGestoreSection(sectionId);
-    else if (isAmministratoreOperativo) setAmministratoreSection(sectionId);
-    else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(sectionId);
+    let nextRoute = null;
+    if (ruoloNormalizzato === 'gestore') {
+      nextRoute = { role: 'gestore', section: sectionId };
+      setGestoreSection(sectionId);
+    } else if (isAmministratoreOperativo) {
+      nextRoute = { role: 'amministratore', section: sectionId };
+      setAmministratoreSection(sectionId);
+    } else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) {
+      nextRoute = { role: 'condomino', section: sectionId };
+      setCondominoSection(sectionId);
+    }
+    if (nextRoute) registraNavigazioneCsp(nextRoute);
     chiudiMenuLaterale();
   };
 
