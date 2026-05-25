@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -96,12 +96,48 @@ function LogoMark({ className = 'h-[4.5rem] w-auto md:h-24', alt = 'Condominio S
   );
 }
 
+
+
+function getCurrentAppBaseUrl() {
+  if (typeof window === 'undefined') return '';
+  return window.location.origin + window.location.pathname;
+}
+
+function buildAppDeepLink(params = {}) {
+  if (typeof window === 'undefined') return '';
+  const url = new URL(getCurrentAppBaseUrl() || window.location.href);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim() !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+}
+
+function isPushLaunchContext() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search || '');
+  return (
+    params.get('fromPush') === '1' ||
+    params.get('source') === 'push' ||
+    params.get('utm_source') === 'onesignal' ||
+    params.has('pratica') ||
+    params.has('segnalazione') ||
+    params.has('segnalazioneId') ||
+    params.has('capitolato')
+  );
+}
+
+function normalizeEmail(value) {
+  return String(value || '').toLowerCase().trim();
+}
+
 async function loadUserProfile(email) {
   const normalizedEmail = String(email || '').toLowerCase().trim();
 
   const { data: utente, error } = await supabase
     .from('utenti')
-    .select('email, ruolo, condominio, telefono, nome')
+    .select('email, ruolo, condominio, telefono, nome, studio, amministratore_email')
     .ilike('email', normalizedEmail)
     .maybeSingle();
 
@@ -126,11 +162,34 @@ async function loadUserProfile(email) {
 
   if (collegamentiError) throw collegamentiError;
 
-  const condomini = (collegamenti || []).map((item) => item.condomini).filter(Boolean);
+  let collegamentiFinali = collegamenti || [];
+
+  // Collaboratore: eredita automaticamente i condomìni dell'amministratore collegato.
+  // Il riferimento corretto è utenti.amministratore_email; utenti.condominio resta solo come legacy/fallback.
+  if (String(utente.ruolo || '').toLowerCase().trim() === 'collaboratore') {
+    const amministratoreCollegatoEmail = normalizeEmail(utente.amministratore_email || utente.condominio);
+
+    if (amministratoreCollegatoEmail) {
+      const { data: collegamentiAmministratore, error: collegamentiAdminError } = await supabase
+        .from('utenti_condomini')
+        .select('condominio_id, condomini(id, nome, indirizzo)')
+        .ilike('email', amministratoreCollegatoEmail);
+
+      if (collegamentiAdminError) throw collegamentiAdminError;
+
+      const byId = new Map();
+      [...collegamentiFinali, ...(collegamentiAmministratore || [])].forEach((item) => {
+        if (item?.condominio_id) byId.set(Number(item.condominio_id), item);
+      });
+      collegamentiFinali = Array.from(byId.values());
+    }
+  }
+
+  const condomini = collegamentiFinali.map((item) => item.condomini).filter(Boolean);
 
   return {
     ...utente,
-    condominiIds: (collegamenti || []).map((item) => item.condominio_id),
+    condominiIds: collegamentiFinali.map((item) => item.condominio_id),
     condomini,
     condominio: condomini[0]?.nome || utente.condominio || '',
   };
@@ -349,6 +408,7 @@ function NotifichePushBox({ utenteEmail }) {
   });
 
   const emailPulita = String(utenteEmail || '').toLowerCase().trim();
+  const apertaDaPush = isPushLaunchContext();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -717,6 +777,10 @@ function NotifichePushBox({ utenteEmail }) {
 
   if (!supportate && !iosInfo.isIOS) return null;
 
+  // Quando l'app viene aperta da una push/deep link, non mostriamo il box
+  // installazione/registrazione: deve aprirsi direttamente la pratica.
+  if (apertaDaPush) return null;
+
   const attive = permesso === 'granted' && collegatoEmail && dispositivoSalvato;
 
   if (attive) {
@@ -940,7 +1004,12 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
       return 'Gestisci ' + condominiVisibili.length + ' condomini';
     }
 
-    if (ruolo === 'condominio' && userProfile?.condominio) {
+    if (ruolo === 'collaboratore') {
+      if (criticita > 0) return criticita + ' criticità operative da monitorare';
+      return 'Operatività su ' + condominiVisibili.length + ' condomini';
+    }
+
+    if ((ruolo === 'condominio' || ruolo === 'condomino') && userProfile?.condominio) {
       return 'Condominio: ' + userProfile.condominio;
     }
 
@@ -1871,6 +1940,66 @@ function GestioneLeadAmministratori({ onCreateLead }) {
   );
 }
 
+
+function DashboardLeadTecnici({ leadTecnici = [], onCreateLeadTecnico, onUpdateLeadTecnico, onImportLeadTecnici }) {
+  const emptyForm = { nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' };
+  const [form, setForm] = useState(emptyForm);
+  const [search, setSearch] = useState('');
+  const [provinciaFiltro, setProvinciaFiltro] = useState('');
+  const [importText, setImportText] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const provinceDisponibili = [...new Set((leadTecnici || []).map((tecnico) => tecnico.provincia).filter(Boolean))].sort();
+  const filtrati = (leadTecnici || []).filter((tecnico) => {
+    const haystack = [tecnico.nome, tecnico.cognome, tecnico.studio_tecnico, tecnico.email, tecnico.telefono, tecnico.indirizzo, tecnico.citta, tecnico.provincia, tecnico.note].join(' ').toLowerCase();
+    return (!search || haystack.includes(search.toLowerCase())) && (!provinciaFiltro || tecnico.provincia === provinciaFiltro);
+  });
+  const parseImportRows = () => importText.split('\n').map((row) => row.trim()).filter(Boolean).map((row) => {
+    const parts = row.includes(';') ? row.split(';') : row.split(',');
+    return { nome: String(parts[0] || '').trim(), cognome: String(parts[1] || '').trim(), studio_tecnico: String(parts[2] || '').trim(), email: String(parts[3] || '').trim(), telefono: String(parts[4] || '').trim(), indirizzo: String(parts[5] || '').trim(), citta: String(parts[6] || '').trim(), provincia: String(parts[7] || '').trim(), note: String(parts.slice(8).join(' ') || '').trim() };
+  });
+  const exportCsv = () => {
+    const headers = ['nome', 'cognome', 'studio_tecnico', 'email', 'telefono', 'indirizzo', 'citta', 'provincia', 'note'];
+    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const rows = [headers.join(';'), ...filtrati.map((tecnico) => headers.map((header) => escapeCsv(tecnico[header])).join(';'))];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lead-tecnici-casp-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+  const startEdit = (tecnico) => { setEditingId(tecnico.id); setForm({ nome: tecnico.nome || '', cognome: tecnico.cognome || '', studio_tecnico: tecnico.studio_tecnico || '', email: tecnico.email || '', telefono: tecnico.telefono || '', indirizzo: tecnico.indirizzo || '', citta: tecnico.citta || '', provincia: tecnico.provincia || '', note: tecnico.note || '' }); };
+  const reset = () => { setEditingId(null); setForm(emptyForm); };
+  return (
+    <section className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">CRM Tecnici CaSP</p><h2 className="mt-1 text-xl font-black text-slate-900">Tecnici e studi tecnici</h2><p className="mt-1 text-sm font-semibold text-slate-500">Archivio tecnico-commerciale per newsletter, campagne CaSP e futuri cantieri.</p></div><button type="button" onClick={exportCsv} className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black text-white">Esporta CSV</button></div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <form className="grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2" onSubmit={async (event) => { event.preventDefault(); if (editingId) { await onUpdateLeadTecnico(editingId, form); } else { await onCreateLeadTecnico(form); } reset(); }}>
+          <input value={form.nome} onChange={(e) => updateField('nome', e.target.value)} placeholder="Nome" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.cognome} onChange={(e) => updateField('cognome', e.target.value)} placeholder="Cognome" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.studio_tecnico} onChange={(e) => updateField('studio_tecnico', e.target.value)} placeholder="Studio tecnico" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.email} onChange={(e) => updateField('email', e.target.value)} placeholder="Email" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.telefono} onChange={(e) => updateField('telefono', e.target.value)} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.indirizzo} onChange={(e) => updateField('indirizzo', e.target.value)} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.citta} onChange={(e) => updateField('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <input value={form.provincia} onChange={(e) => updateField('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" />
+          <textarea value={form.note} onChange={(e) => updateField('note', e.target.value)} placeholder="Note" className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm md:col-span-2" />
+          <div className="flex flex-wrap gap-2 md:col-span-2"><button className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white">{editingId ? 'Aggiorna tecnico' : 'Salva tecnico'}</button>{editingId && <button type="button" onClick={reset} className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">Annulla</button>}</div>
+        </form>
+        <form className="space-y-3 rounded-3xl border border-emerald-100 bg-emerald-50 p-4" onSubmit={async (event) => { event.preventDefault(); await onImportLeadTecnici(parseImportRows()); setImportText(''); }}>
+          <div><p className="text-sm font-black text-emerald-900">Importa lista Excel/CSV</p><p className="mt-1 text-xs font-semibold text-emerald-700">Formato: nome; cognome; studio; email; telefono; indirizzo; città; provincia; note</p></div>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} rows={8} className="w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-sm" placeholder="Mario; Rossi; Studio Rossi; mario@email.it; 333...; Via Roma 1; Pisa; PI; Interessato a CaSP" />
+          <button className="rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-black text-white">Importa tecnici</button>
+        </form>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-4"><div className="rounded-2xl bg-sky-50 p-4"><p className="text-xs font-black uppercase text-sky-700">Totale</p><p className="mt-1 text-2xl font-black text-slate-900">{leadTecnici.length}</p></div><div className="rounded-2xl bg-emerald-50 p-4"><p className="text-xs font-black uppercase text-emerald-700">Filtrati</p><p className="mt-1 text-2xl font-black text-slate-900">{filtrati.length}</p></div><div className="rounded-2xl bg-amber-50 p-4"><p className="text-xs font-black uppercase text-amber-700">Province</p><p className="mt-1 text-2xl font-black text-slate-900">{provinceDisponibili.length}</p></div><div className="rounded-2xl bg-violet-50 p-4"><p className="text-xs font-black uppercase text-violet-700">Newsletter</p><p className="mt-1 text-sm font-black text-slate-900">Pronto per AI Marketing</p></div></div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca tecnico, studio, città..." className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm" /><select value={provinciaFiltro} onChange={(e) => setProvinciaFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm"><option value="">Tutte le province</option>{provinceDisponibili.map((provincia) => <option key={provincia} value={provincia}>{provincia}</option>)}</select></div>
+      <div className="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">{filtrati.length === 0 ? (<EmptyState icon="📐" title="Nessun tecnico presente" text="Inserisci tecnici dalle pratiche CaSeP, manualmente o tramite import CSV." action="CRM pronto" tone="sky" />) : filtrati.map((tecnico) => (<div key={tecnico.id || tecnico.email} className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><p className="text-sm font-black text-slate-900">{[tecnico.nome, tecnico.cognome].filter(Boolean).join(' ') || tecnico.email || 'Tecnico'}</p><p className="mt-1 text-xs font-bold text-slate-500">{tecnico.studio_tecnico || 'Studio non indicato'} • {tecnico.citta || 'Città n.d.'} {tecnico.provincia ? `(${tecnico.provincia})` : ''}</p><p className="mt-1 text-xs font-semibold text-slate-500">{tecnico.email || 'Email n.d.'} • {tecnico.telefono || 'Telefono n.d.'}</p>{tecnico.note && <p className="mt-2 text-xs font-semibold text-slate-600">{tecnico.note}</p>}</div><button type="button" onClick={() => startEdit(tecnico)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">Modifica</button></div></div>))}</div>
+    </section>
+  );
+}
+
 function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
   const [leadInModifica, setLeadInModifica] = useState(null);
   const [formLead, setFormLead] = useState({
@@ -2329,8 +2458,40 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
 function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmministratori, aziendePartner }) {
   const aziendaById = (id) => (aziendePartner || []).find((a) => Number(a.id) === Number(id));
 
+  const getDataPagamentoFattura = (fattura) => (
+    fattura?.pagata_il ||
+    fattura?.data_pagamento ||
+    fattura?.paid_at ||
+    null
+  );
+
+  const isFatturaPagataFuoriTermine = (fattura) => {
+    if (String(fattura?.stato || '').toLowerCase() !== 'pagata') return false;
+    if (!fattura?.data_scadenza) return false;
+
+    const dataPagamentoRaw = getDataPagamentoFattura(fattura);
+    if (!dataPagamentoRaw) return false;
+
+    const scadenza = new Date(fattura.data_scadenza);
+    const pagamento = new Date(dataPagamentoRaw);
+
+    if (Number.isNaN(scadenza.getTime()) || Number.isNaN(pagamento.getTime())) return false;
+
+    scadenza.setHours(0, 0, 0, 0);
+    pagamento.setHours(0, 0, 0, 0);
+
+    const limiteMaturazione = new Date(scadenza);
+    limiteMaturazione.setDate(limiteMaturazione.getDate() + 15);
+
+    return pagamento > limiteMaturazione;
+  };
+
   const fatturePagate = (fatturePartner || []).filter((fattura) => String(fattura.stato || '').toLowerCase() === 'pagata');
-  const provvigioneMaturata = fatturePagate.reduce((sum, fattura) => sum + (Number(fattura.importo_imponibile || 0) * 0.10), 0);
+  const fatturePagateValide = fatturePagate.filter((fattura) => !isFatturaPagataFuoriTermine(fattura));
+  const fatturePagateFuoriTermine = fatturePagate.filter((fattura) => isFatturaPagataFuoriTermine(fattura));
+
+  const provvigioneMaturata = fatturePagateValide.reduce((sum, fattura) => sum + (Number(fattura.importo_imponibile || 0) * 0.10), 0);
+  const provvigionePersa = fatturePagateFuoriTermine.reduce((sum, fattura) => sum + (Number(fattura.importo_imponibile || 0) * 0.10), 0);
 
   const provvigioniFatturate = (fattureProvvigioniAmministratori || [])
     .filter((fattura) => String(fattura.stato || '') !== 'annullata')
@@ -2345,7 +2506,7 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
 
   const fornitoriMap = new Map();
 
-  fatturePagate.forEach((fattura) => {
+  fatturePagateValide.forEach((fattura) => {
     const id = Number(fattura.azienda_partner_id || 0);
     if (!id) return;
 
@@ -2354,16 +2515,41 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
       azienda: aziendaById(id),
       imponibilePagato: 0,
       provvigioneMaturata: 0,
+      provvigionePersa: 0,
       fatturato: 0,
       pagato: 0,
       daFatturare: 0,
       daIncassare: 0,
       fatturePagate: 0,
+      fatturePerse: 0,
     };
 
     row.imponibilePagato += Number(fattura.importo_imponibile || 0);
     row.provvigioneMaturata += Number(fattura.importo_imponibile || 0) * 0.10;
     row.fatturePagate += 1;
+    fornitoriMap.set(id, row);
+  });
+
+  fatturePagateFuoriTermine.forEach((fattura) => {
+    const id = Number(fattura.azienda_partner_id || 0);
+    if (!id) return;
+
+    const row = fornitoriMap.get(id) || {
+      azienda_partner_id: id,
+      azienda: aziendaById(id),
+      imponibilePagato: 0,
+      provvigioneMaturata: 0,
+      provvigionePersa: 0,
+      fatturato: 0,
+      pagato: 0,
+      daFatturare: 0,
+      daIncassare: 0,
+      fatturePagate: 0,
+      fatturePerse: 0,
+    };
+
+    row.provvigionePersa += Number(fattura.importo_imponibile || 0) * 0.10;
+    row.fatturePerse += 1;
     fornitoriMap.set(id, row);
   });
 
@@ -2376,11 +2562,13 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
       azienda: aziendaById(id),
       imponibilePagato: 0,
       provvigioneMaturata: 0,
+      provvigionePersa: 0,
       fatturato: 0,
       pagato: 0,
       daFatturare: 0,
       daIncassare: 0,
       fatturePagate: 0,
+      fatturePerse: 0,
     };
 
     if (String(fattura.stato || '') !== 'annullata') {
@@ -2419,13 +2607,17 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-6">
           <DashboardStat label="Maturate" value={formatEuro(provvigioneMaturata)} tone="sky" />
           <DashboardStat label="Fatturate" value={formatEuro(provvigioniFatturate)} tone="emerald" />
+          <DashboardStat label="Perse" value={formatEuro(provvigionePersa)} tone="red" />
           <DashboardStat label="Da fatturare" value={formatEuro(provvigioniDaFatturare)} tone="amber" />
           <DashboardStat label="Pagate" value={formatEuro(provvigioniPagate)} tone="emerald" />
           <DashboardStat label="Da incassare" value={formatEuro(provvigioniDaIncassare)} tone="red" />
         </div>
+        <p className="mt-3 text-xs font-semibold text-slate-500">
+          Le provvigioni sono maturate solo sulle fatture pagate entro 15 giorni dalla scadenza. I pagamenti oltre tale limite restano visibili come provvigioni perse.
+        </p>
       </section>
 
       <section className="h-[620px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -2444,6 +2636,7 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
                 <th className="px-3 py-3">Fornitore</th>
                 <th className="px-3 py-3 text-right">Imponibile pagato</th>
                 <th className="px-3 py-3 text-right">Maturate</th>
+                <th className="px-3 py-3 text-right">Perse</th>
                 <th className="px-3 py-3 text-right">Fatturate</th>
                 <th className="px-3 py-3 text-right">Da fatturare</th>
                 <th className="px-3 py-3 text-right">Pagate</th>
@@ -2453,7 +2646,7 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
             <tbody>
               {righeFornitori.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                  <td colSpan="8" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
                     Nessuna provvigione maturata disponibile.
                   </td>
                 </tr>
@@ -2462,10 +2655,11 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
                   <tr key={row.azienda_partner_id} className="border-t border-slate-100 hover:bg-emerald-50/30">
                     <td className="px-3 py-3">
                       <p className="font-black text-slate-900">{row.azienda?.ragione_sociale || `Fornitore #${row.azienda_partner_id}`}</p>
-                      <p className="text-xs text-slate-500">{row.fatturePagate} fatture condominiali pagate</p>
+                      <p className="text-xs text-slate-500">{row.fatturePagate} fatture pagate valide • {row.fatturePerse} fuori termine</p>
                     </td>
                     <td className="px-3 py-3 text-right font-semibold text-slate-700">{formatEuro(row.imponibilePagato)}</td>
                     <td className="px-3 py-3 text-right font-black text-sky-700">{formatEuro(row.provvigioneMaturata)}</td>
+                    <td className="px-3 py-3 text-right font-black text-red-700">{formatEuro(row.provvigionePersa)}</td>
                     <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(row.fatturato)}</td>
                     <td className="px-3 py-3 text-right font-black text-amber-700">{formatEuro(row.daFatturare)}</td>
                     <td className="px-3 py-3 text-right font-black text-emerald-700">{formatEuro(row.pagato)}</td>
@@ -2482,6 +2676,415 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
 }
 
 
+
+function VotazioneAssembleaCasep({ capitolato, utentiCondomini = [], utentiSistema = [], votiAssemblea = [], onSaveVotoAssemblea }) {
+  const [filtro, setFiltro] = useState('');
+  const condominioId = Number(capitolato?.condominio_id || 0);
+  const emailKey = (value) => String(value || '').toLowerCase().trim();
+
+  const nomeByEmail = useMemo(() => {
+    const map = new Map();
+    (utentiSistema || []).forEach((utente) => {
+      const email = emailKey(utente.email);
+      if (email) map.set(email, utente.nome || email);
+    });
+    return map;
+  }, [utentiSistema]);
+
+  const votoByEmail = useMemo(() => {
+    const map = new Map();
+    (votiAssemblea || [])
+      .filter((voto) => Number(voto.capitolato_id) === Number(capitolato?.id))
+      .forEach((voto) => map.set(emailKey(voto.email), voto));
+    return map;
+  }, [votiAssemblea, capitolato?.id]);
+
+  const aventiDiritto = useMemo(() => {
+    return (utentiCondomini || [])
+      .filter((item) => Number(item.condominio_id) === condominioId)
+      .filter((item) => {
+        const ruolo = String(item.ruolo || '').toLowerCase().trim();
+        return ruolo === 'condominio' || ruolo === 'condomino';
+      })
+      .map((item) => {
+        const email = emailKey(item.email);
+        const voto = votoByEmail.get(email) || {};
+        const nome = nomeByEmail.get(email) || item.nome || email;
+        const cognome = item.cognome || voto.cognome || '';
+        const millesimi = Number(item.millesimi || voto.millesimi || 0);
+        return {
+          email,
+          nome,
+          cognome,
+          label: `${nome || ''} ${cognome || ''}`.trim() || email,
+          millesimi,
+          presente: Boolean(voto.presente),
+          voto: voto.voto || '',
+          delegato_a_email: emailKey(voto.delegato_a_email),
+          note: voto.note || '',
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'it'));
+  }, [utentiCondomini, condominioId, nomeByEmail, votoByEmail]);
+
+  const presenti = aventiDiritto.filter((item) => item.presente);
+  const presentiEmails = new Set(presenti.map((item) => item.email));
+  const delegheValide = aventiDiritto.filter((item) => item.delegato_a_email && presentiEmails.has(item.delegato_a_email));
+
+  const millesimiRappresentatiPerEmail = useMemo(() => {
+    const map = new Map();
+    presenti.forEach((item) => map.set(item.email, Number(item.millesimi || 0)));
+    delegheValide.forEach((delegato) => {
+      map.set(delegato.delegato_a_email, Number(map.get(delegato.delegato_a_email) || 0) + Number(delegato.millesimi || 0));
+    });
+    return map;
+  }, [presenti, delegheValide]);
+
+  const riepilogo = useMemo(() => {
+    const represented = Array.from(millesimiRappresentatiPerEmail.values()).reduce((sum, value) => sum + Number(value || 0), 0);
+    const base = {
+      presentiFisici: presenti.length,
+      deleghe: delegheValide.length,
+      rappresentati: represented,
+      favorevoli: 0,
+      contrari: 0,
+      astenuti: 0,
+      nonEspressi: 0,
+    };
+
+    presenti.forEach((presente) => {
+      const peso = Number(millesimiRappresentatiPerEmail.get(presente.email) || 0);
+      const voto = String(presente.voto || '').toLowerCase();
+      if (voto === 'favorevole') base.favorevoli += peso;
+      else if (voto === 'contrario') base.contrari += peso;
+      else if (voto === 'astenuto') base.astenuti += peso;
+      else base.nonEspressi += peso;
+    });
+
+    return base;
+  }, [presenti, delegheValide, millesimiRappresentatiPerEmail]);
+
+  const listaFiltrata = aventiDiritto.filter((item) => {
+    const q = filtro.toLowerCase().trim();
+    if (!q) return true;
+    return item.label.toLowerCase().includes(q) || item.email.includes(q);
+  });
+
+  const salva = async (item, patch) => {
+    const prossimo = {
+      capitolato_id: capitolato.id,
+      condominio_id: condominioId,
+      email: item.email,
+      nome: item.nome,
+      cognome: item.cognome || '',
+      millesimi: Number(item.millesimi || 0),
+      presente: item.presente,
+      voto: item.voto || '',
+      delegato_a_email: item.delegato_a_email || null,
+      note: item.note || '',
+      ...patch,
+    };
+
+    if (prossimo.presente) prossimo.delegato_a_email = null;
+    if (prossimo.delegato_a_email) {
+      prossimo.presente = false;
+      prossimo.voto = '';
+    }
+
+    await onSaveVotoAssemblea?.(prossimo);
+  };
+
+  const generaResocontoPdf = () => {
+    const rowsPresenti = presenti.map((item) => {
+      const peso = Number(millesimiRappresentatiPerEmail.get(item.email) || item.millesimi || 0).toFixed(2);
+      const deleghe = delegheValide.filter((d) => d.delegato_a_email === item.email).map((d) => `${d.label} (${Number(d.millesimi || 0).toFixed(2)})`).join(', ');
+      return `<tr><td>${item.label}</td><td>${Number(item.millesimi || 0).toFixed(2)}</td><td>${peso}</td><td>${item.voto || 'Non espresso'}</td><td>${deleghe || '-'}</td></tr>`;
+    }).join('');
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Resoconto assemblea CaSeP</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#0f172a}h1{font-size:24px}h2{font-size:18px;margin-top:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}.card{border:1px solid #d1d5db;border-radius:14px;padding:12px;background:#f8fafc}.label{font-size:11px;text-transform:uppercase;color:#64748b;font-weight:800}.value{font-size:20px;font-weight:900;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border-bottom:1px solid #e5e7eb;text-align:left;padding:9px;font-size:12px}th{background:#f1f5f9;text-transform:uppercase;font-size:10px;color:#475569}.muted{color:#64748b;font-size:12px}</style></head><body><h1>Resoconto assemblea CaSeP</h1><p class="muted">${capitolato?.numero_pratica || '#'+capitolato?.id} — ${capitolato?.titolo || ''}</p><p><strong>Condominio:</strong> ${capitolato?.condominio_nome || ''}<br/><strong>Data assemblea:</strong> ${capitolato?.data_assemblea || '-'}<br/><strong>Luogo:</strong> ${capitolato?.luogo_assemblea || '-'}</p><div class="grid"><div class="card"><div class="label">Presenti fisici</div><div class="value">${riepilogo.presentiFisici}</div></div><div class="card"><div class="label">Deleghe</div><div class="value">${riepilogo.deleghe}</div></div><div class="card"><div class="label">Millesimi rappresentati</div><div class="value">${riepilogo.rappresentati.toFixed(2)}</div></div><div class="card"><div class="label">Favorevoli</div><div class="value">${riepilogo.favorevoli.toFixed(2)}</div></div><div class="card"><div class="label">Contrari</div><div class="value">${riepilogo.contrari.toFixed(2)}</div></div><div class="card"><div class="label">Astenuti</div><div class="value">${riepilogo.astenuti.toFixed(2)}</div></div><div class="card"><div class="label">Non espressi</div><div class="value">${riepilogo.nonEspressi.toFixed(2)}</div></div></div><h2>Presenti, deleghe e votazioni</h2><table><thead><tr><th>Condòmino</th><th>Millesimi propri</th><th>Millesimi rappresentati</th><th>Voto</th><th>Deleghe ricevute</th></tr></thead><tbody>${rowsPresenti || '<tr><td colspan="5">Nessun presente registrato.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return alert('Popup bloccato: consenti le finestre popup per generare il PDF.');
+    win.document.write(html);
+    win.document.close();
+  };
+
+  if (!condominioId) return null;
+
+  return (
+    <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Votazione assemblea CaSeP</p>
+          <h3 className="mt-1 text-lg font-black text-slate-900">Presenze, deleghe e millesimi live</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Sistema separato dal voto CSP: pensato per assemblea fisica e gestione manuale assistita.</p>
+        </div>
+        <button type="button" onClick={generaResocontoPdf} className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white">
+          Genera resoconto PDF
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-7">
+        <DashboardStat label="Presenti" value={riepilogo.presentiFisici} tone="sky" />
+        <DashboardStat label="Deleghe" value={riepilogo.deleghe} tone="amber" />
+        <DashboardStat label="Rappresentati" value={riepilogo.rappresentati.toFixed(2)} tone="slate" />
+        <DashboardStat label="Favorevoli" value={riepilogo.favorevoli.toFixed(2)} tone="emerald" />
+        <DashboardStat label="Contrari" value={riepilogo.contrari.toFixed(2)} tone="red" />
+        <DashboardStat label="Astenuti" value={riepilogo.astenuti.toFixed(2)} tone="purple" />
+        <DashboardStat label="Non espressi" value={riepilogo.nonEspressi.toFixed(2)} tone="slate" />
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Cerca per nome, cognome o email" className="w-full rounded-2xl border border-indigo-100 bg-white px-3 py-3 text-sm font-semibold md:max-w-md" />
+        <p className="text-xs font-bold text-indigo-700">Condòmini caricati: {aventiDiritto.length}</p>
+      </div>
+
+      <div className="mt-3 max-h-[520px] overflow-auto rounded-2xl border border-indigo-100 bg-white csp-scroll">
+        <table className="min-w-[1040px] w-full border-collapse text-sm">
+          <thead className="bg-indigo-100 text-left text-[11px] font-black uppercase tracking-wide text-indigo-700">
+            <tr>
+              <th className="px-3 py-3">Condòmino</th>
+              <th className="px-3 py-3 text-right">Millesimi</th>
+              <th className="px-3 py-3">Presente</th>
+              <th className="px-3 py-3">Delega a</th>
+              <th className="px-3 py-3">Voto</th>
+              <th className="px-3 py-3 text-right">Rappresentati</th>
+            </tr>
+          </thead>
+          <tbody>
+            {listaFiltrata.length === 0 ? (
+              <tr><td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessun condòmino trovato. Verifica anagrafica, cognome e millesimi.</td></tr>
+            ) : listaFiltrata.map((item) => {
+              const rappresentati = item.presente ? Number(millesimiRappresentatiPerEmail.get(item.email) || item.millesimi || 0) : 0;
+              const delegabileA = presenti.filter((presente) => presente.email !== item.email);
+              return (
+                <tr key={item.email} className="border-t border-slate-100 hover:bg-indigo-50/40">
+                  <td className="px-3 py-3">
+                    <p className="font-black text-slate-900">{item.label}</p>
+                    <p className="text-xs text-slate-500">{item.email}</p>
+                  </td>
+                  <td className="px-3 py-3 text-right font-black text-slate-800">{Number(item.millesimi || 0).toFixed(2)}</td>
+                  <td className="px-3 py-3">
+                    <label className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                      <input type="checkbox" checked={item.presente} onChange={(e) => salva(item, { presente: e.target.checked, delegato_a_email: null, voto: e.target.checked ? item.voto : '' })} />
+                      Presente
+                    </label>
+                  </td>
+                  <td className="px-3 py-3">
+                    <select value={item.delegato_a_email || ''} onChange={(e) => salva(item, { delegato_a_email: e.target.value || null, presente: false, voto: '' })} className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-bold" disabled={item.presente}>
+                      <option value="">Nessuna delega</option>
+                      {delegabileA.map((presente) => <option key={presente.email} value={presente.email}>{presente.label}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-3">
+                    <select value={item.voto || ''} onChange={(e) => salva(item, { voto: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-bold" disabled={!item.presente}>
+                      <option value="">Non espresso</option>
+                      <option value="favorevole">Favorevole</option>
+                      <option value="contrario">Contrario</option>
+                      <option value="astenuto">Astenuto</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-3 text-right font-black text-indigo-700">{rappresentati.toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+
+function statoDocumentoPresentazione(dataScadenza) {
+  if (!dataScadenza) return { label: 'non caricato', tone: 'slate' };
+  const oggi = new Date();
+  const scadenza = new Date(dataScadenza);
+  const diff = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+  if (Number.isNaN(diff)) return { label: 'da verificare', tone: 'amber' };
+  if (diff < 0) return { label: 'scaduto', tone: 'red' };
+  if (diff <= 30) return { label: `in scadenza (${diff} gg)`, tone: 'amber' };
+  return { label: 'valido', tone: 'emerald' };
+}
+
+function badgeDocumentoPresentazione(tone) {
+  if (tone === 'emerald') return 'border-emerald-300 bg-emerald-500/15 text-emerald-100';
+  if (tone === 'amber') return 'border-amber-300 bg-amber-500/15 text-amber-100';
+  if (tone === 'red') return 'border-red-300 bg-red-500/15 text-red-100';
+  return 'border-slate-300 bg-white/10 text-slate-100';
+}
+
+function PresentazioneAssembleaCaSeP({ capitolato, azienda, votiAssemblea = [], onClose }) {
+  const [slide, setSlide] = useState(0);
+  const durc = statoDocumentoPresentazione(azienda?.durc_scadenza);
+  const polizza = statoDocumentoPresentazione(azienda?.polizza_scadenza);
+  const voti = (votiAssemblea || []).filter((voto) => Number(voto.capitolato_id) === Number(capitolato?.id));
+  const presenti = voti.filter((voto) => voto.presente);
+  const deleghe = voti.filter((voto) => voto.delegato_a_email);
+  const millesimiPresenti = presenti.reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const favorevoli = presenti.filter((voto) => String(voto.voto).toLowerCase() === 'favorevole').reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const contrari = presenti.filter((voto) => String(voto.voto).toLowerCase() === 'contrario').reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const astenuti = presenti.filter((voto) => String(voto.voto).toLowerCase() === 'astenuto').reduce((sum, voto) => sum + Number(voto.millesimi || 0), 0);
+  const step = ['Richiesta', 'Sopralluogo', 'Relazione', 'Offerta', 'Assemblea', 'Decisione', 'CaSP'];
+  const stato = String(capitolato?.stato || '').toLowerCase();
+  const activeIndex = stato.includes('convertita') ? 6 : stato.includes('accett') || stato.includes('rifiut') ? 5 : stato.includes('assemblea') || stato.includes('presenza') ? 4 : stato.includes('offerta') ? 3 : stato.includes('relazione') ? 2 : stato.includes('sopralluogo') ? 1 : 0;
+
+  const slides = [
+    {
+      label: 'Quadro intervento',
+      body: (
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-black/20 backdrop-blur-xl">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Pratica CaSeP</p>
+            <h1 className="mt-3 text-4xl font-black leading-tight text-white md:text-6xl">{capitolato?.titolo || 'Intervento condominiale'}</h1>
+            <p className="mt-4 text-xl font-semibold text-emerald-50">{capitolato?.condominio_nome || 'Condominio'} • {capitolato?.numero_pratica || `#${capitolato?.id}`}</p>
+            <p className="mt-6 max-w-3xl text-lg leading-relaxed text-slate-200">{capitolato?.note || capitolato?.categoria || 'Riepilogo tecnico e operativo della pratica da condividere in assemblea.'}</p>
+          </div>
+          <div className="rounded-[2rem] border border-emerald-300/30 bg-emerald-400/10 p-6 backdrop-blur-xl">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Assemblea</p>
+            <p className="mt-4 text-3xl font-black text-white">{capitolato?.data_assemblea || 'Da pianificare'}</p>
+            <p className="mt-3 text-lg font-semibold text-slate-200">{capitolato?.luogo_assemblea || 'Luogo da definire'}</p>
+            <div className="mt-6 rounded-2xl bg-white/10 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-300">Stato pratica</p>
+              <p className="mt-1 text-2xl font-black text-emerald-100">{capitolato?.stato || 'Nuova pratica'}</p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: 'Offerta e azienda',
+      body: (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-[2rem] border border-sky-300/30 bg-sky-400/10 p-8 backdrop-blur-xl">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-sky-200">Offerta economica</p>
+            <p className="mt-5 text-5xl font-black text-white md:text-6xl">{capitolato?.valore_offerta ? formatEuro(capitolato.valore_offerta) : 'Offerta non caricata'}</p>
+            <p className="mt-4 text-lg font-semibold text-slate-200">Fornitore: {azienda?.ragione_sociale || capitolato?.azienda_vincitrice_nome || 'Da selezionare'}</p>
+            {capitolato?.offerta_pdf_url && <a href={capitolato.offerta_pdf_url} target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-900">Apri offerta PDF</a>}
+          </div>
+          <div className="rounded-[2rem] border border-emerald-300/30 bg-emerald-400/10 p-8 backdrop-blur-xl">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Affidabilità azienda</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <span className={`rounded-full border px-4 py-2 text-sm font-black uppercase ${badgeDocumentoPresentazione(durc.tone)}`}>DURC: {durc.label}</span>
+              <span className={`rounded-full border px-4 py-2 text-sm font-black uppercase ${badgeDocumentoPresentazione(polizza.tone)}`}>Polizza: {polizza.label}</span>
+              {azienda?.certificazioni_iso && <span className="rounded-full border border-cyan-300 bg-cyan-400/10 px-4 py-2 text-sm font-black uppercase text-cyan-100">ISO: {azienda.certificazioni_iso}</span>}
+              {azienda?.certificazioni_soa && <span className="rounded-full border border-purple-300 bg-purple-400/10 px-4 py-2 text-sm font-black uppercase text-purple-100">SOA: {azienda.certificazioni_soa}</span>}
+            </div>
+            <div className="mt-6 rounded-2xl bg-white/10 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-300">Garanzie</p>
+              <p className="mt-2 whitespace-pre-wrap text-base font-semibold leading-relaxed text-white">{azienda?.schema_garanzie || 'Schema garanzie non ancora caricato.'}</p>
+            </div>
+            {azienda?.note_qualificazione && <p className="mt-4 text-sm font-semibold leading-relaxed text-emerald-50">{azienda.note_qualificazione}</p>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: 'Timeline',
+      body: (
+        <div className="rounded-[2rem] border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
+          <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Avanzamento pratica</p>
+          <div className="mt-10 grid gap-4 md:grid-cols-7">
+            {step.map((label, index) => (
+              <div key={label} className={`rounded-3xl border p-5 text-center ${index <= activeIndex ? 'border-emerald-300 bg-emerald-400/20 text-white shadow-xl shadow-emerald-950/30' : 'border-white/10 bg-white/5 text-slate-400'}`}>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-xl font-black">{index + 1}</div>
+                <p className="mt-3 text-sm font-black uppercase tracking-wide">{label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-2xl font-black text-white">Stato attuale: {capitolato?.stato || 'Da definire'}</p>
+        </div>
+      ),
+    },
+    {
+      label: 'Votazione live',
+      body: (
+        <div className="grid gap-4 md:grid-cols-5">
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-slate-300">Presenti</p><p className="mt-3 text-5xl font-black text-white">{presenti.length}</p></div>
+          <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-slate-300">Deleghe</p><p className="mt-3 text-5xl font-black text-white">{deleghe.length}</p></div>
+          <div className="rounded-[2rem] border border-emerald-300/30 bg-emerald-400/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-emerald-200">Favorevoli</p><p className="mt-3 text-5xl font-black text-white">{favorevoli.toFixed(2)}</p></div>
+          <div className="rounded-[2rem] border border-red-300/30 bg-red-400/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-red-200">Contrari</p><p className="mt-3 text-5xl font-black text-white">{contrari.toFixed(2)}</p></div>
+          <div className="rounded-[2rem] border border-purple-300/30 bg-purple-400/10 p-6 backdrop-blur-xl"><p className="text-xs font-black uppercase text-purple-200">Astenuti</p><p className="mt-3 text-5xl font-black text-white">{astenuti.toFixed(2)}</p></div>
+          <div className="md:col-span-5 rounded-[2rem] border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">Millesimi presenti/rappresentati</p>
+            <p className="mt-3 text-6xl font-black text-white">{millesimiPresenti.toFixed(2)} / 1000</p>
+            <div className="mt-5 h-5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, millesimiPresenti / 10)}%` }} /></div>
+          </div>
+        </div>
+      ),
+    },
+  ];
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        chiudiPresentazione();
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        setSlide((prev) => Math.max(0, prev - 1));
+      }
+      if (event.key === 'ArrowRight') {
+        setSlide((prev) => Math.min(slides.length - 1, prev + 1));
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [slides.length, onClose]);
+
+  const attivaSchermoIntero = async () => {
+    try {
+      const target = document.documentElement;
+      if (!document.fullscreenElement && target?.requestFullscreen) {
+        await target.requestFullscreen();
+      }
+    } catch (error) {
+      console.warn('Fullscreen non disponibile:', error);
+    }
+  };
+
+  const chiudiPresentazione = () => {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    } catch (error) {
+      console.warn('Fullscreen exit non disponibile:', error);
+    }
+    onClose?.();
+  };
+
+  const current = slides[slide] || slides[0];
+  return (
+    <div className="fixed inset-0 z-[9999] h-screen w-screen overflow-auto bg-slate-950 p-4 text-white md:p-8">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.35),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.25),transparent_35%)]" />
+      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col">
+        <header className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <LogoMark className="h-14 w-auto" />
+            <div><p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-300">Modalità assemblea premium</p><h2 className="text-2xl font-black text-white">{current.label}</h2></div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={attivaSchermoIntero} className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-950/30 hover:bg-emerald-300">Schermo intero</button>
+            <button type="button" onClick={chiudiPresentazione} className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white backdrop-blur hover:bg-white/20">Esci dalla presentazione</button>
+          </div>
+        </header>
+        <main className="relative flex-1 py-8">{current.body}</main>
+        <footer className="relative flex flex-col gap-3 border-t border-white/10 pt-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-2">{slides.map((item, index) => <button key={item.label} type="button" onClick={() => setSlide(index)} className={`h-3 rounded-full transition-all ${index === slide ? 'w-12 bg-emerald-400' : 'w-3 bg-white/25'}`} aria-label={item.label} />)}</div>
+          <div className="flex gap-2"><button type="button" onClick={() => setSlide((prev) => Math.max(0, prev - 1))} className="rounded-2xl bg-white/10 px-5 py-3 text-sm font-black text-white disabled:opacity-40" disabled={slide === 0}>← Indietro</button><button type="button" onClick={() => setSlide((prev) => Math.min(slides.length - 1, prev + 1))} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-40" disabled={slide === slides.length - 1}>Avanti →</button></div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function CapitolatoSenzaPensieriSuite({
   ruolo,
   userProfile,
@@ -2489,13 +3092,21 @@ function CapitolatoSenzaPensieriSuite({
   capitolatiEventi,
   condomini,
   utentiSistema,
+  utentiCondomini = [],
+  votiAssembleaCasep = [],
+  onSaveVotoAssembleaCasep,
   aziendePartner,
+  contratti = [],
   onCreateCapitolato,
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
+  onDeleteCapitolato,
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
+  const isAmministratore = ruoloNorm === 'amministratore';
+  const isCollaboratore = ruoloNorm === 'collaboratore';
+  const canPresentareAssemblea = isGestore || isAmministratore || isCollaboratore;
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [capitolatoPdfName, setCapitolatoPdfName] = useState('');
   const [uploadingDocId, setUploadingDocId] = useState(null);
@@ -2503,9 +3114,35 @@ function CapitolatoSenzaPensieriSuite({
   const [filtroSearch, setFiltroSearch] = useState('');
   const [conversioneDraft, setConversioneDraft] = useState({});
   const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
+  const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', ora: '', luogo: '' });
+  const [presentazioneAssembleaId, setPresentazioneAssembleaId] = useState(null);
+
+  const apriPresentazioneAssemblea = (capitolatoId) => {
+    try {
+      const target = document.documentElement;
+      if (!document.fullscreenElement && target?.requestFullscreen) {
+        target.requestFullscreen().catch(() => {});
+      }
+    } catch (error) {
+      console.warn('Fullscreen non disponibile:', error);
+    }
+    setPresentazioneAssembleaId(capitolatoId);
+  };
 
   const amministratoreEmail = userProfile?.email || '';
   const amministratoreNome = userProfile?.nome || userProfile?.email || '';
+  const amministratoreRiferimentoEmail = String(
+    userProfile?.amministratore_email ||
+    userProfile?.amministratoreEmail ||
+    userProfile?.amministratore_riferimento ||
+    ''
+  ).toLowerCase().trim();
+  const amministratoreOperativoEmail = isCollaboratore && amministratoreRiferimentoEmail
+    ? amministratoreRiferimentoEmail
+    : amministratoreEmail;
+  const amministratoreOperativoNome = isCollaboratore
+    ? (userProfile?.amministratore_nome || userProfile?.studio || amministratoreOperativoEmail || amministratoreNome)
+    : amministratoreNome;
 
   const [form, setForm] = useState({
     condominio_id: '',
@@ -2520,9 +3157,13 @@ function CapitolatoSenzaPensieriSuite({
     note: '',
     capitolato_pdf_url: '',
     tecnico_nome: '',
+    tecnico_cognome: '',
     tecnico_studio: '',
     tecnico_email: '',
     tecnico_telefono: '',
+    tecnico_indirizzo: '',
+    tecnico_citta: '',
+    tecnico_provincia: '',
     tecnico_note: '',
   });
 
@@ -2533,11 +3174,34 @@ function CapitolatoSenzaPensieriSuite({
     'Relazione inviata',
     'Offerta inviata',
     'Assemblea programmata',
+    'Offerta accettata',
+    'Offerta rifiutata',
     'Presenza CSP richiesta',
     'Aggiudicata',
     'Convertita in CaSP',
     'Non aggiudicata',
   ];
+
+  const estraiOraAssemblea = (luogo = '') => {
+    const match = String(luogo || '').match(/(?:\s*[—-]\s*)?ore\s+([0-2]?\d:[0-5]\d)\s*$/i);
+    return match?.[1] || '';
+  };
+
+  const pulisciLuogoAssemblea = (luogo = '') => String(luogo || '').replace(/(?:\s*[—-]\s*)?ore\s+[0-2]?\d:[0-5]\d\s*$/i, '').trim();
+
+  const componiLuogoAssemblea = (luogo = '', ora = '') => {
+    const luogoPulito = pulisciLuogoAssemblea(luogo);
+    const oraPulita = String(ora || '').trim();
+    return oraPulita ? `${luogoPulito} — ore ${oraPulita}` : luogoPulito;
+  };
+
+  const statoDecisioneCapitolato = (item) => {
+    const stato = String(item?.stato || '').toLowerCase();
+    const decisione = String(item?.decisione_amministratore || '').toLowerCase();
+    if (stato.includes('rifiut') || decisione.includes('rifiut')) return 'rifiutata';
+    if (stato.includes('accett') || decisione.includes('accett')) return 'accettata';
+    return '';
+  };
 
   const buildGoogleCalendarUrl = (item) => {
     const title = `Assemblea Capitolato Senza Pensieri - ${item.condominio_nome || item.titolo || 'Condominio'}`;
@@ -2550,12 +3214,18 @@ function CapitolatoSenzaPensieriSuite({
 
     const date = item.data_assemblea || new Date().toISOString().slice(0, 10);
     const cleanDate = String(date).replaceAll('-', '');
-    const location = item.luogo_assemblea || item.indirizzo || '';
+    const ora = estraiOraAssemblea(item.luogo_assemblea) || '18:00';
+    const [hh = '18', mm = '00'] = String(ora).split(':');
+    const startMinutes = (Number(hh) || 18) * 60 + (Number(mm) || 0);
+    const endMinutes = startMinutes + 120;
+    const endH = String(Math.floor(endMinutes / 60) % 24).padStart(2, '0');
+    const endM = String(endMinutes % 60).padStart(2, '0');
+    const location = pulisciLuogoAssemblea(item.luogo_assemblea) || item.indirizzo || '';
 
     const params = new URLSearchParams({
       action: 'TEMPLATE',
       text: title,
-      dates: `${cleanDate}T180000/${cleanDate}T200000`,
+      dates: `${cleanDate}T${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}00/${cleanDate}T${endH}${endM}00`,
       details,
       location,
     });
@@ -2564,6 +3234,26 @@ function CapitolatoSenzaPensieriSuite({
   };
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
+
+  const valoreBooleanoAttivo = (valore) => {
+    if (valore === true || valore === 1) return true;
+    const normalizzato = String(valore || '').toLowerCase().trim();
+    return ['true', '1', 'si', 'sì', 'yes', 'attivo', 'attiva'].includes(normalizzato);
+  };
+
+  const condominioCspAttivo = (condominioId) => {
+    const condominio = (condomini || []).find((item) => Number(item.id) === Number(condominioId));
+    if (valoreBooleanoAttivo(condominio?.csp_attivo)) return true;
+
+    const oggi = new Date().toISOString().slice(0, 10);
+    return (contratti || []).some((contratto) => {
+      if (Number(contratto.condominio_id) !== Number(condominioId)) return false;
+      const statoContratto = String(contratto.stato || contratto.status || '').toLowerCase();
+      if (['annullato', 'annullata', 'disdetto', 'disdetta', 'scaduto', 'scaduta'].includes(statoContratto)) return false;
+      if (contratto.data_scadenza && String(contratto.data_scadenza).slice(0, 10) < oggi) return false;
+      return Boolean(contratto.piano || contratto.app_attiva || contratto.gruppo_whatsapp_attivo || statoContratto === 'attivo' || statoContratto === 'attiva');
+    });
+  };
 
   const eseguiCampagnaConsigliata = async (azienda, tipoCampagna) => {
     try {
@@ -2617,7 +3307,7 @@ function CapitolatoSenzaPensieriSuite({
     await onUpdateCapitolato(item.id, {
       azienda_vincitrice_id: Number(aziendaId),
       azienda_vincitrice_nome: aziendaById(aziendaId)?.ragione_sociale || '',
-      valore_aggiudicato: Number(valoreAggiudicato || item.importo_presunto || 0),
+      valore_aggiudicato: Number(valoreAggiudicato || item.valore_offerta || item.importo_presunto || 0),
       note_conversione_casp: noteConversione || '',
       convertita_casp: true,
       data_conversione_casp: new Date().toISOString().slice(0, 10),
@@ -2681,6 +3371,33 @@ function CapitolatoSenzaPensieriSuite({
     await onUpdateCapitolato(item.id, payload);
   };
 
+  const pianificaAssembleaCapitolato = async (item) => {
+    const dataAssemblea = String(assembleaDraft.data || '').trim();
+    const oraAssemblea = String(assembleaDraft.ora || '').trim();
+    const luogoAssemblea = String(assembleaDraft.luogo || '').trim();
+
+    if (!dataAssemblea || !oraAssemblea || !luogoAssemblea) {
+      alert('Inserisci data, orario e luogo dell’assemblea prima di salvare.');
+      return;
+    }
+
+    await aggiornaWorkflowTecnico(item, {
+      data_assemblea: dataAssemblea,
+      luogo_assemblea: componiLuogoAssemblea(luogoAssemblea, oraAssemblea),
+      stato: 'Assemblea programmata',
+    });
+
+    alert('Assemblea pianificata correttamente.');
+  };
+
+  const cancellaCapitolato = async (item) => {
+    if (!item?.id || !onDeleteCapitolato) return;
+    const conferma = window.confirm(`Sicuro di cancellare la pratica ${item.numero_pratica || `#${item.id}`}? L’operazione non può essere annullata.`);
+    if (!conferma) return;
+    await onDeleteCapitolato(item.id);
+    setCapitolatoApertoId(null);
+  };
+
   const salvaValoreOffertaCapitolato = async (item, valore) => {
     const numero = Number(valore || 0);
 
@@ -2695,6 +3412,26 @@ function CapitolatoSenzaPensieriSuite({
     });
 
     alert('Valore offerta salvato correttamente.');
+  };
+
+  const salvaFornitoreOffertaCapitolato = async (item, aziendaId) => {
+    const id = Number(aziendaId || 0);
+    const azienda = aziendaById(id);
+
+    if (!id || !azienda) {
+      await aggiornaWorkflowTecnico(item, {
+        azienda_partner_id: null,
+        azienda_partner_nome: '',
+      });
+      return;
+    }
+
+    await aggiornaWorkflowTecnico(item, {
+      azienda_partner_id: id,
+      azienda_partner_nome: azienda.ragione_sociale || '',
+    });
+
+    alert('Fornitore offerta collegato correttamente.');
   };
 
   const azioneAmministratoreOfferta = async (item, azione) => {
@@ -2748,8 +3485,8 @@ function CapitolatoSenzaPensieriSuite({
     const payload = {
       ...form,
       condominio_id: form.condominio_id ? Number(form.condominio_id) : null,
-      amministratore_email: amministratoreEmail,
-      amministratore_nome: amministratoreNome,
+      amministratore_email: amministratoreOperativoEmail,
+      amministratore_nome: amministratoreOperativoNome,
       importo_presunto: Number(form.importo_presunto || 0),
       stato: 'Nuovo capitolato',
     };
@@ -2781,7 +3518,17 @@ function CapitolatoSenzaPensieriSuite({
   };
 
   const capitolatiVisibili = (capitolati || [])
-    .filter((item) => isGestore || String(item.amministratore_email || '').toLowerCase() === String(amministratoreEmail || '').toLowerCase())
+    .filter((item) => {
+      if (isGestore) return true;
+      const adminPratica = String(item.amministratore_email || '').toLowerCase().trim();
+      const adminOperativo = String(amministratoreOperativoEmail || '').toLowerCase().trim();
+      if (adminOperativo && adminPratica === adminOperativo) return true;
+      if (isCollaboratore) {
+        const idsCollaboratore = (userProfile?.condominiIds || []).map((id) => Number(id));
+        return idsCollaboratore.includes(Number(item.condominio_id));
+      }
+      return false;
+    })
     .filter((item) => !filtroStato || item.stato === filtroStato)
     .filter((item) => {
       const haystack = [
@@ -2797,8 +3544,59 @@ function CapitolatoSenzaPensieriSuite({
     });
 
   const capitolatoAperto = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoApertoId));
+  const presentazioneCapitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(presentazioneAssembleaId));
 
-  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.importo_presunto || 0), 0);
+  useEffect(() => {
+    if (!capitolatoAperto?.id) {
+      setAssembleaDraft({ capitolatoId: null, data: '', ora: '', luogo: '' });
+      return;
+    }
+
+    setAssembleaDraft((prev) => {
+      if (Number(prev.capitolatoId) === Number(capitolatoAperto.id)) return prev;
+
+      return {
+        capitolatoId: capitolatoAperto.id,
+        data: capitolatoAperto.data_assemblea || '',
+        ora: estraiOraAssemblea(capitolatoAperto.luogo_assemblea) || '',
+        luogo: pulisciLuogoAssemblea(capitolatoAperto.luogo_assemblea || ''),
+      };
+    });
+  }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
+
+  // Release 141: deep link push CaSeP.
+  // Le push CaSeP aprono direttamente la scheda capitolato con ?fromPush=1&capitolato=ID.
+  useEffect(() => {
+    if (!capitolatiVisibili.length) return;
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search || '');
+    const capitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
+    if (!capitolatoId) return;
+
+    const capitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoId));
+    if (!capitolato) return;
+
+    setCapitolatoApertoId(Number(capitolato.id));
+    window.setTimeout(() => {
+      document.querySelector('[data-casep-open-panel]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 250);
+
+    params.delete('capitolato');
+    params.delete('casep');
+    params.delete('capitolatoId');
+    params.delete('fromPush');
+    params.delete('source');
+    params.delete('utm_source');
+
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({}, document.title, nextUrl);
+  }, [capitolatiVisibili, setCapitolatoApertoId]);
+
+  const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
+  const valoreOfferteGestore = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
+  const guadagnoPotenzialeAmministratore = valoreOfferteGestore * 0.10;
   const altePriorita = capitolatiVisibili.filter((item) => String(item.priorita || '').toLowerCase() === 'alta').length;
   const convertiteCaSP = capitolatiVisibili.filter((item) => item.stato === 'Convertita in CaSP').length;
   const valoreAcquisito = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_aggiudicato || 0), 0);
@@ -2811,8 +3609,8 @@ function CapitolatoSenzaPensieriSuite({
     .map((azienda) => {
       const capitolatiAzienda = capitolatiVisibili.filter((item) => Number(item.azienda_vincitrice_id) === Number(azienda.id));
       const convertiti = capitolatiAzienda.filter((item) => item.convertita_casp || item.stato === 'Convertita in CaSP');
-      const valore = capitolatiAzienda.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.importo_presunto || 0), 0);
-      const valoreCasp = convertiti.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.importo_presunto || 0), 0);
+      const valore = capitolatiAzienda.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
+      const valoreCasp = convertiti.reduce((sum, item) => sum + Number(item.valore_aggiudicato || item.valore_offerta || 0), 0);
 
       return {
         ...azienda,
@@ -2833,7 +3631,16 @@ function CapitolatoSenzaPensieriSuite({
   const valorePartnerDaAnnuale = partnerDaAnnuale.reduce((sum, azienda) => sum + Number(azienda.valoreCasp || 0), 0);
 
   return (
-    <section className="space-y-4">
+    <>
+      {canPresentareAssemblea && presentazioneCapitolato && (
+        <PresentazioneAssembleaCaSeP
+          capitolato={presentazioneCapitolato}
+          azienda={aziendaById(presentazioneCapitolato.azienda_vincitrice_id) || aziendaById(presentazioneCapitolato.azienda_partner_id)}
+          votiAssemblea={votiAssembleaCasep}
+          onClose={() => setPresentazioneAssembleaId(null)}
+        />
+      )}
+      <section className="space-y-4">
       <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
@@ -2850,7 +3657,7 @@ function CapitolatoSenzaPensieriSuite({
             {isGestore ? (
               <DashboardStat label="Convertite CaSP" value={convertiteCaSP} tone="purple" />
             ) : (
-              <DashboardStat label="Guadagno potenziale" value={formatEuro(valorePotenziale * 0.10)} tone="purple" />
+              <DashboardStat label="Guadagno potenziale" value={formatEuro(guadagnoPotenzialeAmministratore)} tone="purple" />
             )}
           </div>
         </div>
@@ -3062,9 +3869,13 @@ function CapitolatoSenzaPensieriSuite({
               <p className="text-sm font-black text-emerald-800">Tecnico incaricato alla redazione del capitolato</p>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <input value={form.tecnico_nome} onChange={(e) => updateForm('tecnico_nome', e.target.value)} placeholder="Nome tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
-                <input value={form.tecnico_studio} onChange={(e) => updateForm('tecnico_studio', e.target.value)} placeholder="Studio / società" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_cognome} onChange={(e) => updateForm('tecnico_cognome', e.target.value)} placeholder="Cognome tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_studio} onChange={(e) => updateForm('tecnico_studio', e.target.value)} placeholder="Studio tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
                 <input value={form.tecnico_email} onChange={(e) => updateForm('tecnico_email', e.target.value)} placeholder="Email tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
                 <input value={form.tecnico_telefono} onChange={(e) => updateForm('tecnico_telefono', e.target.value)} placeholder="Telefono tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_indirizzo} onChange={(e) => updateForm('tecnico_indirizzo', e.target.value)} placeholder="Indirizzo studio tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_citta} onChange={(e) => updateForm('tecnico_citta', e.target.value)} placeholder="Città tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={form.tecnico_provincia} onChange={(e) => updateForm('tecnico_provincia', e.target.value)} placeholder="Provincia tecnico" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
               </div>
               <textarea value={form.tecnico_note} onChange={(e) => updateForm('tecnico_note', e.target.value)} placeholder="Note tecniche" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
             </div>
@@ -3123,14 +3934,50 @@ function CapitolatoSenzaPensieriSuite({
                 <p className="mt-1 text-sm font-semibold text-slate-600">
                   {capitolatoAperto.condominio_nome || 'Condominio n.d.'} • {capitolatoAperto.stato || 'Nuovo capitolato'}
                 </p>
+                {statoDecisioneCapitolato(capitolatoAperto) && (
+                  <div className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${statoDecisioneCapitolato(capitolatoAperto) === 'accettata' ? 'bg-emerald-700 text-white' : 'bg-red-700 text-white'}`}>
+                    Pratica {statoDecisioneCapitolato(capitolatoAperto)}
+                  </div>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => setCapitolatoApertoId(null)}
-                className="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-700"
-              >
-                Chiudi
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCapitolatoApertoId(null)}
+                  className="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-700"
+                >
+                  Chiudi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cancellaCapitolato(capitolatoAperto)}
+                  className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-50"
+                >
+                  Cancella pratica
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-sky-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Modalità assemblea premium</p>
+              {canPresentareAssemblea && condominioCspAttivo(capitolatoAperto.condominio_id) ? (
+                <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <p className="text-sm font-semibold text-slate-600">Disponibile per questo condominio CSP attivo: presentazione fullscreen con offerta, timeline, votazione live e affidabilità azienda.</p>
+                  <button type="button" onClick={() => apriPresentazioneAssemblea(capitolatoAperto.id)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
+                    Apri presentazione fullscreen
+                  </button>
+                </div>
+              ) : canPresentareAssemblea ? (
+                <div className="mt-2 rounded-2xl border border-amber-200 bg-white p-3">
+                  <p className="text-sm font-black text-amber-800">Funzione premium riservata ai condomìni con CSP attivo.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">La regia assemblea avanzata usa anagrafiche, millesimi, deleghe e dati CSP: è il motivo perfetto per proporre l’attivazione del condominio.</p>
+                </div>
+              ) : (
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                  <p className="text-sm font-black text-slate-700">Modalità riservata a gestore, amministratore e collaboratore.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">I condòmini non accedono alla regia assemblea premium.</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -3206,6 +4053,18 @@ function CapitolatoSenzaPensieriSuite({
                         />
                       </div>
                       <p className="mt-1 text-xs font-semibold text-slate-500">Attuale: {formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
+                      <div className="mt-3 rounded-xl border border-emerald-100 bg-white p-2">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Fornitore collegato all'offerta</p>
+                        <select
+                          value={capitolatoAperto.azienda_partner_id || capitolatoAperto.azienda_vincitrice_id || ''}
+                          onChange={(e) => salvaFornitoreOffertaCapitolato(capitolatoAperto, e.target.value)}
+                          className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-2 py-2 text-xs font-bold"
+                        >
+                          <option value="">Seleziona fornitore</option>
+                          {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                        </select>
+                        <p className="mt-1 text-[11px] font-semibold text-slate-500">Serve per mostrare DURC, polizza, certificazioni e garanzie nella modalità assemblea.</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3223,7 +4082,7 @@ function CapitolatoSenzaPensieriSuite({
                 {capitolatoAperto.convertita_casp ? (
                   <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
                     <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
-                    <p className="text-xs text-slate-500">Valore: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
+                    <p className="text-xs text-slate-500">Valore deliberato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.valore_offerta || 0)}</p>
                   </div>
                 ) : isGestore ? (
                   <p className="mt-2 text-xs font-semibold text-slate-500">In attesa di decisione amministratore / aggiudicazione.</p>
@@ -3278,7 +4137,9 @@ function CapitolatoSenzaPensieriSuite({
                       <p className="font-semibold text-slate-700">{item.tecnico_nome || 'n.d.'}</p>
                       <p className="text-xs text-slate-500">{item.tecnico_email || ''}</p>
                     </td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(item.importo_presunto || 0)}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-900">
+                      {Number(item.valore_offerta || 0) > 0 ? formatEuro(item.valore_offerta || 0) : <span className="text-xs font-bold text-slate-400">Offerta non caricata</span>}
+                    </td>
                     <td className="px-3 py-3">
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
                         item.priorita === 'Alta' ? 'bg-red-100 text-red-700' :
@@ -3391,22 +4252,50 @@ function CapitolatoSenzaPensieriSuite({
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs font-black uppercase tracking-wide text-slate-500">Assemblea</p>
-              <p className="mt-1 text-[11px] font-semibold text-slate-500">{isGestore ? 'Compilabile dall’amministratore.' : 'Inserisci data/luogo assemblea e richiedi presenza CSP.'}</p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">{isGestore ? 'Compilabile dall’amministratore.' : 'Inserisci data, orario e luogo assemblea e richiedi presenza CSP.'}</p>
               <div className="mt-2 space-y-2">
                 <input
                   type="date"
-                  value={capitolatoAperto.data_assemblea || ''}
-                  onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { data_assemblea: e.target.value || null, stato: e.target.value ? 'Assemblea programmata' : capitolatoAperto.stato })}
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.data : (capitolatoAperto.data_assemblea || '')}
+                  onChange={(e) => setAssembleaDraft((prev) => ({
+                    ...prev,
+                    capitolatoId: capitolatoAperto.id,
+                    data: e.target.value || '',
+                  }))}
                   className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
                   disabled={isGestore}
                 />
                 <input
-                  value={capitolatoAperto.luogo_assemblea || ''}
-                  onChange={(e) => aggiornaWorkflowTecnico(capitolatoAperto, { luogo_assemblea: e.target.value })}
+                  type="time"
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.ora : estraiOraAssemblea(capitolatoAperto.luogo_assemblea)}
+                  onChange={(e) => setAssembleaDraft((prev) => ({
+                    ...prev,
+                    capitolatoId: capitolatoAperto.id,
+                    ora: e.target.value || '',
+                  }))}
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
+                  disabled={isGestore}
+                />
+                <input
+                  value={assembleaDraft.capitolatoId === capitolatoAperto.id ? assembleaDraft.luogo : pulisciLuogoAssemblea(capitolatoAperto.luogo_assemblea || '')}
+                  onChange={(e) => setAssembleaDraft((prev) => ({
+                    ...prev,
+                    capitolatoId: capitolatoAperto.id,
+                    luogo: e.target.value,
+                  }))}
                   placeholder="Luogo assemblea"
                   className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs"
                   disabled={isGestore}
                 />
+                {!isGestore && (
+                  <button
+                    type="button"
+                    onClick={() => pianificaAssembleaCapitolato(capitolatoAperto)}
+                    className="w-full rounded-xl bg-amber-600 px-3 py-2 text-xs font-black text-white transition hover:bg-amber-700"
+                  >
+                    Pianifica assemblea
+                  </button>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <a href={buildGoogleCalendarUrl(capitolatoAperto)} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Google Calendar</a>
                   {!capitolatoAperto.presenza_csp_richiesta ? (
@@ -3470,6 +4359,14 @@ function CapitolatoSenzaPensieriSuite({
                   <p className="mt-1 text-sm font-black text-slate-900">{formatEuro(capitolatoAperto.valore_offerta || 0)}</p>
                 </div>
               )}
+
+              {Number(capitolatoAperto.importo_presunto || 0) > 0 && (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-2">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Importo presunto indicato dall'amministratore</p>
+                  <p className="mt-1 text-sm font-black text-slate-700">{formatEuro(capitolatoAperto.importo_presunto || 0)}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-slate-400">Dato informativo interno: non entra nelle statistiche né nella fatturazione.</p>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -3478,7 +4375,7 @@ function CapitolatoSenzaPensieriSuite({
                 <div className="mt-2 rounded-2xl border border-purple-100 bg-purple-50 p-3">
                   <p className="text-sm font-black text-purple-800">Convertita in CaSP</p>
                   <p className="mt-1 text-xs font-semibold text-slate-600">{capitolatoAperto.azienda_vincitrice_nome || aziendaById(capitolatoAperto.azienda_vincitrice_id)?.ragione_sociale || 'Azienda n.d.'}</p>
-                  <p className="text-xs text-slate-500">Valore aggiudicato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.importo_presunto || 0)}</p>
+                  <p className="text-xs text-slate-500">Valore deliberato: {formatEuro(capitolatoAperto.valore_aggiudicato || capitolatoAperto.valore_offerta || 0)}</p>
                 </div>
               ) : isGestore ? (
                 <div className="mt-2 space-y-2">
@@ -3493,9 +4390,9 @@ function CapitolatoSenzaPensieriSuite({
                   <input
                     type="number"
                     step="0.01"
-                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.importo_presunto ?? ''}
+                    value={conversioneDraft[capitolatoAperto.id]?.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta ?? ''}
                     onChange={(e) => updateConversioneDraft(capitolatoAperto.id, 'valore_aggiudicato', e.target.value)}
-                    placeholder="Valore aggiudicato"
+                    placeholder="Valore deliberato"
                     className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold"
                   />
                   <button
@@ -3505,7 +4402,7 @@ function CapitolatoSenzaPensieriSuite({
                       convertiInCasp(
                         capitolatoAperto,
                         draft.azienda_vincitrice_id || capitolatoAperto.azienda_vincitrice_id,
-                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.importo_presunto,
+                        draft.valore_aggiudicato ?? capitolatoAperto.valore_aggiudicato ?? capitolatoAperto.valore_offerta,
                         draft.note_conversione_casp ?? capitolatoAperto.note_conversione_casp
                       );
                     }}
@@ -3525,6 +4422,14 @@ function CapitolatoSenzaPensieriSuite({
             </div>
           </div>
 
+          <VotazioneAssembleaCasep
+            capitolato={capitolatoAperto}
+            utentiCondomini={utentiCondomini}
+            utentiSistema={utentiSistema}
+            votiAssemblea={votiAssembleaCasep}
+            onSaveVotoAssemblea={onSaveVotoAssembleaCasep}
+          />
+
           <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-black uppercase tracking-wide text-slate-500">Timeline pratica</p>
             <div className="mt-2 max-h-28 space-y-1 overflow-auto csp-scroll">
@@ -3541,7 +4446,8 @@ function CapitolatoSenzaPensieriSuite({
           </div>
         </section>
       )}
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -3754,7 +4660,6 @@ function CampagnePartnerSuite({ partnerCampaignLog, aziendePartner }) {
   const [sendingCampaignId, setSendingCampaignId] = useState(null);
 
   const aziendaById = (id) => (aziendePartner || []).find((azienda) => Number(azienda.id) === Number(id));
-
   const campagne = partnerCampaignLog || [];
   const filtrate = campagne.filter((campagna) => {
     const azienda = aziendaById(campagna.azienda_id)?.ragione_sociale || '';
@@ -4551,6 +5456,7 @@ function FatturazionePartnerSuite({
   segnalazioni,
   utentiSistema,
   leadAmministratori,
+  capitolatiSenzaPensieri = [],
   onCreateAziendaPartner,
   onUpdateAziendaPartner,
   onCreateProvvigionePartner,
@@ -4572,6 +5478,14 @@ function FatturazionePartnerSuite({
     citta: '',
     provincia: 'Firenze',
     percentuale_gestore: '',
+    durc_url: '',
+    durc_scadenza: '',
+    polizza_url: '',
+    polizza_scadenza: '',
+    certificazioni_iso: '',
+    certificazioni_soa: '',
+    schema_garanzie: '',
+    note_qualificazione: '',
     note: '',
   });
 
@@ -4586,6 +5500,14 @@ function FatturazionePartnerSuite({
     tipo_attivita: '',
     citta: '',
     provincia: '',
+    durc_url: '',
+    durc_scadenza: '',
+    polizza_url: '',
+    polizza_scadenza: '',
+    certificazioni_iso: '',
+    certificazioni_soa: '',
+    schema_garanzie: '',
+    note_qualificazione: '',
     note: '',
     attiva: true,
     nuova_percentuale_gestore: '',
@@ -4599,6 +5521,8 @@ function FatturazionePartnerSuite({
     amministratore_email: '',
     condominio_id: '',
     segnalazione_id: '',
+    capitolato_id: '',
+    pratica_tipo: 'csp',
     numero_fattura: '',
     descrizione: '',
     importo_imponibile: '',
@@ -4621,6 +5545,8 @@ function FatturazionePartnerSuite({
     amministratore_email: '',
     condominio_id: '',
     segnalazione_id: '',
+    capitolato_id: '',
+    pratica_tipo: 'csp',
     numero_fattura: '',
     descrizione: '',
     importo_imponibile: '',
@@ -4658,6 +5584,8 @@ function FatturazionePartnerSuite({
     stato: 'da_pagare',
     note: '',
   });
+
+  const [adminProvvigioniSelezionato, setAdminProvvigioniSelezionato] = useState('');
 
   const updateMiaFattura = (field, value) => {
     setMiaFatturaForm((prev) => {
@@ -4744,6 +5672,14 @@ function FatturazionePartnerSuite({
       tipo_attivita: azienda.tipo_attivita || '',
       citta: azienda.citta || '',
       provincia: azienda.provincia || '',
+      durc_url: azienda.durc_url || '',
+      durc_scadenza: azienda.durc_scadenza || '',
+      polizza_url: azienda.polizza_url || '',
+      polizza_scadenza: azienda.polizza_scadenza || '',
+      certificazioni_iso: azienda.certificazioni_iso || '',
+      certificazioni_soa: azienda.certificazioni_soa || '',
+      schema_garanzie: azienda.schema_garanzie || '',
+      note_qualificazione: azienda.note_qualificazione || '',
       note: azienda.note || '',
       attiva: azienda.attiva !== false,
       nuova_percentuale_gestore: '',
@@ -4781,16 +5717,73 @@ function FatturazionePartnerSuite({
       azienda.tipo_attivita,
       azienda.citta,
       azienda.provincia,
+      azienda.certificazioni_iso,
+      azienda.certificazioni_soa,
+      azienda.schema_garanzie,
+      azienda.note_qualificazione,
     ].some((value) => String(value || '').toLowerCase().includes(search));
   });
+
+
+  const giorniAllaScadenzaDocumento = (dataScadenza) => {
+    if (!dataScadenza) return null;
+    const oggi = new Date();
+    const scadenza = new Date(dataScadenza);
+    if (Number.isNaN(scadenza.getTime())) return null;
+    oggi.setHours(0, 0, 0, 0);
+    scadenza.setHours(0, 0, 0, 0);
+    return Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+  };
+
+  const statoDocumentoAzienda = (dataScadenza) => {
+    const giorni = giorniAllaScadenzaDocumento(dataScadenza);
+    if (giorni === null) return { label: 'Non caricato', tone: 'slate', giorni: null };
+    if (giorni < 0) return { label: 'Scaduto', tone: 'red', giorni };
+    if (giorni <= 15) return { label: `In scadenza ${giorni} gg`, tone: 'amber', giorni };
+    return { label: 'Valido', tone: 'emerald', giorni };
+  };
+
+  const badgeDocumentoClass = (tone) => (
+    tone === 'emerald' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+    tone === 'amber' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+    tone === 'red' ? 'bg-red-100 text-red-700 border-red-200' :
+    'bg-slate-100 text-slate-600 border-slate-200'
+  );
+
+  const aziendeConDocumentiCritici = (aziendePartner || []).filter((azienda) => {
+    const durc = statoDocumentoAzienda(azienda.durc_scadenza);
+    const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
+    return ['red', 'amber'].includes(durc.tone) || ['red', 'amber'].includes(polizza.tone);
+  });
+
+  const aziendeQualificate = (aziendePartner || []).filter((azienda) => (
+    statoDocumentoAzienda(azienda.durc_scadenza).tone === 'emerald' &&
+    statoDocumentoAzienda(azienda.polizza_scadenza).tone === 'emerald'
+  ));
 
   const updateFattura = (field, value) => {
     setFatturaForm((prev) => {
       const next = { ...prev, [field]: value };
 
-      if (field === 'importo_imponibile' || field === 'iva') {
-        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
-        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+      if (field === 'pratica_tipo') {
+        next.segnalazione_id = '';
+        next.capitolato_id = '';
+      }
+
+      if (field === 'capitolato_id') {
+        const capitolato = capitolatoById(value);
+        next.segnalazione_id = '';
+        next.condominio_id = capitolato?.condominio_id ? String(capitolato.condominio_id) : next.condominio_id;
+        next.amministratore_email = capitolato?.amministratore_email || next.amministratore_email;
+        next.azienda_partner_id = capitolato?.azienda_vincitrice_id ? String(capitolato.azienda_vincitrice_id) : next.azienda_partner_id;
+        const valore = Number(capitolato?.valore_aggiudicato || capitolato?.valore_offerta || 0);
+        if (valore > 0 && !Number(next.importo_imponibile || 0)) next.importo_imponibile = valore;
+        if (!next.descrizione && capitolato) next.descrizione = `Fattura CaSeP - ${capitolato.numero_pratica || `Pratica #${capitolato.id}`} - ${capitolato.titolo || capitolato.condominio_nome || ''}`.trim();
+      }
+
+      if (field === 'importo_imponibile' || field === 'iva' || field === 'capitolato_id') {
+        const imponibile = Number(next.importo_imponibile || 0);
+        const ivaPercentuale = Number(next.iva || 0);
         next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
       }
 
@@ -4878,14 +5871,14 @@ function FatturazionePartnerSuite({
     .filter((u) => String(u.ruolo || '').toLowerCase() === 'amministratore')
     .map((u) => ({
       email: u.email,
-      nome: u.nome || u.ragione_sociale || u.studio || u.nome_studio || '',
+      nome: u.studio || u.ragione_sociale || u.nome_studio || u.nome || '',
     }));
 
   const amministratoriDaLead = (leadAmministratori || [])
     .filter((lead) => lead.email)
     .map((lead) => ({
       email: lead.email,
-      nome: lead.nome || lead.ragione_sociale || lead.studio || lead.nome_studio || lead.amministratore || lead.cliente || '',
+      nome: lead.studio || lead.ragione_sociale || lead.nome_studio || lead.nome || lead.amministratore || lead.cliente || '',
     }));
 
   const amministratoriMap = new Map();
@@ -4906,7 +5899,80 @@ function FatturazionePartnerSuite({
   const amministratori = [...amministratoriMap.values()]
     .sort((a, b) => String(a.nome || a.email || '').localeCompare(String(b.nome || b.email || '')));
   const praticheChiuse = (segnalazioni || []).filter((s) => String(s.stato || '').toLowerCase().trim() === 'chiusa');
+  const praticheCasepFatturabili = (capitolatiSenzaPensieri || []).filter((item) => {
+    const stato = String(item.stato || '').toLowerCase();
+    const decisione = String(item.decisione_amministratore || '').toLowerCase();
+    return (stato.includes('accett') || decisione.includes('accett')) && Number(item.valore_aggiudicato || item.valore_offerta || 0) > 0;
+  });
+  const capitolatoById = (id) => (capitolatiSenzaPensieri || []).find((item) => Number(item.id) === Number(id));
 
+  const normalizzaEmail = (value) => String(value || '').toLowerCase().trim();
+  const getDataPagamentoFattura = (fattura) => (
+    fattura?.pagata_il ||
+    fattura?.data_pagamento ||
+    fattura?.paid_at ||
+    null
+  );
+
+  const isFatturaPagataFuoriTermine = (fattura) => {
+    if (String(fattura?.stato || '').toLowerCase() !== 'pagata') return false;
+    if (!fattura?.data_scadenza) return false;
+
+    const dataPagamentoRaw = getDataPagamentoFattura(fattura);
+    if (!dataPagamentoRaw) return false;
+
+    const scadenza = new Date(fattura.data_scadenza);
+    const pagamento = new Date(dataPagamentoRaw);
+
+    if (Number.isNaN(scadenza.getTime()) || Number.isNaN(pagamento.getTime())) return false;
+
+    scadenza.setHours(0, 0, 0, 0);
+    pagamento.setHours(0, 0, 0, 0);
+
+    const limiteMaturazione = new Date(scadenza);
+    limiteMaturazione.setDate(limiteMaturazione.getDate() + 15);
+
+    return pagamento > limiteMaturazione;
+  };
+
+  const calcolaProvvigioneAmministratoreDaFattura = (fattura) => Number(fattura.importo_imponibile || 0) * 0.10;
+
+  const provvigioniPerAmministratore = amministratori.map((admin) => {
+    const email = normalizzaEmail(admin.email);
+    const fattureAdminPagate = (fatturePartner || []).filter((fattura) => (
+      normalizzaEmail(fattura.amministratore_email) === email &&
+      String(fattura.stato || '').toLowerCase() === 'pagata'
+    ));
+    const fattureValide = fattureAdminPagate.filter((fattura) => !isFatturaPagataFuoriTermine(fattura));
+    const fatturePerse = fattureAdminPagate.filter((fattura) => isFatturaPagataFuoriTermine(fattura));
+    const fattureProvvigioneAdmin = (fattureProvvigioniAmministratori || []).filter((fattura) => normalizzaEmail(fattura.amministratore_email) === email);
+
+    const maturate = fattureValide.reduce((sum, fattura) => sum + calcolaProvvigioneAmministratoreDaFattura(fattura), 0);
+    const perse = fatturePerse.reduce((sum, fattura) => sum + calcolaProvvigioneAmministratoreDaFattura(fattura), 0);
+    const fatturate = fattureProvvigioneAdmin
+      .filter((fattura) => String(fattura.stato || '') !== 'annullata')
+      .reduce((sum, fattura) => sum + Number(fattura.importo_imponibile || 0), 0);
+    const pagate = fattureProvvigioneAdmin
+      .filter((fattura) => String(fattura.stato || '') === 'pagata')
+      .reduce((sum, fattura) => sum + Number(fattura.importo_imponibile || 0), 0);
+
+    return {
+      ...admin,
+      email,
+      nome: admin.nome || admin.email,
+      maturate,
+      perse,
+      fatturate,
+      pagate,
+      daFatturare: Math.max(maturate - fatturate, 0),
+      daPagare: Math.max(fatturate - pagate, 0),
+      fattureValide,
+      fatturePerse,
+      fattureProvvigioneAdmin,
+    };
+  });
+
+  const riepilogoAdminSelezionato = provvigioniPerAmministratore.find((row) => row.email === normalizzaEmail(adminProvvigioniSelezionato)) || null;
 
   const fatturatoTotale = (fatturePartner || []).reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
   const fatturatoPagato = (fatturePartner || []).filter((f) => f.stato === 'pagata').reduce((sum, fattura) => sum + Number(fattura.totale || 0), 0);
@@ -4916,9 +5982,12 @@ function FatturazionePartnerSuite({
   const mieProvvigioniFatturate = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
   const mieProvvigioniDaFatturare = Math.max(provvigioniGestore - mieProvvigioniFatturate, 0);
 
-  const provvAdminTotali = (fattureProvvigioniAmministratori || []).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
-  const provvAdminPagate = (fattureProvvigioniAmministratori || []).filter((f) => String(f.stato || '') === 'pagata').reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
-  const provvAdminDaPagare = (fattureProvvigioniAmministratori || []).filter((f) => !['pagata','annullata'].includes(String(f.stato || ''))).reduce((sum, f) => sum + Number(f.importo_imponibile || 0), 0);
+  const provvAdminTotali = provvigioniPerAmministratore.reduce((sum, row) => sum + row.fatturate, 0);
+  const provvAdminMaturate = provvigioniPerAmministratore.reduce((sum, row) => sum + row.maturate, 0);
+  const provvAdminPerse = provvigioniPerAmministratore.reduce((sum, row) => sum + row.perse, 0);
+  const provvAdminPagate = provvigioniPerAmministratore.reduce((sum, row) => sum + row.pagate, 0);
+  const provvAdminDaFatturare = provvigioniPerAmministratore.reduce((sum, row) => sum + row.daFatturare, 0);
+  const provvAdminDaPagare = provvigioniPerAmministratore.reduce((sum, row) => sum + row.daPagare, 0);
 
   const oggiFatture = new Date();
   oggiFatture.setHours(0, 0, 0, 0);
@@ -4964,6 +6033,14 @@ function FatturazionePartnerSuite({
       citta: '',
       provincia: 'Firenze',
       percentuale_gestore: '',
+      durc_url: '',
+      durc_scadenza: '',
+      polizza_url: '',
+      polizza_scadenza: '',
+      certificazioni_iso: '',
+      certificazioni_soa: '',
+      schema_garanzie: '',
+      note_qualificazione: '',
       note: '',
     });
   };
@@ -4972,11 +6049,20 @@ function FatturazionePartnerSuite({
     e.preventDefault();
     if (!fatturaForm.azienda_partner_id) return;
 
+    const capitolatoSelezionato = fatturaForm.pratica_tipo === 'casep' ? capitolatoById(fatturaForm.capitolato_id) : null;
+    const { capitolato_id, pratica_tipo, ...payloadFattura } = fatturaForm;
+
     await onCreateFatturaPartner({
-      ...fatturaForm,
+      ...payloadFattura,
       azienda_partner_id: Number(fatturaForm.azienda_partner_id),
       condominio_id: fatturaForm.condominio_id ? Number(fatturaForm.condominio_id) : null,
-      segnalazione_id: fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+      segnalazione_id: pratica_tipo === 'csp' && fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+      descrizione: pratica_tipo === 'casep' && capitolatoSelezionato
+        ? `${fatturaForm.descrizione || 'Fattura CaSeP'}\nRiferimento CaSeP: ${capitolatoSelezionato.numero_pratica || `#${capitolatoSelezionato.id}`} - ${capitolatoSelezionato.titolo || capitolatoSelezionato.condominio_nome || ''}`
+        : fatturaForm.descrizione,
+      note: pratica_tipo === 'casep' && capitolatoSelezionato
+        ? `${fatturaForm.note || ''}\nCASEP_ID:${capitolatoSelezionato.id}`.trim()
+        : fatturaForm.note,
       importo_imponibile: Number(fatturaForm.importo_imponibile || 0),
       iva: Number(fatturaForm.iva || 0),
       totale: Number(fatturaForm.totale || 0),
@@ -5094,10 +6180,25 @@ function FatturazionePartnerSuite({
                 <option value="">Condominio</option>
                 {(condomini || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
-              <select value={fatturaForm.segnalazione_id} onChange={(e) => updateFattura('segnalazione_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
-                <option value="">Pratica collegata</option>
-                {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>{s.titolo}</option>)}
+              <select value={fatturaForm.pratica_tipo} onChange={(e) => updateFattura('pratica_tipo', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                <option value="csp">Pratica CSP</option>
+                <option value="casep">Pratica CaSeP</option>
               </select>
+              {fatturaForm.pratica_tipo === 'casep' ? (
+                <select value={fatturaForm.capitolato_id} onChange={(e) => updateFattura('capitolato_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                  <option value="">Pratica CaSeP collegata</option>
+                  {praticheCasepFatturabili.slice(0, 120).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.numero_pratica || `CaSeP #${c.id}`} — {c.titolo || c.condominio_nome} — {formatEuro(c.valore_aggiudicato || c.valore_offerta || 0)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select value={fatturaForm.segnalazione_id} onChange={(e) => updateFattura('segnalazione_id', e.target.value)} className="rounded-2xl border border-slate-200 px-3 py-3">
+                  <option value="">Pratica CSP collegata</option>
+                  {praticheChiuse.slice(0, 120).map((s) => <option key={s.id} value={s.id}>{s.titolo}</option>)}
+                </select>
+              )}
               <input value={fatturaForm.numero_fattura} onChange={(e) => updateFattura('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="number" step="0.01" value={fatturaForm.importo_imponibile} onChange={(e) => updateFattura('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input type="number" step="0.01" value={fatturaForm.iva} onChange={(e) => updateFattura('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-slate-200 px-3 py-3" />
@@ -5143,11 +6244,19 @@ function FatturazionePartnerSuite({
                     return;
                   }
 
+                  const capitolatoSelezionato = fatturaForm.pratica_tipo === 'casep' ? capitolatoById(fatturaForm.capitolato_id) : null;
+                  const { capitolato_id, pratica_tipo, ...payloadFattura } = fatturaForm;
                   const saved = await onCreateFatturaPartner({
-                    ...fatturaForm,
+                    ...payloadFattura,
                     azienda_partner_id: Number(fatturaForm.azienda_partner_id),
                     condominio_id: fatturaForm.condominio_id ? Number(fatturaForm.condominio_id) : null,
-                    segnalazione_id: fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+                    segnalazione_id: pratica_tipo === 'csp' && fatturaForm.segnalazione_id ? Number(fatturaForm.segnalazione_id) : null,
+                    descrizione: pratica_tipo === 'casep' && capitolatoSelezionato
+                      ? `${fatturaForm.descrizione || 'Fattura CaSeP'}\nRiferimento CaSeP: ${capitolatoSelezionato.numero_pratica || `#${capitolatoSelezionato.id}`} - ${capitolatoSelezionato.titolo || capitolatoSelezionato.condominio_nome || ''}`
+                      : fatturaForm.descrizione,
+                    note: pratica_tipo === 'casep' && capitolatoSelezionato
+                      ? `${fatturaForm.note || ''}\nCASEP_ID:${capitolatoSelezionato.id}`.trim()
+                      : fatturaForm.note,
                     importo_imponibile: Number(fatturaForm.importo_imponibile || 0),
                     iva: Number(fatturaForm.iva || 0),
                     totale: Number(fatturaForm.totale || 0),
@@ -5461,10 +6570,13 @@ function FatturazionePartnerSuite({
             <h2 className="mt-1 text-xl font-bold">Controllo trimestrale</h2>
             <p className="mt-1 text-sm text-slate-500">Gestione contabile interna dei riepiloghi fattura delle provvigioni amministratori.</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 md:min-w-[560px]">
-            <DashboardStat label="Totali" value={formatEuro(provvAdminTotali)} tone="sky" />
+          <div className="grid grid-cols-2 gap-2 md:min-w-[720px] md:grid-cols-6">
+            <DashboardStat label="Maturate" value={formatEuro(provvAdminMaturate)} tone="sky" />
+            <DashboardStat label="Perse" value={formatEuro(provvAdminPerse)} tone="red" />
+            <DashboardStat label="Fatturate" value={formatEuro(provvAdminTotali)} tone="emerald" />
+            <DashboardStat label="Da fatturare" value={formatEuro(provvAdminDaFatturare)} tone="amber" />
             <DashboardStat label="Pagate" value={formatEuro(provvAdminPagate)} tone="emerald" />
-            <DashboardStat label="Da pagare" value={formatEuro(provvAdminDaPagare)} tone="amber" />
+            <DashboardStat label="Da pagare" value={formatEuro(provvAdminDaPagare)} tone="red" />
           </div>
         </div>
 
@@ -5515,60 +6627,91 @@ function FatturazionePartnerSuite({
           </button>
         </form>
 
-        <div className="mt-4 max-h-[360px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
-          <table className="min-w-[900px] w-full border-collapse text-sm">
-            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-3">Fattura</th>
-                <th className="px-3 py-3">Amministratore</th>
-                <th className="px-3 py-3">Fornitore</th>
-                <th className="px-3 py-3">Periodo</th>
-                <th className="px-3 py-3 text-right">Imponibile</th>
-                <th className="px-3 py-3">Stato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(fattureProvvigioniAmministratori || []).length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione amministratore presente.</td>
-                </tr>
-              ) : (
-                fattureProvvigioniAmministratori.map((fattura) => (
-                  <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/30">
-                    <td className="px-3 py-3">
-                      <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
-                      <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      <p className="font-bold text-slate-800">{fattura.amministratore_nome || fattura.amministratore_email}</p>
-                      <p className="text-xs text-slate-500">{fattura.amministratore_email}</p>
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
-                    <td className="px-3 py-3">
-                      <select
-                        value={fattura.stato || 'da_pagare'}
-                        onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
-                        className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-wide ${
-                          fattura.stato === 'pagata'
-                            ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                            : fattura.stato === 'annullata'
-                              ? 'border-slate-200 bg-slate-100 text-slate-600'
-                              : 'border-amber-200 bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        <option value="da_pagare">Da pagare</option>
-                        <option value="pagata">Pagata</option>
-                        <option value="annullata">Annullata</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <section className="mt-4 rounded-3xl border border-indigo-100 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Dashboard riservata</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">Provvigioni per amministratore</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Seleziona un amministratore per visualizzare solo i suoi numeri: utile quando la schermata è aperta durante un incontro.
+              </p>
+            </div>
+            <select value={adminProvvigioniSelezionato} onChange={(e) => setAdminProvvigioniSelezionato(e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-700 md:min-w-[320px]">
+              <option value="">Seleziona amministratore</option>
+              {provvigioniPerAmministratore.map((admin) => (
+                <option key={admin.email} value={admin.email}>{admin.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {riepilogoAdminSelezionato ? (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+                <DashboardStat label="Maturate" value={formatEuro(riepilogoAdminSelezionato.maturate)} tone="sky" />
+                <DashboardStat label="Perse" value={formatEuro(riepilogoAdminSelezionato.perse)} tone="red" />
+                <DashboardStat label="Fatturate" value={formatEuro(riepilogoAdminSelezionato.fatturate)} tone="emerald" />
+                <DashboardStat label="Da fatturare" value={formatEuro(riepilogoAdminSelezionato.daFatturare)} tone="amber" />
+                <DashboardStat label="Pagate" value={formatEuro(riepilogoAdminSelezionato.pagate)} tone="emerald" />
+                <DashboardStat label="Da pagare" value={formatEuro(riepilogoAdminSelezionato.daPagare)} tone="red" />
+              </div>
+
+              <div className="max-h-[360px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
+                <table className="min-w-[900px] w-full border-collapse text-sm">
+                  <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-3">Fattura</th>
+                      <th className="px-3 py-3">Fornitore</th>
+                      <th className="px-3 py-3">Periodo</th>
+                      <th className="px-3 py-3 text-right">Imponibile</th>
+                      <th className="px-3 py-3">Stato</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {riepilogoAdminSelezionato.fattureProvvigioneAdmin.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione registrata per questo amministratore.</td>
+                      </tr>
+                    ) : (
+                      riepilogoAdminSelezionato.fattureProvvigioneAdmin.map((fattura) => (
+                        <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/30">
+                          <td className="px-3 py-3">
+                            <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
+                            <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
+                          </td>
+                          <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
+                          <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
+                          <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
+                          <td className="px-3 py-3">
+                            <select
+                              value={fattura.stato || 'da_pagare'}
+                              onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
+                              className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-wide ${
+                                fattura.stato === 'pagata'
+                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                  : fattura.stato === 'annullata'
+                                    ? 'border-slate-200 bg-slate-100 text-slate-600'
+                                    : 'border-amber-200 bg-amber-100 text-amber-700'
+                              }`}
+                            >
+                              <option value="da_pagare">Da pagare</option>
+                              <option value="pagata">Pagata</option>
+                              <option value="annullata">Annullata</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-3xl border border-dashed border-indigo-200 bg-indigo-50/60 p-6 text-center">
+              <p className="text-sm font-black text-indigo-800">Seleziona un amministratore per aprire la dashboard riservata.</p>
+              <p className="mt-1 text-xs font-semibold text-indigo-600">I numeri degli altri amministratori restano nascosti.</p>
+            </div>
+          )}
+        </section>
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -5622,6 +6765,41 @@ function FatturazionePartnerSuite({
           </div>
         </section>
       </div>
+      <section className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Qualificazione aziende</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Controllo documentale partner</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">DURC, polizza, ISO/SOA e garanzie: la base per mostrare in assemblea l’azienda giusta per l’intervento giusto.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <DashboardStat label="Qualificate" value={aziendeQualificate.length} tone="emerald" />
+            <DashboardStat label="Alert" value={aziendeConDocumentiCritici.length} tone="amber" />
+            <DashboardStat label="Partner" value={(aziendePartner || []).length} tone="slate" />
+          </div>
+        </div>
+        {aziendeConDocumentiCritici.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-700">Reminder documentali</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {aziendeConDocumentiCritici.slice(0, 6).map((azienda) => {
+                const durc = statoDocumentoAzienda(azienda.durc_scadenza);
+                const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
+                return (
+                  <div key={azienda.id} className="rounded-2xl border border-amber-100 bg-white p-3">
+                    <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(durc.tone)}`}>DURC: {durc.label}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(polizza.tone)}`}>Polizza: {polizza.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="h-[760px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Aziende partner</p>
@@ -5640,6 +6818,22 @@ function FatturazionePartnerSuite({
               <input value={aziendaForm.citta} onChange={(e) => updateAzienda('citta', e.target.value)} placeholder="Città" className="rounded-2xl border border-slate-200 px-3 py-3" />
               <input value={aziendaForm.provincia} onChange={(e) => updateAzienda('provincia', e.target.value)} placeholder="Provincia" className="rounded-2xl border border-slate-200 px-3 py-3" />
             </div>
+
+            <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Qualificazione azienda</p>
+              <p className="mt-1 text-sm font-semibold text-emerald-800">Documenti e garanzie da mostrare in modalità assemblea premium.</p>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input value={aziendaForm.durc_url} onChange={(e) => updateAzienda('durc_url', e.target.value)} placeholder="URL DURC aggiornato" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input type="date" value={aziendaForm.durc_scadenza} onChange={(e) => updateAzienda('durc_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza DURC" />
+                <input value={aziendaForm.polizza_url} onChange={(e) => updateAzienda('polizza_url', e.target.value)} placeholder="URL polizza assicurativa" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input type="date" value={aziendaForm.polizza_scadenza} onChange={(e) => updateAzienda('polizza_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza polizza" />
+                <input value={aziendaForm.certificazioni_iso} onChange={(e) => updateAzienda('certificazioni_iso', e.target.value)} placeholder="Certificazioni ISO" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <input value={aziendaForm.certificazioni_soa} onChange={(e) => updateAzienda('certificazioni_soa', e.target.value)} placeholder="Certificazioni SOA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              </div>
+              <textarea value={aziendaForm.schema_garanzie} onChange={(e) => updateAzienda('schema_garanzie', e.target.value)} placeholder="Schema garanzie lavori" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              <textarea value={aziendaForm.note_qualificazione} onChange={(e) => updateAzienda('note_qualificazione', e.target.value)} placeholder="Note qualificazione / punti di forza da presentare in assemblea" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+            </div>
+
             <textarea value={aziendaForm.note} onChange={(e) => updateAzienda('note', e.target.value)} placeholder="Note" className="min-h-20 w-full rounded-2xl border border-slate-200 px-3 py-3" />
             <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">Salva azienda partner</button>
           </form>
@@ -5687,6 +6881,21 @@ function FatturazionePartnerSuite({
                   Azienda attiva
                 </label>
               </div>
+
+              <div className="mt-4 rounded-3xl border border-emerald-200 bg-white/80 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Qualificazione azienda</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <input value={aziendaEditForm.durc_url} onChange={(e) => updateAziendaEdit('durc_url', e.target.value)} placeholder="URL DURC aggiornato" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                  <input type="date" value={aziendaEditForm.durc_scadenza} onChange={(e) => updateAziendaEdit('durc_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza DURC" />
+                  <input value={aziendaEditForm.polizza_url} onChange={(e) => updateAziendaEdit('polizza_url', e.target.value)} placeholder="URL polizza assicurativa" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                  <input type="date" value={aziendaEditForm.polizza_scadenza} onChange={(e) => updateAziendaEdit('polizza_scadenza', e.target.value)} className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" title="Scadenza polizza" />
+                  <input value={aziendaEditForm.certificazioni_iso} onChange={(e) => updateAziendaEdit('certificazioni_iso', e.target.value)} placeholder="Certificazioni ISO" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                  <input value={aziendaEditForm.certificazioni_soa} onChange={(e) => updateAziendaEdit('certificazioni_soa', e.target.value)} placeholder="Certificazioni SOA" className="rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                </div>
+                <textarea value={aziendaEditForm.schema_garanzie} onChange={(e) => updateAziendaEdit('schema_garanzie', e.target.value)} placeholder="Schema garanzie lavori" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+                <textarea value={aziendaEditForm.note_qualificazione} onChange={(e) => updateAziendaEdit('note_qualificazione', e.target.value)} placeholder="Note qualificazione / punti di forza da presentare in assemblea" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
+              </div>
+
               <textarea value={aziendaEditForm.note} onChange={(e) => updateAziendaEdit('note', e.target.value)} placeholder="Note" className="mt-3 min-h-20 w-full rounded-2xl border border-emerald-200 bg-white px-3 py-3" />
               <button type="button" onClick={salvaModificaAzienda} className="mt-3 w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white">
                 Salva modifiche fornitore
@@ -5701,21 +6910,30 @@ function FatturazionePartnerSuite({
                   <th className="px-3 py-3">Azienda</th>
                   <th className="px-3 py-3">Referente</th>
                   <th className="px-3 py-3">Provvigione</th>
+                  <th className="px-3 py-3">Documenti</th>
                   <th className="px-3 py-3">Stato</th>
                   <th className="px-3 py-3 text-right">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {aziendeFiltrate.length === 0 ? (
-                  <tr><td colSpan="5" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
+                  <tr><td colSpan="6" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessun fornitore trovato.</td></tr>
                 ) : aziendeFiltrate.map((azienda) => {
                   const provv = provvigioneAttivaAzienda(azienda.id);
+                  const durc = statoDocumentoAzienda(azienda.durc_scadenza);
+                  const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
                   return (
                     <tr key={azienda.id} className="border-t border-slate-100 hover:bg-emerald-50/40">
                       <td className="px-3 py-3">
                         <p className="font-black text-slate-900">{azienda.ragione_sociale}</p>
                         <p className="text-xs text-slate-500">{azienda.tipo_attivita || 'Attività n.d.'} • {azienda.citta || ''} {azienda.provincia || ''}</p>
                         <p className="text-xs text-slate-400">{azienda.partita_iva || 'P.IVA n.d.'}</p>
+                        {(azienda.durc_url || azienda.polizza_url) && (
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {azienda.durc_url && <a href={azienda.durc_url} target="_blank" rel="noreferrer" className="text-[11px] font-black text-emerald-700">DURC</a>}
+                            {azienda.polizza_url && <a href={azienda.polizza_url} target="_blank" rel="noreferrer" className="text-[11px] font-black text-emerald-700">Polizza</a>}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         <p className="font-semibold text-slate-700">{azienda.referente || 'n.d.'}</p>
@@ -5723,6 +6941,17 @@ function FatturazionePartnerSuite({
                         <p className="text-xs text-slate-500">{azienda.email || ''}</p>
                       </td>
                       <td className="px-3 py-3 font-black text-emerald-700">{provv ? `${Number(provv.percentuale_gestore || 0)}%` : '0%'}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-1">
+                          <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(durc.tone)}`}>DURC: {durc.label}</span>
+                          <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${badgeDocumentoClass(polizza.tone)}`}>Polizza: {polizza.label}</span>
+                          {(azienda.certificazioni_iso || azienda.certificazioni_soa) && (
+                            <span className="w-fit rounded-full border border-sky-200 bg-sky-100 px-2 py-1 text-[10px] font-black uppercase text-sky-700">
+                              {[azienda.certificazioni_iso, azienda.certificazioni_soa].filter(Boolean).join(' • ')}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-3">
                         <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${azienda.attiva !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
                           {azienda.attiva !== false ? 'Attiva' : 'Disattiva'}
@@ -6343,15 +7572,33 @@ function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
 }
 
 
-function GestioneAnagraficheBox({ condomini, onSaved }) {
+function GestioneAnagraficheBox({ condomini, amministratori = [], onSaved }) {
   const [tab, setTab] = useState('amministratore');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '' });
-  const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
-  const [condominoForm, setCondominoForm] = useState({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+  const [adminForm, setAdminForm] = useState({ nome: '', email: '', telefono: '', studio: '', provincia: 'Firenze', citta: '', indirizzo: '', numero_condomini: '', numero_condomini_interessati: '', origine: 'Gestione anagrafiche', stato_pipeline: 'cliente_attivo', note: '' });
+  const [collaboratoreForm, setCollaboratoreForm] = useState({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
+  const [condominioForm, setCondominioForm] = useState({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', codiceFiscale: '', codiceSdi: '', amministratoreEmail: '' });
+  const [condominoForm, setCondominoForm] = useState({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+  const [tecnicoForm, setTecnicoForm] = useState({ nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' });
+  const [importTecniciText, setImportTecniciText] = useState('');
   const [importCondominioId, setImportCondominioId] = useState('');
   const [importText, setImportText] = useState('');
+  const amministratoriOptions = useMemo(() => (amministratori || [])
+    .filter((admin) => admin?.email)
+    .map((admin) => {
+      const email = String(admin.email || '').toLowerCase().trim();
+      const studio = String(admin.studio || admin.nome_studio || admin.ragione_sociale || '').trim();
+      const referente = String(admin.nome || '').trim();
+      return {
+        email,
+        studio,
+        referente,
+        label: studio || referente || email,
+      };
+    })
+    .filter((admin, index, array) => admin.email && array.findIndex((item) => item.email === admin.email) === index)
+    .sort((a, b) => String(a.label || a.email || '').localeCompare(String(b.label || b.email || ''))), [amministratori]);
 
   const invokeGestione = async (payload) => {
     setSaving(true);
@@ -6383,14 +7630,35 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
       .filter(Boolean)
       .map((row) => {
         const parts = row.includes(';') ? row.split(';') : row.split(',');
+        const hasCognome = parts.length >= 5;
         return {
           nome: String(parts[0] || '').trim(),
-          email: String(parts[1] || '').trim(),
-          millesimi: String(parts[2] || '').trim(),
-          telefono: String(parts[3] || '').trim(),
+          cognome: hasCognome ? String(parts[1] || '').trim() : '',
+          email: String(parts[hasCognome ? 2 : 1] || '').trim(),
+          millesimi: String(parts[hasCognome ? 3 : 2] || '').trim(),
+          telefono: String(parts[hasCognome ? 4 : 3] || '').trim(),
         };
       });
   };
+
+  const parseImportTecniciRows = () => importTecniciText
+    .split('\n')
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) => {
+      const parts = row.includes(';') ? row.split(';') : row.split(',');
+      return {
+        nome: String(parts[0] || '').trim(),
+        cognome: String(parts[1] || '').trim(),
+        studio_tecnico: String(parts[2] || '').trim(),
+        email: String(parts[3] || '').trim(),
+        telefono: String(parts[4] || '').trim(),
+        indirizzo: String(parts[5] || '').trim(),
+        citta: String(parts[6] || '').trim(),
+        provincia: String(parts[7] || '').trim(),
+        note: String(parts.slice(8).join(' ') || '').trim(),
+      };
+    });
 
   return (
     <section className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
@@ -6403,8 +7671,11 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
         <div className="flex flex-wrap gap-2">
           {[
             ['amministratore', 'Amministratore'],
+            ['collaboratore', 'Collaboratore'],
             ['condominio', 'Condominio'],
             ['condomino', 'Condòmino'],
+            ['tecnico', 'Tecnico'],
+            ['import-tecnici', 'Import tecnici'],
             ['import', 'Import condòmini'],
           ].map(([key, label]) => (
             <button
@@ -6434,15 +7705,57 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
           onSubmit={async (event) => {
             event.preventDefault();
             const data = await invokeGestione({ action: 'crea_amministratore', ...adminForm });
-            if (data?.success) setAdminForm({ nome: '', email: '', telefono: '', studio: '' });
+            if (data?.success) setAdminForm({ nome: '', email: '', telefono: '', studio: '', provincia: 'Firenze', citta: '', indirizzo: '', numero_condomini: '', numero_condomini_interessati: '', origine: 'Gestione anagrafiche', stato_pipeline: 'cliente_attivo', note: '' });
           }}
         >
-          <input value={adminForm.nome} onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })} placeholder="Nome amministratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Nome studio / ragione sociale" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.nome} onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })} placeholder="Nome referente amministratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={adminForm.telefono} onChange={(e) => setAdminForm({ ...adminForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-          <input value={adminForm.studio} onChange={(e) => setAdminForm({ ...adminForm, studio: e.target.value })} placeholder="Studio / riferimento" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.provincia} onChange={(e) => setAdminForm({ ...adminForm, provincia: e.target.value })} placeholder="Provincia" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.citta} onChange={(e) => setAdminForm({ ...adminForm, citta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.indirizzo} onChange={(e) => setAdminForm({ ...adminForm, indirizzo: e.target.value })} placeholder="Indirizzo studio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.numero_condomini} onChange={(e) => setAdminForm({ ...adminForm, numero_condomini: e.target.value })} placeholder="Condomìni gestiti stimati" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={adminForm.numero_condomini_interessati} onChange={(e) => setAdminForm({ ...adminForm, numero_condomini_interessati: e.target.value })} placeholder="Condomìni papabili CSP" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <select value={adminForm.stato_pipeline} onChange={(e) => setAdminForm({ ...adminForm, stato_pipeline: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="cliente_attivo">Cliente attivo</option>
+            <option value="potenziale">Potenziale</option>
+            <option value="in_trattativa">In trattativa</option>
+            <option value="presentazione_effettuata">Presentazione effettuata</option>
+          </select>
+          <textarea value={adminForm.note} onChange={(e) => setAdminForm({ ...adminForm, note: e.target.value })} placeholder="Note commerciali / condomìni papabili" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-xs font-bold text-indigo-800 md:col-span-2">
+            L’amministratore viene creato come utente operativo e aggiornato anche nel CRM lead amministratori, così lo studio resta tracciato sia come cliente attivo sia come potenziale commerciale sui condomìni ancora papabili.
+          </div>
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva amministratore'}
+          </button>
+        </form>
+      )}
+
+      {tab === 'collaboratore' && (
+        <form
+          className="grid gap-3 md:grid-cols-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = await invokeGestione({ action: 'crea_collaboratore', ...collaboratoreForm });
+            if (data?.success) setCollaboratoreForm({ nome: '', email: '', telefono: '', amministratoreEmail: '' });
+          }}
+        >
+          <input value={collaboratoreForm.nome} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, nome: e.target.value })} placeholder="Nome collaboratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={collaboratoreForm.email} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, email: e.target.value })} placeholder="Email collaboratore" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={collaboratoreForm.telefono} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <select value={collaboratoreForm.amministratoreEmail} onChange={(e) => setCollaboratoreForm({ ...collaboratoreForm, amministratoreEmail: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="">Seleziona studio amministratore collegato</option>
+            {amministratoriOptions.map((admin) => (
+              <option key={admin.email} value={admin.email}>{admin.label}</option>
+            ))}
+          </select>
+          <div className="rounded-2xl border border-sky-100 bg-sky-50 p-3 text-xs font-bold text-sky-800 md:col-span-2">
+            Il collaboratore eredita i condomìni dello studio amministrativo collegato, vede l’operatività e le fatture interventi, ma non vede guadagni, provvigioni o dashboard economiche dell’amministratore.
+          </div>
+          <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
+            {saving ? 'Salvataggio...' : 'Salva collaboratore'}
           </button>
         </form>
       )}
@@ -6453,13 +7766,25 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
           onSubmit={async (event) => {
             event.preventDefault();
             const data = await invokeGestione({ action: 'crea_condominio', ...condominioForm });
-            if (data?.success) setCondominioForm({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', amministratoreEmail: '' });
+            if (data?.success) setCondominioForm({ condominioNome: '', condominioIndirizzo: '', condominioCitta: '', codiceFiscale: '', codiceSdi: '', amministratoreEmail: '' });
           }}
         >
           <input value={condominioForm.condominioNome} onChange={(e) => setCondominioForm({ ...condominioForm, condominioNome: e.target.value })} placeholder="Nome condominio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioIndirizzo} onChange={(e) => setCondominioForm({ ...condominioForm, condominioIndirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominioForm.condominioCitta} onChange={(e) => setCondominioForm({ ...condominioForm, condominioCitta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-          <input value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} placeholder="Email amministratore associato" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.codiceFiscale} onChange={(e) => setCondominioForm({ ...condominioForm, codiceFiscale: e.target.value.toUpperCase() })} placeholder="Codice fiscale condominio" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominioForm.codiceSdi} onChange={(e) => setCondominioForm({ ...condominioForm, codiceSdi: e.target.value.toUpperCase() })} placeholder="Codice univoco SDI condominio" maxLength={7} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <select value={condominioForm.amministratoreEmail} onChange={(e) => setCondominioForm({ ...condominioForm, amministratoreEmail: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <option value="">Seleziona studio amministratore associato</option>
+            {amministratoriOptions.map((admin) => (
+              <option key={admin.email} value={admin.email}>{admin.label}</option>
+            ))}
+          </select>
+          {amministratoriOptions.length === 0 && (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold text-amber-800 md:col-span-2">
+              Prima crea almeno uno studio amministrativo: il condominio viene collegato scegliendolo dall’elenco, senza scrivere email manualmente.
+            </div>
+          )}
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva condominio'}
           </button>
@@ -6472,7 +7797,7 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
           onSubmit={async (event) => {
             event.preventDefault();
             const data = await invokeGestione({ action: 'crea_condomino', ...condominoForm });
-            if (data?.success) setCondominoForm({ nome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
+            if (data?.success) setCondominoForm({ nome: '', cognome: '', email: '', telefono: '', condominioId: '', millesimi: '' });
           }}
         >
           <select value={condominoForm.condominioId} onChange={(e) => setCondominoForm({ ...condominoForm, condominioId: e.target.value })} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
@@ -6480,12 +7805,36 @@ function GestioneAnagraficheBox({ condomini, onSaved }) {
             {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
           <input value={condominoForm.nome} onChange={(e) => setCondominoForm({ ...condominoForm, nome: e.target.value })} placeholder="Nome condòmino" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={condominoForm.cognome} onChange={(e) => setCondominoForm({ ...condominoForm, cognome: e.target.value })} placeholder="Cognome / famiglia" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominoForm.email} onChange={(e) => setCondominoForm({ ...condominoForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominoForm.telefono} onChange={(e) => setCondominoForm({ ...condominoForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
           <input value={condominoForm.millesimi} onChange={(e) => setCondominoForm({ ...condominoForm, millesimi: e.target.value })} placeholder="Millesimi" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
           <button disabled={saving} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">
             {saving ? 'Salvataggio...' : 'Salva condòmino'}
           </button>
+        </form>
+      )}
+
+
+      {tab === 'tecnico' && (
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={async (event) => { event.preventDefault(); const data = await invokeGestione({ action: 'crea_tecnico', ...tecnicoForm }); if (data?.success) setTecnicoForm({ nome: '', cognome: '', studio_tecnico: '', email: '', telefono: '', indirizzo: '', citta: '', provincia: '', note: '' }); }}>
+          <input value={tecnicoForm.nome} onChange={(e) => setTecnicoForm({ ...tecnicoForm, nome: e.target.value })} placeholder="Nome tecnico" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.cognome} onChange={(e) => setTecnicoForm({ ...tecnicoForm, cognome: e.target.value })} placeholder="Cognome tecnico" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.studio_tecnico} onChange={(e) => setTecnicoForm({ ...tecnicoForm, studio_tecnico: e.target.value })} placeholder="Studio tecnico" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.email} onChange={(e) => setTecnicoForm({ ...tecnicoForm, email: e.target.value })} placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.telefono} onChange={(e) => setTecnicoForm({ ...tecnicoForm, telefono: e.target.value })} placeholder="Telefono" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.indirizzo} onChange={(e) => setTecnicoForm({ ...tecnicoForm, indirizzo: e.target.value })} placeholder="Indirizzo" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.citta} onChange={(e) => setTecnicoForm({ ...tecnicoForm, citta: e.target.value })} placeholder="Città" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <input value={tecnicoForm.provincia} onChange={(e) => setTecnicoForm({ ...tecnicoForm, provincia: e.target.value })} placeholder="Provincia" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <textarea value={tecnicoForm.note} onChange={(e) => setTecnicoForm({ ...tecnicoForm, note: e.target.value })} placeholder="Note" className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm md:col-span-2" />
+          <button disabled={saving} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white disabled:opacity-60 md:col-span-2">{saving ? 'Salvataggio...' : 'Salva tecnico'}</button>
+        </form>
+      )}
+
+      {tab === 'import-tecnici' && (
+        <form className="space-y-3" onSubmit={async (event) => { event.preventDefault(); const rows = parseImportTecniciRows(); const data = await invokeGestione({ action: 'importa_tecnici', tecnici: rows }); if (data?.success || data?.partial_success) setImportTecniciText(''); }}>
+          <textarea value={importTecniciText} onChange={(e) => setImportTecniciText(e.target.value)} rows={8} placeholder={'Formato: Nome; cognome; studio tecnico; email; telefono; indirizzo; città; provincia; note\nMario; Rossi; Studio Rossi; mario@email.it; 333000000; Via Roma 1; Pisa; PI; Interessato a CaSP'} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <button disabled={saving} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{saving ? 'Importazione...' : 'Importa tecnici'}</button>
         </form>
       )}
 
@@ -6533,7 +7882,7 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, fi
             <option value="">Tutti i condomini</option>
             {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
-          {ruolo === 'amministratore' && (
+          {(ruolo === 'amministratore' || ruolo === 'collaboratore') && (
             <select value={filtroStato} onChange={(e) => onChangeFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
               <option value="">Tutti gli stati</option>
               <option value="Presa in carico">Presa in carico</option>
@@ -6736,6 +8085,8 @@ function TimelinePratica({ stato }) {
 }
 
 function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, onRefreshVoti }) {
+  const ruoloDettaglio = String(ruolo || '').toLowerCase().trim();
+  const isAmministratoreOperativoDettaglio = ruoloDettaglio === 'amministratore' || ruoloDettaglio === 'collaboratore';
   const [nota, setNota] = useState('');
   const [mostraCronologia, setMostraCronologia] = useState(false);
   const [file, setFile] = useState(null);
@@ -6763,7 +8114,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
   const emailCondominiAbilitati = new Set(
     (utentiSistema || [])
-      .filter((utente) => String(utente.ruolo || '').toLowerCase().trim() === 'condominio')
+      .filter((utente) => ['condominio', 'condomino'].includes(String(utente.ruolo || '').toLowerCase().trim()))
       .map((utente) => String(utente.email || '').toLowerCase().trim())
       .filter(Boolean)
   );
@@ -6916,7 +8267,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
-            {(ruolo === 'gestore' || ruolo === 'amministratore') && (
+            {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
               <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
             )}
             {segnalazione.data_inizio_lavori_presunta && (
@@ -6930,13 +8281,13 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                 <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
               </div>
             )}
-            {segnalazione.preventivourl && (ruolo !== 'condominio' || segnalazione.preventivo_condiviso_condomini) && (
+            {segnalazione.preventivourl && (!['condominio', 'condomino'].includes(ruolo) || segnalazione.preventivo_condiviso_condomini) && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
                   Apri preventivo
                 </a>
 
-                {(ruolo === 'condominio' || ruolo === 'amministratore' || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
+                {(['condominio', 'condomino'].includes(ruolo) || isAmministratoreOperativoDettaglio || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
                   <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3">
                     <div>
                       <p className="text-sm font-semibold text-sky-800">
@@ -6947,7 +8298,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       </p>
                     </div>
 
-                    {ruolo === 'condominio' && (
+                    {['condominio', 'condomino'].includes(ruolo) && (
                       <div className="space-y-2 border-t border-sky-200 pt-3">
                         <p className="text-xs font-bold uppercase tracking-wide text-sky-800">
                           Voto consultivo condomino
@@ -6984,7 +8335,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       </div>
                     )}
 
-                    {(ruolo === 'condominio' || ruolo === 'gestore') && (
+                    {(['condominio', 'condomino'].includes(ruolo) || ruolo === 'gestore') && (
                       <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
@@ -7037,7 +8388,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </div>
                 )}
 
-                {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && (
+                {isAmministratoreOperativoDettaglio && segnalazione.stato === 'Preventivata' && (
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -7070,7 +8421,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </p>
                 )}
 
-                {ruolo === 'amministratore' && segnalazione.stato === 'Preventivata' && !segnalazione.preventivo_condiviso_condomini && (
+                {isAmministratoreOperativoDettaglio && segnalazione.stato === 'Preventivata' && !segnalazione.preventivo_condiviso_condomini && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -7084,7 +8435,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                   </button>
                 )}
 
-                {segnalazione.preventivo_condiviso_condomini && ruolo === 'amministratore' && (
+                {segnalazione.preventivo_condiviso_condomini && isAmministratoreOperativoDettaglio && (
                   <div className="rounded-xl bg-sky-100 px-3 py-3 text-sm font-semibold text-sky-700">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p>Preventivo condiviso con i condomini</p>
@@ -7160,7 +8511,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
                       )}
                     </div>
 
-                    {ruolo === 'amministratore' && nonVotanti.length > 0 && (
+                    {isAmministratoreOperativoDettaglio && nonVotanti.length > 0 && (
                       <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 md:max-h-32 md:overflow-auto">
                         <p className="border-b border-amber-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-700">Non votanti</p>
                         {nonVotanti.map((email) => (
@@ -7336,7 +8687,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruolo === 'amministratore' && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
+            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto costi per millesimi</p>
@@ -7834,6 +9185,7 @@ function LavoriPrivatiSuite({
 }
 
 
+
 function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
   if (!updateInfo) return null;
 
@@ -8051,7 +9403,7 @@ export default function App() {
   };
   const [utente, setUtente] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [ruolo, setRuolo] = useState('gestore');
+  const [ruolo, setRuolo] = useState('');
   const [condomini, setCondomini] = useState([]);
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8071,31 +9423,78 @@ export default function App() {
   const [showArchiviate, setShowArchiviate] = useState(false);
   const [gestoreSection, setGestoreSection] = useState('pratiche');
   const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
+  const [condominoSection, setCondominoSection] = useState('segnalazioni');
   const [contratti, setContratti] = useState([]);
   const [leadAmministratori, setLeadAmministratori] = useState([]);
+  const [leadTecnici, setLeadTecnici] = useState([]);
   const [aziendePartner, setAziendePartner] = useState([]);
   const [provvigioniPartner, setProvvigioniPartner] = useState([]);
   const [fatturePartner, setFatturePartner] = useState([]);
+  const [lavoriPrivati, setLavoriPrivati] = useState([]);
+  const [fattureLavoriPrivati, setFattureLavoriPrivati] = useState([]);
+  const [lavoroPrivatoApertoId, setLavoroPrivatoApertoId] = useState(null);
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
+  const [votiAssembleaCasep, setVotiAssembleaCasep] = useState([]);
   const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
   const [partnerCampaignLog, setPartnerCampaignLog] = useState([]);
   const [utentiCondomini, setUtentiCondomini] = useState([]);
   const [utentiSistema, setUtentiSistema] = useState([]);
   const [showReportSemestrale, setShowReportSemestrale] = useState(false);
   const [sendingReportSemestrale, setSendingReportSemestrale] = useState(false);
-  const [lavoriPrivati, setLavoriPrivati] = useState([]);
-  const [fattureLavoriPrivati, setFattureLavoriPrivati] = useState([]);
-  const [lavoroPrivatoApertoId, setLavoroPrivatoApertoId] = useState(null);
 
 
   const [reportCondominio, setReportCondominio] = useState([]);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
-  const puoCreareSegnalazioni = ruoloNormalizzato === 'amministratore' || ruoloNormalizzato === 'condominio' || ruoloNormalizzato === 'condomino';
+  const isCollaboratore = ruoloNormalizzato === 'collaboratore';
+  const isAmministratoreOperativo = ruoloNormalizzato === 'amministratore' || isCollaboratore;
+  const puoVedereGuadagniAmministratore = ruoloNormalizzato === 'amministratore';
+  const puoVedereFattureOperative = isAmministratoreOperativo;
+  const puoCreareSegnalazioni = isAmministratoreOperativo || ['condominio', 'condomino'].includes(ruoloNormalizzato);
+
+  // Elenco amministratori censiti per Gestione Anagrafiche.
+  // La selezione operativa avviene per nome studio/ragione sociale; l'email resta il riferimento tecnico nascosto.
+  const amministratoriAnagrafiche = useMemo(() => {
+    const daUtenti = (utentiSistema || [])
+      .filter((u) => String(u.ruolo || '').toLowerCase().trim() === 'amministratore')
+      .map((u) => ({
+        email: u.email,
+        nome: u.nome || '',
+        studio: u.studio || u.ragione_sociale || u.nome_studio || '',
+      }));
+
+    const daCondomini = (condomini || [])
+      .filter((c) => c.amministratore_email)
+      .map((c) => ({
+        email: c.amministratore_email,
+        nome: c.amministratore_nome || c.nome_amministratore || c.amministratore || '',
+        studio: c.amministratore_studio || c.studio_amministratore || '',
+      }));
+
+    const mappa = new Map();
+    [...daUtenti, ...daCondomini].forEach((admin) => {
+      const email = String(admin.email || '').toLowerCase().trim();
+      if (!email) return;
+      const precedente = mappa.get(email) || {};
+      mappa.set(email, {
+        ...precedente,
+        ...admin,
+        email,
+        nome: admin.nome || precedente.nome || '',
+        studio: admin.studio || precedente.studio || '',
+      });
+    });
+
+    return [...mappa.values()].sort((a, b) => {
+      const labelA = a.studio || a.nome || a.email || '';
+      const labelB = b.studio || b.nome || b.email || '';
+      return String(labelA).localeCompare(String(labelB));
+    });
+  }, [utentiSistema, condomini]);
 
 
   const mostraToast = (title, message = '', tone = 'info') => {
@@ -8257,7 +9656,7 @@ export default function App() {
   }, [reportCondominio, ruoloNormalizzato, condomini, userProfile]);
 
 
-  const hasPreventiviBanner = ruoloNormalizzato !== 'condominio' && segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
+  const hasPreventiviBanner = !['condominio', 'condomino'].includes(ruoloNormalizzato) && segnalazioniVisualizzate.some((s) => s.stato_invio === 'inviato' && !s.stato_conversione);
 
   const normalizzaSegnalazioni = (data) => (data || []).map((item) => {
     const statoDb = item.stato || '';
@@ -8299,6 +9698,9 @@ export default function App() {
       params.delete('pratica');
       params.delete('segnalazione');
       params.delete('segnalazioneId');
+      params.delete('fromPush');
+      params.delete('source');
+      params.delete('utm_source');
 
       const query = params.toString();
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
@@ -8319,6 +9721,7 @@ export default function App() {
     if (lavoro) {
       setLavoroPrivatoApertoId(Number(lavoroId));
       if (ruoloNormalizzato === 'gestore') setGestoreSection('lavori-privati');
+      if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('lavori-privati');
       params.delete('lavoroPrivato');
       params.delete('lavoro_privato');
       params.delete('privato');
@@ -8328,6 +9731,7 @@ export default function App() {
       window.history.replaceState({}, document.title, nextUrl);
     }
   }, [utente, lavoriPrivati, ruoloNormalizzato]);
+
 
   const carica = async () => {
     setLoading(true);
@@ -8344,9 +9748,9 @@ export default function App() {
       setUtente(currentUser);
       const profile = await loadUserProfile(currentUser.email);
       setUserProfile(profile);
-      setRuolo(profile.ruolo || 'non_configurato');
+      setRuolo(String(profile.ruolo || 'non_configurato').toLowerCase().trim());
 
-      const { data: condominiData, error: condominiError } = await supabase.from('condomini').select('id, nome, indirizzo').order('nome');
+      const { data: condominiData, error: condominiError } = await supabase.from('condomini').select('id, nome, indirizzo, csp_attivo').order('nome');
       if (condominiError) throw condominiError;
       setCondomini(condominiData || []);
 
@@ -8396,6 +9800,14 @@ export default function App() {
 
       if (leadError && leadError.code !== 'PGRST116') throw leadError;
       setLeadAmministratori(leadData || []);
+
+      const { data: leadTecniciData, error: leadTecniciError } = await supabase
+        .from('lead_tecnici')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (leadTecniciError && leadTecniciError.code !== 'PGRST116' && leadTecniciError.code !== '42P01') throw leadTecniciError;
+      setLeadTecnici(leadTecniciData || []);
 
       const { data: aziendePartnerData, error: aziendePartnerError } = await supabase
         .from('aziende_partner')
@@ -8477,6 +9889,14 @@ export default function App() {
       if (capitolatiEventiError && capitolatiEventiError.code !== 'PGRST116' && capitolatiEventiError.code !== '42P01') throw capitolatiEventiError;
       setCapitolatiEventi(capitolatiEventiData || []);
 
+      const { data: votiAssembleaCasepData, error: votiAssembleaCasepError } = await supabase
+        .from('casep_assemblea_voti')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (votiAssembleaCasepError && votiAssembleaCasepError.code !== 'PGRST116' && votiAssembleaCasepError.code !== '42P01') throw votiAssembleaCasepError;
+      setVotiAssembleaCasep(votiAssembleaCasepData || []);
+
       const { data: onboardingData, error: onboardingError } = await supabase
         .from('partner_onboarding_casp')
         .select('*')
@@ -8493,16 +9913,26 @@ export default function App() {
       if (campaignLogError && campaignLogError.code !== 'PGRST116' && campaignLogError.code !== '42P01') throw campaignLogError;
       setPartnerCampaignLog(campaignLogData || []);
 
-      const { data: utentiCondominiData, error: utentiCondominiError } = await supabase
+      let utentiCondominiData = [];
+      const { data: utentiCondominiConCognome, error: utentiCondominiError } = await supabase
         .from('utenti_condomini')
-        .select('email, condominio_id, millesimi, ruolo, onesignal_subscription_id');
+        .select('email, condominio_id, millesimi, ruolo, cognome, onesignal_subscription_id');
 
-      if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
+      if (utentiCondominiError && utentiCondominiError.code === '42703') {
+        const { data: utentiCondominiFallback, error: utentiCondominiFallbackError } = await supabase
+          .from('utenti_condomini')
+          .select('email, condominio_id, millesimi, ruolo, onesignal_subscription_id');
+        if (utentiCondominiFallbackError && utentiCondominiFallbackError.code !== 'PGRST116') throw utentiCondominiFallbackError;
+        utentiCondominiData = utentiCondominiFallback || [];
+      } else {
+        if (utentiCondominiError && utentiCondominiError.code !== 'PGRST116') throw utentiCondominiError;
+        utentiCondominiData = utentiCondominiConCognome || [];
+      }
       setUtentiCondomini(utentiCondominiData || []);
 
       const { data: utentiSistemaData, error: utentiSistemaError } = await supabase
         .from('utenti')
-        .select('email, ruolo, nome, onesignal_subscription_id');
+        .select('email, ruolo, nome, studio, onesignal_subscription_id');
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
@@ -8610,46 +10040,38 @@ export default function App() {
     try {
       const allegatonome = form.file ? await uploadFile(form.file, 'segnalazione') : '';
       const condominioId = Number(form.condominioId);
-      const { error } = await supabase.from('segnalazioni').insert({
-        titolo: form.titolo.trim(),
-        descrizione: form.descrizione.trim(),
-        categoria: form.categoria,
-        priorita: form.priorita,
-        luogo: form.luogo.trim(),
-        referente: form.referente.trim(),
-        telefono: form.telefono.trim(),
-        condominio_id: condominioId,
-        stato: 'Presa in carico',
-        allegatonome,
-        amministratore_email: utente?.email || '',
-        amministratore_telefono: userProfile?.telefono || '',
-        note: [],
+      const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
+
+      const { data, error } = await supabase.functions.invoke('crea-segnalazione', {
+        body: {
+          titolo: form.titolo.trim(),
+          descrizione: form.descrizione.trim(),
+          categoria: form.categoria,
+          priorita: form.priorita,
+          luogo: form.luogo.trim(),
+          referente: form.referente.trim(),
+          telefono: form.telefono.trim(),
+          condominioId,
+          nomeCondominio,
+          allegatonome,
+          amministratoreEmail: utente?.email || '',
+          amministratoreTelefono: userProfile?.telefono || '',
+          appUrl: getCurrentAppBaseUrl(),
+          launchUrl: buildAppDeepLink({ fromPush: '1' }),
+          source: 'App.jsx',
+          release: APP_VERSION,
+        },
       });
+
       if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Creazione segnalazione non completata.');
 
-      try {
-        const nomeCondominio = condomini.find((c) => Number(c.id) === condominioId)?.nome || 'il tuo condominio';
-        const { data: notifyData, error: notifyError } = await supabase.functions.invoke('notify-condominio', {
-          body: {
-            condominioId,
-            title: 'Nuova segnalazione',
-            message: `È stata inserita una nuova segnalazione per ${nomeCondominio}. Apri l’app per i dettagli.`,
-          },
-        });
-
-        if (notifyError) {
-          console.warn('Notifica push nuova segnalazione non inviata:', notifyError.message || notifyError);
-        } else {
-          console.info('Notifica push nuova segnalazione inviata:', notifyData);
-        }
-      } catch (notifyCatchError) {
-        console.warn('Errore chiamata notify-condominio:', notifyCatchError);
-      }
+      console.info('Segnalazione creata tramite crea-segnalazione:', data);
 
       setShowNuovaSegnalazione(false);
       await carica();
       setStatusMessage('Segnalazione salvata correttamente.');
-      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e la notifica è stata inviata agli utenti collegati al condominio.', 'success');
+      mostraToast('Nuova segnalazione creata', 'La pratica è stata salvata e le notifiche sono state inviate agli utenti collegati al condominio.', 'success');
     } finally {
       setSaving(false);
     }
@@ -9307,6 +10729,54 @@ export default function App() {
     }
   };
 
+
+  const normalizzaLeadTecnico = (tecnico = {}) => ({
+    nome: String(tecnico.nome || '').trim(),
+    cognome: String(tecnico.cognome || tecnico.tecnico_cognome || '').trim(),
+    studio_tecnico: String(tecnico.studio_tecnico || tecnico.tecnico_studio || '').trim(),
+    email: String(tecnico.email || tecnico.tecnico_email || '').toLowerCase().trim(),
+    telefono: String(tecnico.telefono || tecnico.tecnico_telefono || '').trim(),
+    indirizzo: String(tecnico.indirizzo || tecnico.tecnico_indirizzo || '').trim(),
+    citta: String(tecnico.citta || tecnico.tecnico_citta || '').trim(),
+    provincia: String(tecnico.provincia || tecnico.tecnico_provincia || '').trim(),
+    note: String(tecnico.note || tecnico.tecnico_note || '').trim(),
+  });
+
+  const upsertLeadTecnico = async (tecnico = {}) => {
+    const payload = normalizzaLeadTecnico(tecnico);
+    if (!payload.email) return null;
+    const { data: existing, error: existingError } = await supabase.from('lead_tecnici').select('id').eq('email', payload.email).maybeSingle();
+    if (existingError && existingError.code !== 'PGRST116') throw existingError;
+    if (existing?.id) {
+      const { data, error } = await supabase.from('lead_tecnici').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single();
+      if (error) throw error;
+      return data;
+    }
+    const { data, error } = await supabase.from('lead_tecnici').insert(payload).select().single();
+    if (error) throw error;
+    return data;
+  };
+
+  const creaLeadTecnico = async (tecnico) => {
+    try { await upsertLeadTecnico(tecnico); setStatusMessage('Lead tecnico salvato con successo.'); await carica(); }
+    catch (error) { console.error(error); alert('Errore salvataggio tecnico: ' + (error.message || 'sconosciuto')); }
+  };
+
+  const aggiornaLeadTecnico = async (tecnicoId, updatePayload) => {
+    try {
+      const payload = normalizzaLeadTecnico(updatePayload);
+      const { error } = await supabase.from('lead_tecnici').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', tecnicoId);
+      if (error) throw error;
+      setLeadTecnici((prev) => prev.map((tecnico) => Number(tecnico.id) === Number(tecnicoId) ? { ...tecnico, ...payload } : tecnico));
+      setStatusMessage('Lead tecnico aggiornato con successo.'); await carica();
+    } catch (error) { console.error(error); alert('Errore aggiornamento tecnico: ' + (error.message || 'sconosciuto')); }
+  };
+
+  const importaLeadTecnici = async (rows = []) => {
+    try { let salvati = 0; for (const row of rows || []) { const payload = normalizzaLeadTecnico(row); if (!payload.email) continue; await upsertLeadTecnico(payload); salvati += 1; } setStatusMessage(`Import tecnici completato: ${salvati} contatti salvati.`); await carica(); }
+    catch (error) { console.error(error); alert('Errore import tecnici: ' + (error.message || 'sconosciuto')); }
+  };
+
   const creaAziendaPartner = async (azienda) => {
     try {
       const percentualeGestore = Number(azienda.percentuale_gestore || 0);
@@ -9594,8 +11064,36 @@ export default function App() {
     try {
       const numeroPratica = capitolato.numero_pratica || `CASEP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
 
+      let tecnicoLead = null;
+      if (capitolato.tecnico_email) {
+        try {
+          tecnicoLead = await upsertLeadTecnico({
+            nome: capitolato.tecnico_nome,
+            cognome: capitolato.tecnico_cognome,
+            studio_tecnico: capitolato.tecnico_studio,
+            email: capitolato.tecnico_email,
+            telefono: capitolato.tecnico_telefono,
+            indirizzo: capitolato.tecnico_indirizzo,
+            citta: capitolato.tecnico_citta,
+            provincia: capitolato.tecnico_provincia,
+            note: capitolato.tecnico_note,
+          });
+        } catch (leadTecnicoError) {
+          console.warn('Lead tecnico non salvato automaticamente:', leadTecnicoError);
+        }
+      }
+
+      const {
+        tecnico_cognome,
+        tecnico_indirizzo,
+        tecnico_citta,
+        tecnico_provincia,
+        ...capitolatoDbPayload
+      } = capitolato;
+
       const payload = {
-        ...capitolato,
+        ...capitolatoDbPayload,
+        tecnico_id: tecnicoLead?.id || capitolato.tecnico_id || null,
         numero_pratica: numeroPratica,
         stato: capitolato.stato || 'Nuovo capitolato',
       };
@@ -9647,23 +11145,35 @@ export default function App() {
         'app'
       );
 
+      const statoCapitolatoAggiornato = String(updatePayload.stato || '').toLowerCase();
+      const decisioneCapitolatoAggiornata = String(updatePayload.decisione_amministratore || '').toLowerCase();
+
       const eventType = updatePayload.convertita_casp
         ? 'conversione_casp'
         : updatePayload.presenza_csp_richiesta
           ? 'presenza_csp_richiesta'
-          : updatePayload.data_assemblea
-            ? 'assemblea_programmata'
-            : updatePayload.offerta_pdf_url
-              ? 'offerta_inviata'
-              : updatePayload.relazione_pdf_url
-                ? 'relazione_inviata'
-                : updatePayload.data_sopralluogo
-                  ? 'sopralluogo_programmato'
-                  : updatePayload.stato
-                    ? 'stato_aggiornato'
-                    : 'aggiornamento';
+          : statoCapitolatoAggiornato.includes('accett') || decisioneCapitolatoAggiornata.includes('accett')
+            ? 'offerta_accettata'
+            : statoCapitolatoAggiornato.includes('rifiut') || decisioneCapitolatoAggiornata.includes('rifiut')
+              ? 'offerta_rifiutata'
+              : updatePayload.data_assemblea
+                ? 'assemblea_programmata'
+                : updatePayload.offerta_pdf_url
+                  ? 'offerta_inviata'
+                  : updatePayload.relazione_pdf_url
+                    ? 'relazione_inviata'
+                    : updatePayload.data_sopralluogo
+                      ? 'sopralluogo_programmato'
+                      : updatePayload.stato
+                        ? 'stato_aggiornato'
+                        : 'aggiornamento';
 
-      if (data?.id) {
+      const campiSoloSalvataggio = ['luogo_assemblea', 'note_sopralluogo'];
+      const deveInviareNotificaCapitolato = Object.keys(updatePayload || {}).some(
+        (campo) => !campiSoloSalvataggio.includes(campo)
+      );
+
+      if (data?.id && deveInviareNotificaCapitolato) {
         console.log('[CaSeP notify] TRIGGER REALE update capitolato -> notify-capitolato', eventType, data, updatePayload);
         const notifyResult = await inviaNotificaCapitolato(eventType, data, {
           updatePayload,
@@ -9671,6 +11181,8 @@ export default function App() {
           updated_from_app: true,
         });
         console.log('[CaSeP notify] update result', eventType, notifyResult);
+      } else if (data?.id) {
+        console.log('[CaSeP notify] update capitolato salvato senza notifica', updatePayload);
       }
 
       setStatusMessage('Capitolato Senza Pensieri aggiornato.');
@@ -9678,6 +11190,58 @@ export default function App() {
     } catch (error) {
       console.error(error);
       alert('Errore aggiornamento capitolato: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+
+  const salvaVotoAssembleaCasep = async (payload) => {
+    try {
+      if (!payload?.capitolato_id || !payload?.email) return;
+
+      const record = {
+        capitolato_id: Number(payload.capitolato_id),
+        condominio_id: payload.condominio_id ? Number(payload.condominio_id) : null,
+        email: String(payload.email || '').toLowerCase().trim(),
+        nome: payload.nome || '',
+        cognome: payload.cognome || '',
+        millesimi: Number(payload.millesimi || 0),
+        presente: Boolean(payload.presente),
+        voto: payload.voto || null,
+        delegato_a_email: payload.delegato_a_email || null,
+        note: payload.note || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('casep_assemblea_voti')
+        .upsert(record, { onConflict: 'capitolato_id,email' });
+
+      if (error) throw error;
+
+      setVotiAssembleaCasep((prev) => {
+        const altri = (prev || []).filter((item) => !(Number(item.capitolato_id) === Number(record.capitolato_id) && String(item.email || '').toLowerCase().trim() === record.email));
+        return [record, ...altri];
+      });
+    } catch (error) {
+      console.error(error);
+      alert('Errore salvataggio voto assemblea CaSeP: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
+  const cancellaCapitolatoSenzaPensieri = async (capitolatoId) => {
+    try {
+      const id = Number(capitolatoId);
+      if (!id) return;
+
+      await supabase.from('capitolati_eventi').delete().eq('capitolato_id', id);
+      const { error } = await supabase.from('capitolati_senza_pensieri').delete().eq('id', id);
+      if (error) throw error;
+
+      setStatusMessage('Pratica Capitolato Senza Pensieri cancellata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore cancellazione pratica: ' + (error.message || 'sconosciuto'));
     }
   };
 
@@ -9818,7 +11382,6 @@ export default function App() {
     }
   };
 
-
   const uploadLavoroPrivatoFile = async (file, folder = 'lavori-privati') => {
     if (!file) return { url: '', name: '' };
     const safeName = file.name.split(' ').join('-');
@@ -9944,6 +11507,7 @@ export default function App() {
     }
   };
 
+
   const logout = async () => {
     try {
       setStatusMessage('Uscita in corso. Pulizia sessione dispositivo...');
@@ -10000,7 +11564,7 @@ export default function App() {
 
       setUtente(null);
       setUserProfile(null);
-      setRuolo('gestore');
+      setRuolo('');
       setDettaglioAperto(null);
 
       window.location.replace(`/?logout=${Date.now()}`);
@@ -10047,17 +11611,18 @@ export default function App() {
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche, contratti e report' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
+    { id: 'tecnici', label: 'Tecnici', subtitle: 'CRM tecnico CaSP' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Partner, fatture e provvigioni' },
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
-    { id: 'lavori-privati', label: '🏠 Lavori privati', subtitle: 'Richieste dirette condòmini' },
     { id: 'campagne', label: 'Campagne', subtitle: 'Invii partner CaSP' },
+    { id: 'lavori-privati', label: '🏠 Lavori privati', subtitle: 'Canale diretto condòmini' },
   ];
 
   const amministratoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
-    { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture, scadenze e PDF' },
-    { id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' },
+    { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture interventi, scadenze e PDF' },
+    ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
   ];
 
@@ -10093,7 +11658,7 @@ export default function App() {
           onLogout={logout}
         />
 
-        {ruoloNormalizzato === 'amministratore' && (
+        {isAmministratoreOperativo && (
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               {amministratoreSections.map((section) => (
@@ -10117,7 +11682,34 @@ export default function App() {
           </section>
         )}
 
-        {ruoloNormalizzato !== 'gestore' && (ruoloNormalizzato !== 'amministratore' || amministratoreSection === 'pratiche') && (
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {[
+                { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
+                { id: 'lavori-privati', label: '🏠 Lavori privati', subtitle: 'Canale diretto con il gestore' },
+              ].map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setCondominoSection(section.id)}
+                  className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
+                    condominoSection === section.id
+                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  <span className="block text-sm font-black">{section.label}</span>
+                  <span className={`mt-1 block text-[11px] font-semibold ${condominoSection === section.id ? 'text-emerald-50' : 'text-slate-500'}`}>
+                    {section.subtitle}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
             <ActionBar
               condomini={condominiVisibili}
@@ -10163,7 +11755,7 @@ export default function App() {
           </section>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
+        {isAmministratoreOperativo && amministratoreSection === 'pratiche' && (
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
@@ -10190,7 +11782,7 @@ export default function App() {
           </div>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'pratiche' && (
+        {isAmministratoreOperativo && amministratoreSection === 'pratiche' && (
           <>
             <div className="-mt-2">
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
@@ -10198,20 +11790,22 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'fatturazione' && (
+        {puoVedereFattureOperative && amministratoreSection === 'fatturazione' && (
           <FatturazioneAmministratoreSuite
             fatturePartner={fatturePartner}
             condomini={condomini}
             aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
           />
         )}
 
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'guadagni' && (
+        {puoVedereGuadagniAmministratore && amministratoreSection === 'guadagni' && (
           <GuadagniAmministratoreSuite
             fatturePartner={fatturePartner}
             fattureProvvigioniAmministratori={fattureProvvigioniAmministratori}
             aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
           />
         )}
@@ -10273,7 +11867,7 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'condominio' && (
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
-            <GestioneAnagraficheBox condomini={condomini} onSaved={carica} />
+            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} onSaved={carica} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
@@ -10299,6 +11893,13 @@ export default function App() {
           </>
         )}
 
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'tecnici' && (
+          <>
+            {renderGestoreSectionTitle('Tecnici', 'CRM tecnici, studi tecnici, import/export e sviluppo CaSP.')}
+            <DashboardLeadTecnici leadTecnici={leadTecnici} onCreateLeadTecnico={creaLeadTecnico} onUpdateLeadTecnico={aggiornaLeadTecnico} onImportLeadTecnici={importaLeadTecnici} />
+          </>
+        )}
+
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'territorio' && (
           <>
             {renderGestoreSectionTitle('Territorio', 'Marginalità, Toscana, opportunità territoriali, lead locali e forecast.')}
@@ -10312,9 +11913,10 @@ export default function App() {
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'fatturazione' && (
           <>
-            {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture, pagamenti, provvigioni e liquidazioni.')}
+            {renderGestoreSectionTitle('Fatturazione', 'Aziende partner, fatture CSP/CaSeP, pagamenti, provvigioni e liquidazioni.')}
             <FatturazionePartnerSuite
               aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
               provvigioniPartner={provvigioniPartner}
               fatturePartner={fatturePartner}
@@ -10325,6 +11927,7 @@ export default function App() {
               segnalazioni={segnalazioni}
               utentiSistema={utentiSistema}
               leadAmministratori={leadAmministratori}
+              capitolatiSenzaPensieri={capitolatiSenzaPensieri}
               onCreateAziendaPartner={creaAziendaPartner}
               onUpdateAziendaPartner={aggiornaAziendaPartner}
               onCreateProvvigionePartner={creaProvvigionePartner}
@@ -10349,15 +11952,29 @@ export default function App() {
               capitolatiEventi={capitolatiEventi}
               condomini={condomini}
               utentiSistema={utentiSistema}
+              utentiCondomini={utentiCondomini}
+              votiAssembleaCasep={votiAssembleaCasep}
+              onSaveVotoAssembleaCasep={salvaVotoAssembleaCasep}
               aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
               onCreateCapitolato={creaCapitolatoSenzaPensieri}
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
+              onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
             />
           </>
         )}
 
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'campagne' && (
+          <>
+            {renderGestoreSectionTitle('Campagne Partner CaSP', 'Storico invii, KPI campagne e monitoraggio commerciale partner.')}
+            <CampagnePartnerSuite
+              partnerCampaignLog={partnerCampaignLog}
+              aziendePartner={aziendePartner}
+            />
+          </>
+        )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'lavori-privati' && (
           <>
@@ -10380,48 +11997,28 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'gestore' && gestoreSection === 'campagne' && (
-          <>
-            {renderGestoreSectionTitle('Campagne Partner CaSP', 'Storico invii, KPI campagne e monitoraggio commerciale partner.')}
-            <CampagnePartnerSuite
-              partnerCampaignLog={partnerCampaignLog}
-              aziendePartner={aziendePartner}
-            />
-          </>
-        )}
-
-        {ruoloNormalizzato === 'amministratore' && amministratoreSection === 'capitolato' && (
+        {isAmministratoreOperativo && amministratoreSection === 'capitolato' && (
           <CapitolatoSenzaPensieriSuite
             ruolo={ruoloNormalizzato}
             userProfile={userProfile}
             capitolati={capitolatiSenzaPensieri}
             condomini={condominiVisibili}
             utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
+            votiAssembleaCasep={votiAssembleaCasep}
+            onSaveVotoAssembleaCasep={salvaVotoAssembleaCasep}
             aziendePartner={aziendePartner}
+            contratti={contratti}
             partnerOnboardingCaSP={partnerOnboardingCaSP}
             onCreateCapitolato={creaCapitolatoSenzaPensieri}
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
+            onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
           />
         )}
 
-        {(ruoloNormalizzato === 'condominio' || ruoloNormalizzato === 'condomino') && (
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'segnalazioni' && (
           <section className="space-y-3 pb-36 md:pb-6">
-            <LavoriPrivatiSuite
-              ruolo={ruoloNormalizzato}
-              userProfile={userProfile}
-              condomini={condominiVisibili}
-              lavoriPrivati={lavoriPrivati}
-              fattureLavoriPrivati={fattureLavoriPrivati}
-              lavoroApertoId={lavoroPrivatoApertoId}
-              onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
-              onCreateLavoro={creaLavoroPrivato}
-              onUpdateLavoro={aggiornaLavoroPrivato}
-              onCreateFattura={creaFatturaLavoroPrivato}
-              onUpdateFattura={aggiornaFatturaLavoroPrivato}
-              onUploadFile={uploadLavoroPrivatoFile}
-              onRefresh={carica}
-            />
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
               <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
@@ -10440,9 +12037,27 @@ export default function App() {
             )}
           </section>
         )}
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
+          <LavoriPrivatiSuite
+            ruolo={ruoloNormalizzato}
+            userProfile={userProfile}
+            condomini={condominiVisibili}
+            lavoriPrivati={lavoriPrivati}
+            fattureLavoriPrivati={fattureLavoriPrivati}
+            lavoroApertoId={lavoroPrivatoApertoId}
+            onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
+            onCreateLavoro={creaLavoroPrivato}
+            onUpdateLavoro={aggiornaLavoroPrivato}
+            onCreateFattura={creaFatturaLavoroPrivato}
+            onUpdateFattura={aggiornaFatturaLavoroPrivato}
+            onUploadFile={uploadLavoroPrivatoFile}
+            onRefresh={carica}
+          />
+        )}
+
       </div>
 
-      {puoCreareSegnalazioni && (
+      {puoCreareSegnalazioni && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
         <button
           onClick={() => setShowNuovaSegnalazione(true)}
           style={{ bottom: hasPreventiviBanner ? '110px' : '1.25rem' }}
@@ -10456,7 +12071,7 @@ export default function App() {
         </button>
       )}
 
-      {puoCreareSegnalazioni && showNuovaSegnalazione && (
+      {puoCreareSegnalazioni && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && showNuovaSegnalazione && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4">
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
