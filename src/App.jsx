@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -984,6 +984,81 @@ function Login() {
   );
 }
 
+function MultiCondominioSwitcher({ ruolo, condomini = [], filtroCondominioId, onChangeCondominio }) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isUtenteMulti = ruoloNorm !== 'gestore' && Array.isArray(condomini) && condomini.length > 1;
+
+  if (!isUtenteMulti) return null;
+
+  const attivoId = filtroCondominioId ? String(filtroCondominioId) : '';
+  const seleziona = (id) => {
+    onChangeCondominio(id ? String(id) : '');
+  };
+
+  return (
+    <section className="rounded-[2rem] border border-emerald-100 bg-white p-4 shadow-sm csp-enter">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Profilo multi-condominio</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">I tuoi condomìni CSP</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Hai più immobili collegati: puoi vedere tutto insieme oppure filtrare una singola posizione.
+          </p>
+        </div>
+        <select
+          value={attivoId}
+          onChange={(e) => seleziona(e.target.value)}
+          className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900 outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+        >
+          <option value="">Tutti i condomìni</option>
+          {condomini.map((condominio) => (
+            <option key={condominio.id} value={String(condominio.id)}>
+              {condominio.nome || `Condominio #${condominio.id}`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => seleziona('')}
+          className={`rounded-3xl border p-4 text-left transition-all duration-200 ${
+            !attivoId
+              ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+              : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+          }`}
+        >
+          <p className="text-sm font-black">Vista unica</p>
+          <p className={`mt-1 text-xs font-semibold ${!attivoId ? 'text-emerald-50' : 'text-slate-500'}`}>
+            Tutte le pratiche, i report e i contenuti collegati al tuo profilo.
+          </p>
+        </button>
+        {condomini.map((condominio) => {
+          const isActive = attivoId === String(condominio.id);
+          return (
+            <button
+              key={condominio.id}
+              type="button"
+              onClick={() => seleziona(condominio.id)}
+              className={`rounded-3xl border p-4 text-left transition-all duration-200 ${
+                isActive
+                  ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50'
+              }`}
+            >
+              <p className="text-sm font-black">{condominio.nome || `Condominio #${condominio.id}`}</p>
+              <p className={`mt-1 text-xs font-semibold ${isActive ? 'text-emerald-50' : 'text-slate-500'}`}>
+                {condominio.indirizzo || 'Indirizzo non indicato'}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, onLogout }) {
   const ora = new Date().getHours();
   let saluto = 'Ciao';
@@ -1012,14 +1087,19 @@ function Header({ utente, ruolo, userProfile, condominiVisibili, segnalazioni, o
       return 'Operatività su ' + condominiVisibili.length + ' condomini';
     }
 
-    if ((ruolo === 'condominio' || ruolo === 'condomino') && userProfile?.condominio) {
-      return 'Condominio: ' + userProfile.condominio;
+    if (ruolo === 'condominio' || ruolo === 'condomino') {
+      const numeroCondomini = Array.isArray(userProfile?.condomini) ? userProfile.condomini.length : 0;
+      if (numeroCondomini > 1) return numeroCondomini + ' condomìni collegati al tuo profilo';
+      if (userProfile?.condominio) return 'Condominio: ' + userProfile.condominio;
     }
 
     return 'Profilo attivo';
   })();
 
-  const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + (userProfile?.condominio || 'non specificato') + '. Ho bisogno di supporto.';
+  const condominiWhatsapp = Array.isArray(userProfile?.condomini) && userProfile.condomini.length
+    ? userProfile.condomini.map((c) => c?.nome).filter(Boolean).join(', ')
+    : (userProfile?.condominio || 'non specificato');
+  const whatsappText = 'Ciao Simone, sono ' + (userProfile?.nome || 'un utente') + ', del condominio ' + condominiWhatsapp + '. Ho bisogno di supporto.';
 
   return (
     <header className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-emerald-300 via-emerald-500 to-teal-800 px-2 pb-6 pt-6 shadow-[0_35px_120px_-30px_rgba(5,150,105,0.85)] backdrop-blur-2xl transition-all duration-500 ease-out hover:shadow-[0_45px_140px_-35px_rgba(5,150,105,0.95)] md:px-6 md:pb-8 md:pt-12">
@@ -9634,6 +9714,20 @@ export default function App() {
   }, [utentiSistema, condomini]);
 
 
+  useEffect(() => {
+    const ids = (userProfile?.condominiIds || []).map((id) => String(id));
+    if (ids.length === 1 && !selectedCondominioId) setSelectedCondominioId(ids[0]);
+    if (filtroCondominioId && !ids.includes(String(filtroCondominioId)) && ruoloNormalizzato !== 'gestore') {
+      setFiltroCondominioId('');
+    }
+  }, [userProfile, selectedCondominioId, filtroCondominioId, ruoloNormalizzato]);
+
+  const cambiaCondominioOperativo = (condominioId) => {
+    const next = condominioId ? String(condominioId) : '';
+    setFiltroCondominioId(next);
+    setSelectedCondominioId(next);
+  };
+
   const mostraToast = (title, message = '', tone = 'info') => {
     setToastInterno({ title, message, tone, createdAt: Date.now() });
 
@@ -12022,6 +12116,13 @@ export default function App() {
           onLogout={logout}
         />
 
+        <MultiCondominioSwitcher
+          ruolo={ruoloNormalizzato}
+          condomini={condominiVisibili}
+          filtroCondominioId={filtroCondominioId}
+          onChangeCondominio={cambiaCondominioOperativo}
+        />
+
         {sezioniMenuLaterale.length > 0 && (
           <>
             <div className="sticky top-3 z-30 flex justify-start">
@@ -12495,7 +12596,7 @@ export default function App() {
                 onSave={salvaSegnalazione}
                 saving={saving}
                 condomini={condominiVisibili}
-                selectedCondominioId={selectedCondominioId}
+                selectedCondominioId={selectedCondominioId || filtroCondominioId}
                 onChangeCondominio={setSelectedCondominioId}
               />
             </div>
