@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3269,6 +3269,8 @@ function CapitolatoSenzaPensieriSuite({
   const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
   const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', ora: '', luogo: '' });
   const [presentazioneAssembleaId, setPresentazioneAssembleaId] = useState(null);
+  const [showNuovoCapitolatoModal, setShowNuovoCapitolatoModal] = useState(false);
+  const [capitolatoSuccessMessage, setCapitolatoSuccessMessage] = useState('');
 
   const apriPresentazioneAssemblea = (capitolatoId) => {
     try {
@@ -3647,7 +3649,9 @@ function CapitolatoSenzaPensieriSuite({
     const result = await onCreateCapitolato(payload);
 
     if (result?.success) {
-      alert('Pratica Capitolato Senza Pensieri aperta correttamente.');
+      setShowNuovoCapitolatoModal(false);
+      setCapitolatoSuccessMessage('Pratica Capitolato Senza Pensieri aperta correttamente.');
+      window.setTimeout(() => setCapitolatoSuccessMessage(''), 4500);
       setForm({
         condominio_id: '',
         condominio_nome: '',
@@ -3661,9 +3665,13 @@ function CapitolatoSenzaPensieriSuite({
         note: '',
         capitolato_pdf_url: '',
         tecnico_nome: '',
+        tecnico_cognome: '',
         tecnico_studio: '',
         tecnico_email: '',
         tecnico_telefono: '',
+        tecnico_indirizzo: '',
+        tecnico_citta: '',
+        tecnico_provincia: '',
         tecnico_note: '',
       });
       setCapitolatoPdfName('');
@@ -3990,7 +3998,37 @@ function CapitolatoSenzaPensieriSuite({
       )}
 
       {!isGestore && (
-        <section className="h-[920px] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm csp-scroll">
+        <>
+          <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Capitolato Senza Pensieri</p>
+                <h2 className="mt-1 text-xl font-black text-slate-900">Nuova pratica Capitolato</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Apri la richiesta in una finestra dedicata: meno ingombro, più controllo, nessun invio accidentale.</p>
+              </div>
+              <button type="button" onClick={() => setShowNuovoCapitolatoModal(true)} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-sky-800">
+                Apri nuova pratica
+              </button>
+            </div>
+            {capitolatoSuccessMessage && (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-black text-emerald-800">
+                {capitolatoSuccessMessage}
+              </div>
+            )}
+          </section>
+
+          {showNuovoCapitolatoModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3">
+              <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl csp-scroll">
+                <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Capitolato Senza Pensieri</p>
+                    <h3 className="mt-1 text-xl font-black text-slate-900">Apri pratica Capitolato</h3>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">Carica i dati e conferma solo quando la richiesta è completa.</p>
+                  </div>
+                  <button type="button" onClick={() => setShowNuovoCapitolatoModal(false)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
+                </div>
+                <section className="p-5">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Nuovo capitolato</p>
           <h2 className="mt-1 text-xl font-bold">Apri pratica Capitolato</h2>
           <p className="mt-1 text-sm text-slate-500">Carica il capitolato e crea una scheda tecnica completa del condominio e del tecnico incaricato.</p>
@@ -4058,6 +4096,10 @@ function CapitolatoSenzaPensieriSuite({
             </button>
           </form>
         </section>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <section className="h-[760px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -8948,6 +8990,7 @@ function LavoriPrivatiSuite({
   const isGestore = ruoloNorm === 'gestore';
   const isCondomino = ruoloNorm === 'condominio' || ruoloNorm === 'condomino';
   const [showForm, setShowForm] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [lavoroAperto, setLavoroAperto] = useState(null);
   const [saving, setSaving] = useState(false);
   const [drafts, setDrafts] = useState({});
@@ -9057,6 +9100,8 @@ function LavoriPrivatiSuite({
       }, form.file);
       setForm({ condominio_id: userProfile?.condominiIds?.[0] || '', titolo: '', descrizione: '', categoria: 'Manutenzione privata', priorita: 'Normale', telefono: userProfile?.telefono || '', file: null });
       setShowForm(false);
+      setSuccessMessage('Richiesta inviata correttamente. Ti terremo aggiornato direttamente da questo spazio.');
+      window.setTimeout(() => setSuccessMessage(''), 4500);
     } finally {
       setSaving(false);
     }
@@ -9214,6 +9259,12 @@ function LavoriPrivatiSuite({
         </div>
       </div>
 
+      {successMessage && (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-800 shadow-sm">
+          {successMessage}
+        </div>
+      )}
+
       <div className="grid gap-3 md:grid-cols-3">
         <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Fatture aperte</p>
@@ -9265,7 +9316,16 @@ function LavoriPrivatiSuite({
       )}
 
       {showForm && isCondomino && (
-        <form onSubmit={creaRichiesta} className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3">
+          <form onSubmit={creaRichiesta} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-5 shadow-2xl csp-scroll">
+            <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">La tua casa Senza Pensieri</p>
+                <h3 className="mt-1 text-xl font-black text-slate-900">Richiedi un preventivo</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Compila la richiesta: il form si chiude dopo l’invio e riceverai gli aggiornamenti in app.</p>
+              </div>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
+            </div>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="text-sm font-bold text-slate-700">Condominio
               <select value={form.condominio_id} onChange={(e) => setForm({ ...form, condominio_id: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2">
@@ -9297,7 +9357,8 @@ function LavoriPrivatiSuite({
             <button type="button" onClick={() => setShowForm(false)} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">Annulla</button>
             <button disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Invio...' : 'Invia richiesta'}</button>
           </div>
-        </form>
+          </form>
+        </div>
       )}
 
       <div className="grid gap-3">
