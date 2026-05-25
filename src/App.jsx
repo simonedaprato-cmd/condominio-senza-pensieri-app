@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -2698,6 +2698,14 @@ function DashboardLeadAmministratori({ leadAmministratori, onUpdateLead }) {
 
 
 function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolati = [], lavoriPrivati = [], fattureLavoriPrivati = [], fatturePartner = [], fattureProvvigioniGestore = [] }) {
+  const IVA_PRIVATI_LSP = 1.22;
+  const importoImponibilePrivato = (record = {}) => {
+    const imponibileEsplicito = Number(record.importo_imponibile || record.imponibile || record.netto || 0);
+    if (imponibileEsplicito > 0) return imponibileEsplicito;
+    const lordo = Number(record.totale || record.importo_totale || record.importo_preventivo || record.importo || record.valore || 0);
+    return lordo > 0 ? Math.round((lordo / IVA_PRIVATI_LSP) * 100) / 100 : 0;
+  };
+
   const contrattiAttivi = (contratti || []).filter((c) => String(c.stato || '').toLowerCase() === 'attivo');
   const abbonamentiCsp = contrattiAttivi.reduce((sum, c) => sum + Number(c.ricavo_annuo || (Number(c.ricavo_mensile || 0) * 12) || 0), 0);
 
@@ -2708,15 +2716,15 @@ function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolat
   const provvigioniCasepDirette = (fattureProvvigioniGestore || []).reduce((sum, f) => sum + Number(f.importo_imponibile || f.totale || f.importo || 0), 0);
   const provvigioniCasep = provvigioniCasepDirette || Math.round(valoreCasep * 0.10);
 
-  const valoreLspDaLavori = (lavoriPrivati || []).reduce((sum, l) => sum + Number(l.importo_preventivo || l.importo || 0), 0);
-  const valoreLspDaFatture = (fattureLavoriPrivati || []).reduce((sum, f) => sum + Number(f.importo || f.totale || f.importo_imponibile || 0), 0);
+  const valoreLspDaLavori = (lavoriPrivati || []).reduce((sum, l) => sum + importoImponibilePrivato(l), 0);
+  const valoreLspDaFatture = (fattureLavoriPrivati || []).reduce((sum, f) => sum + importoImponibilePrivato(f), 0);
   const lsp = valoreLspDaFatture || valoreLspDaLavori;
 
   const fonti = [
     { key: 'abbonamenti', label: 'Abbonamenti CSP', value: abbonamentiCsp, tone: 'emerald', note: `${contrattiAttivi.length} contratti attivi` },
     { key: 'pratiche', label: 'Pratiche CSP', value: praticheCsp, tone: 'sky', note: `${praticheCspChiuse.length} pratiche valorizzate` },
     { key: 'casep', label: 'CaSeP', value: provvigioniCasep, tone: 'amber', note: `${(capitolati || []).length} capitolati / cantieri` },
-    { key: 'lsp', label: 'LSP', value: lsp, tone: 'rose', note: `${(lavoriPrivati || []).length} richieste private` },
+    { key: 'lsp', label: 'LSP', value: lsp, tone: 'rose', note: `Imponibile netto IVA 22% • ${(lavoriPrivati || []).length} richieste private` },
   ];
 
   const totale = fonti.reduce((sum, f) => sum + Number(f.value || 0), 0);
@@ -2725,7 +2733,7 @@ function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolat
   const lavoriMese = (lavoriPrivati || []).filter((l) => {
     const d = new Date(l.created_at || l.data_richiesta || 0);
     return d.getFullYear() === annoCorrente && d.getMonth() === meseCorrente;
-  }).reduce((sum, l) => sum + Number(l.importo_preventivo || l.importo || 0), 0);
+  }).reduce((sum, l) => sum + importoImponibilePrivato(l), 0);
   const praticheMese = praticheCspChiuse.filter((s) => {
     const d = new Date(s.updated_at || s.created_at || 0);
     return d.getFullYear() === annoCorrente && d.getMonth() === meseCorrente;
@@ -2761,7 +2769,7 @@ function GuadagniGestoreDashboard({ contratti = [], segnalazioni = [], capitolat
     const lspMese = (lavoriPrivati || []).filter((l) => {
       const d = new Date(l.created_at || l.data_richiesta || 0);
       return d.getFullYear() === annoCorrente && d.getMonth() === index;
-    }).reduce((sum, l) => sum + Number(l.importo_preventivo || l.importo || 0), 0);
+    }).reduce((sum, l) => sum + importoImponibilePrivato(l), 0);
     return { mese, value: pratiche + lspMese };
   });
   const maxMese = Math.max(...andamento.map((m) => m.value), 1);
