@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1056,6 +1056,54 @@ function MultiCondominioSwitcher({ ruolo, condomini = [], filtroCondominioId, on
         })}
       </div>
     </section>
+  );
+}
+
+
+function LiveTopBar({ onOpenMenu, onRefresh, loading }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDate = now.toLocaleDateString('it-IT', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  }).replace('.', '');
+  const formattedTime = now.toLocaleTimeString('it-IT', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return (
+    <div className="sticky top-0 z-50 -mx-1 space-y-2 rounded-b-3xl border border-white/70 bg-white/90 px-3 py-2 shadow-lg shadow-emerald-900/10 backdrop-blur-2xl md:mx-0">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-xl font-black leading-none text-emerald-800 shadow-sm transition hover:bg-emerald-50"
+          aria-label="Apri menu"
+        >
+          ☰
+        </button>
+        <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-slate-500 md:text-sm">
+          <span>{formattedDate}</span>
+          <span className="mx-2 text-emerald-500">•</span>
+          <span className="text-slate-900">{formattedTime}</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={loading}
+        className="w-full rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-800 shadow-sm transition hover:bg-emerald-100 disabled:opacity-60"
+      >
+        {loading ? 'Sincronizzo live...' : 'Aggiorna live'}
+      </button>
+    </div>
   );
 }
 
@@ -3802,6 +3850,26 @@ function CapitolatoSenzaPensieriSuite({
         />
       )}
       <section className="space-y-4">
+      {!isGestore && (
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Capitolato Senza Pensieri</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Nuova pratica Capitolato</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Uno spazio pensato per semplificare ogni nuova richiesta. Tutto organizzato in un flusso chiaro, rapido e sempre consultabile.</p>
+            </div>
+            <button type="button" onClick={() => setShowNuovoCapitolatoModal(true)} className="rounded-2xl bg-sky-700 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-sky-800">
+              Apri nuova pratica
+            </button>
+          </div>
+          {capitolatoSuccessMessage && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-black text-emerald-800">
+              {capitolatoSuccessMessage}
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
@@ -3999,7 +4067,7 @@ function CapitolatoSenzaPensieriSuite({
 
       {!isGestore && (
         <>
-          <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
+          <section className="hidden">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Capitolato Senza Pensieri</p>
@@ -8060,8 +8128,8 @@ function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, fi
             </select>
           )}
           <input value={searchTerm} onChange={(e) => onChangeSearchTerm(e.target.value)} placeholder="Cerca pratica..." className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-          <button onClick={onRefresh} disabled={loading} className="rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
-            {loading ? 'Sincronizzo...' : 'Aggiorna live'}
+          <button type="button" className="rounded-2xl border border-emerald-100 bg-white px-5 py-3 text-sm font-black text-emerald-800 shadow-sm">
+            Vista
           </button>
         </div>
       </div>
@@ -12197,6 +12265,14 @@ export default function App() {
         />
       )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
+        {sezioniMenuLaterale.length > 0 && (
+          <LiveTopBar
+            onOpenMenu={() => setMenuLateraleAperto(true)}
+            onRefresh={carica}
+            loading={loading}
+          />
+        )}
+
         <Header
           utente={utente}
           ruolo={ruoloNormalizzato}
@@ -12210,31 +12286,20 @@ export default function App() {
 
         {sezioniMenuLaterale.length > 0 && (
           <>
-            <div className="sticky top-3 z-40 flex justify-start">
-              <button
-                type="button"
-                onClick={() => setMenuLateraleAperto(true)}
-                className="inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white/95 px-4 py-3 text-sm font-black text-emerald-800 shadow-lg shadow-emerald-900/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-emerald-50"
-                aria-label="Apri menu sezioni"
-              >
-                <span className="text-xl leading-none">☰</span>
-                <span>Menu sezioni</span>
-              </button>
-            </div>
             {menuLateraleAperto && (
               <div className="fixed inset-0 z-50 flex">
                 <button
                   type="button"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
                   onClick={() => setMenuLateraleAperto(false)}
-                  aria-label="Chiudi menu sezioni"
+                  aria-label="Chiudi menu"
                 />
                 <aside className="relative z-10 flex h-full w-[86vw] max-w-sm flex-col overflow-hidden rounded-r-[2rem] border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30">
                   <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700 p-5 text-white">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-100">Condominio Senza Pensieri</p>
-                        <h2 className="mt-2 text-2xl font-black">Menu sezioni</h2>
+                        <h2 className="mt-2 text-2xl font-black">Menu</h2>
                         <p className="mt-1 text-sm font-semibold text-emerald-50/90">Accesso rapido alle aree abilitate.</p>
                       </div>
                       <button
@@ -12298,9 +12363,6 @@ export default function App() {
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
-              <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
-                {loading ? 'Live...' : 'Aggiorna live'}
-              </button>
             </div>
             {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
             {loading ? (
@@ -12379,9 +12441,6 @@ export default function App() {
                   <h2 className="text-xl font-bold">Segnalazioni operative</h2>
                   <p className="text-sm text-slate-500">Elenco pratiche filtrate, sempre in evidenza per il lavoro quotidiano.</p>
                 </div>
-                <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
-                  {loading ? 'Live...' : 'Aggiorna live'}
-                </button>
               </div>
               {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
               {loading ? (
@@ -12600,9 +12659,6 @@ export default function App() {
           <section className="space-y-3 pb-36 md:pb-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-bold">Segnalazioni</h2>
-              <button onClick={carica} disabled={loading} className="rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
-                {loading ? 'Live...' : 'Aggiorna live'}
-              </button>
             </div>
             {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
             {loading ? (
