@@ -4,10 +4,11 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
+const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
 
@@ -211,6 +212,45 @@ function AppMotionStyles() {
           opacity: 1;
           transform: translateY(0) scale(1);
         }
+      }
+
+
+
+      @keyframes cspProgressFill {
+        0% {
+          width: 0%;
+          opacity: 0.72;
+        }
+        18% {
+          width: 18%;
+          opacity: 1;
+        }
+        58% {
+          width: 72%;
+        }
+        100% {
+          width: 100%;
+          opacity: 1;
+        }
+      }
+
+      @keyframes cspSplashGlow {
+        0%, 100% {
+          opacity: 0.55;
+          transform: scale(0.96);
+        }
+        50% {
+          opacity: 0.92;
+          transform: scale(1.04);
+        }
+      }
+
+      .csp-splash-progress {
+        animation: cspProgressFill 2.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+
+      .csp-splash-glow {
+        animation: cspSplashGlow 2.6s ease-in-out infinite;
       }
 
       @keyframes cspSoftPulse {
@@ -853,40 +893,88 @@ function NotifichePushBox({ utenteEmail }) {
 function Login() {
   const [email, setEmail] = useState('');
   const [messaggio, setMessaggio] = useState('');
+  const [messaggioTipo, setMessaggioTipo] = useState('info');
   const [codiceOtp, setCodiceOtp] = useState('');
   const [invioInCorso, setInvioInCorso] = useState(false);
+  const [codiceRichiesto, setCodiceRichiesto] = useState(false);
 
-  const inviaLink = async () => {
+  const mostraMessaggio = (testo, tipo = 'info') => {
+    setMessaggio(testo);
+    setMessaggioTipo(tipo);
+  };
+
+  const verificaEmailAbilitata = async (emailPulita) => {
+    const { data: utente, error: utenteError } = await supabase
+      .from('utenti')
+      .select('email')
+      .ilike('email', emailPulita)
+      .maybeSingle();
+
+    if (utenteError) throw utenteError;
+    if (utente?.email) return true;
+
+    const { data: collegamento, error: collegamentoError } = await supabase
+      .from('utenti_condomini')
+      .select('email')
+      .ilike('email', emailPulita)
+      .limit(1)
+      .maybeSingle();
+
+    if (collegamentoError) throw collegamentoError;
+    return Boolean(collegamento?.email);
+  };
+
+  const inviaCodice = async () => {
     const emailPulita = email.trim().toLowerCase();
     if (!emailPulita || invioInCorso) return;
 
     setInvioInCorso(true);
-    setMessaggio('Invio link in corso...');
+    mostraMessaggio('Verifico il tuo accesso riservato...', 'info');
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: emailPulita,
-      options: { emailRedirectTo: AUTH_REDIRECT_URL },
-    });
+    try {
+      const emailAbilitata = await verificaEmailAbilitata(emailPulita);
 
-    setInvioInCorso(false);
+      if (!emailAbilitata) {
+        mostraMessaggio('Email non riconosciuta. Questa email non risulta abilitata all’accesso a Condominio Senza Pensieri. Verifica l’indirizzo inserito oppure contatta l’assistenza tecnica.', 'error');
+        setCodiceRichiesto(false);
+        return;
+      }
 
-    if (error) {
-      setMessaggio('Accesso non riuscito: ' + error.message);
-      return;
+      mostraMessaggio('Invio del codice di accesso in corso...', 'info');
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: emailPulita,
+        options: {
+          emailRedirectTo: AUTH_REDIRECT_URL,
+          data: {
+            app_name: 'Condominio Senza Pensieri',
+            logo_url: OTP_MAIL_LOGO_URL,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      setCodiceRichiesto(true);
+      mostraMessaggio('Codice inviato. Controlla la tua email e inserisci le 6 cifre per accedere alla tua area riservata.', 'success');
+    } catch (error) {
+      console.error(error);
+      mostraMessaggio('Accesso non riuscito: ' + (error.message || 'errore sconosciuto'), 'error');
+    } finally {
+      setInvioInCorso(false);
     }
-
-    setMessaggio('Email inviata. Da iPhone non aprire il link: copia il codice OTP e inseriscilo qui nell’app.');
   };
 
   const verificaCodice = async () => {
     const emailPulita = email.trim().toLowerCase();
     const token = codiceOtp.trim().replace(/\s+/g, '');
 
-    if (!emailPulita) return setMessaggio('Inserisci prima la tua email.');
-    if (!token) return setMessaggio('Inserisci il codice OTP ricevuto via email.');
+    if (!emailPulita) return mostraMessaggio('Inserisci prima la tua email.', 'error');
+    if (!token) return mostraMessaggio('Inserisci il codice ricevuto via email.', 'error');
+    if (token.length < 6) return mostraMessaggio('Il codice deve contenere 6 cifre.', 'error');
 
     setInvioInCorso(true);
-    setMessaggio('');
+    mostraMessaggio('Verifica del codice in corso...', 'info');
 
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -896,10 +984,10 @@ function Login() {
       });
 
       if (error) throw error;
-      setMessaggio('Accesso confermato. Caricamento area riservata...');
+      mostraMessaggio('Accesso verificato. Sto preparando la tua area riservata...', 'success');
     } catch (error) {
       console.error(error);
-      setMessaggio('Errore verifica codice: ' + (error.message || 'codice non valido o scaduto'));
+      mostraMessaggio('Codice non valido o scaduto. Richiedi un nuovo codice e riprova.', 'error');
     } finally {
       setInvioInCorso(false);
     }
@@ -908,77 +996,99 @@ function Login() {
   const incollaDaClipboard = async () => {
     try {
       if (!navigator?.clipboard?.readText) {
-        return setMessaggio('Copia automatica non supportata su questo dispositivo.');
+        return mostraMessaggio('Copia automatica non supportata su questo dispositivo.', 'error');
       }
 
       const testo = await navigator.clipboard.readText();
-      if (!testo) return setMessaggio('Nessun codice trovato negli appunti.');
+      if (!testo) return mostraMessaggio('Nessun codice trovato negli appunti.', 'error');
 
-      setCodiceOtp(testo.replace(/\s+/g, ''));
-      setMessaggio('Codice incollato automaticamente.');
+      const codice = testo.replace(/\D/g, '').slice(0, 6);
+      setCodiceOtp(codice);
+      mostraMessaggio(codice ? 'Codice incollato automaticamente.' : 'Non ho trovato un codice valido negli appunti.', codice ? 'success' : 'error');
     } catch (error) {
       console.error(error);
-      setMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.');
+      mostraMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.', 'error');
     }
   };
 
+  const messageClass = messaggioTipo === 'error'
+    ? 'border-red-100 bg-red-50 text-red-700'
+    : messaggioTipo === 'success'
+      ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+      : 'border-slate-100 bg-slate-50 text-slate-600';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-sm csp-enter csp-touch-card">
-        <div className="mb-5 flex flex-col items-center rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-5 text-center shadow-inner">
-          <LogoMark />
-          <p className="mt-2 text-xs font-black uppercase tracking-[0.24em] text-amber-300">Condominio Senza Pensieri</p>
-          <p className="mt-1 text-xs text-white/70">Gestione evoluta. Serenità reale.</p>
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900">Accesso</h1>
-        <p className="mt-2 text-sm text-slate-500">Inserisci la tua email per ricevere il link di accesso. Da iPhone usa il codice OTP: il link può aprire Safari e non l’app installata.</p>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          className="mt-5 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-        />
-        <button
-          onClick={inviaLink}
-          disabled={invioInCorso || !email.trim()}
-          className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-3 font-bold text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
-        >
-          {invioInCorso ? 'Invio...' : 'Ricevi link / codice'}
-        </button>
-        <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
-          <strong>Accesso iPhone:</strong> apri l’app dalla Home, richiedi l’email, poi copia il codice OTP dalla mail e rientra qui. Non usare il link della mail su iPhone.
-        </div>
-        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Accesso con codice OTP</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Su iPhone usa sempre questo metodo: non aprire il link, copia il codice ricevuto via email e inseriscilo qui.
-          </p>
-          <input
-            value={codiceOtp}
-            onChange={(e) => setCodiceOtp(e.target.value)}
-            placeholder="Codice OTP"
-            className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-          />
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={incollaDaClipboard}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 shadow-sm"
-            >
-              Incolla codice
-            </button>
-            <button
-              type="button"
-              onClick={verificaCodice}
-              disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
-              className="rounded-2xl bg-slate-900 px-4 py-3 font-bold text-white shadow-lg shadow-slate-900/20 disabled:opacity-60"
-            >
-              Entra con OTP
-            </button>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-white p-0 shadow-2xl shadow-emerald-950/40 csp-enter csp-touch-card">
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 px-7 py-8 text-center text-white">
+          <div className="absolute inset-x-10 top-8 h-24 rounded-full bg-emerald-400/10 blur-3xl csp-splash-glow" />
+          <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/40 p-3 shadow-2xl shadow-black/35">
+            <img src={OTP_MAIL_LOGO_URL} alt="Condominio Senza Pensieri" className="h-full w-full object-contain" />
           </div>
+          <p className="relative mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-emerald-100">Accesso riservato CSP</p>
+          <h1 className="relative mt-2 text-2xl font-black tracking-tight">Entra con codice sicuro</h1>
+          <p className="relative mt-2 text-sm leading-relaxed text-white/70">Un accesso unico, semplice e uniforme da smartphone, tablet e computer.</p>
         </div>
-        {messaggio && <p className="mt-4 text-sm text-slate-600">{messaggio}</p>}
+
+        <div className="p-7">
+          <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Email abilitata</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setCodiceRichiesto(false);
+            }}
+            placeholder="nome@email.it"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+          />
+
+          <button
+            onClick={inviaCodice}
+            disabled={invioInCorso || !email.trim()}
+            className="mt-4 w-full rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/25 transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:translate-y-0 disabled:opacity-60"
+          >
+            {invioInCorso && !codiceRichiesto ? 'Verifico...' : 'Ricevi codice di accesso'}
+          </button>
+
+          <div className="mt-6 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Codice OTP</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">Inserisci le 6 cifre ricevute via email. Il codice è temporaneo e protegge il tuo accesso.</p>
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={codiceOtp}
+              onChange={(e) => setCodiceOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') verificaCodice();
+              }}
+              placeholder="••••••"
+              className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center text-3xl font-black tracking-[0.45em] text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            />
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={incollaDaClipboard}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 shadow-sm transition hover:-translate-y-0.5"
+              >
+                Incolla codice
+              </button>
+              <button
+                type="button"
+                onClick={verificaCodice}
+                disabled={invioInCorso || !email.trim() || !codiceOtp.trim()}
+                className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
+              >
+                {invioInCorso && codiceRichiesto ? 'Verifico...' : 'Accedi'}
+              </button>
+            </div>
+          </div>
+
+          {messaggio && (
+            <p className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-semibold leading-relaxed ${messageClass}`}>{messaggio}</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -10452,7 +10562,7 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setShowSplash(false);
-    }, 1300);
+    }, 2600);
 
     return () => window.clearTimeout(timer);
   }, []);
@@ -12099,20 +12209,22 @@ export default function App() {
 
   if (showSplash) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-700 p-6 text-white">
-        <div className="flex flex-col items-center text-center">
-          <div className="csp-enter csp-premium-pulse rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl transition-all duration-700 ease-out hover:scale-[1.02]">
+      <div className="flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-6 text-white">
+        <div className="relative flex w-full max-w-sm flex-col items-center text-center">
+          <div className="absolute -top-10 h-52 w-52 rounded-full bg-emerald-400/15 blur-3xl csp-splash-glow" />
+          <div className="relative csp-enter csp-premium-pulse rounded-[2rem] border border-white/10 bg-black/30 p-7 shadow-2xl shadow-emerald-950/50 backdrop-blur-xl">
             <LogoMark className="h-28 w-auto md:h-40" />
           </div>
-          <p className="csp-enter-slow mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
+          <p className="relative csp-enter-slow mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
             Condominio Senza Pensieri
           </p>
-          <p className="mt-2 text-sm text-emerald-50/80">
+          <p className="relative mt-2 text-sm text-emerald-50/80">
             Gestione evoluta. Serenità reale.
           </p>
-          <div className="mt-6 h-1.5 w-36 overflow-hidden rounded-full bg-white/15">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-emerald-300" />
+          <div className="relative mt-7 h-1.5 w-44 overflow-hidden rounded-full bg-white/15 shadow-inner shadow-black/20">
+            <div className="h-full rounded-full bg-gradient-to-r from-emerald-200 via-emerald-300 to-white csp-splash-progress" />
           </div>
+          <p className="relative mt-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/45">preparo la tua area riservata</p>
         </div>
       </div>
     );
