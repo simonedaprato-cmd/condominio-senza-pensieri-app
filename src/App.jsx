@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -9987,36 +9987,27 @@ export default function App() {
       const fileUrl = buildPublicUrl(fileName);
       let rivistaId = null;
 
-      try {
-        const { data: rivistaData, error: rivistaError } = await supabase
-          .from('riviste_condominio')
-          .insert({
-            numero: numero?.trim() || '',
-            periodo: periodo?.trim() || '',
-            titolo: titolo.trim(),
-            descrizione: descrizione?.trim() || '',
-            file_nome: fileName,
-            file_url: fileUrl,
-            pubblicato_da: utente?.email || '',
-          })
-          .select()
-          .single();
-
-        if (rivistaError) throw rivistaError;
-        rivistaId = rivistaData?.id || null;
-      } catch (rivistaError) {
-        console.warn('Rivista caricata ma non salvata in riviste_condominio:', rivistaError);
-        setRivisteCondominio((prev) => [{
-          id: `local-${Date.now()}`,
+      const { data: rivistaData, error: rivistaError } = await supabase
+        .from('riviste_condominio')
+        .insert({
           numero: numero?.trim() || '',
           periodo: periodo?.trim() || '',
           titolo: titolo.trim(),
           descrizione: descrizione?.trim() || '',
           file_nome: fileName,
           file_url: fileUrl,
-          created_at: new Date().toISOString(),
-        }, ...(prev || [])]);
+          pubblicato_da: utente?.email || '',
+        })
+        .select()
+        .single();
+
+      if (rivistaError) {
+        console.error('Errore salvataggio rivista_condominio:', rivistaError);
+        throw new Error(`PDF caricato, ma archivio rivista non salvato: ${rivistaError.message || 'verifica tabella riviste_condominio e policy RLS'}`);
       }
+
+      rivistaId = rivistaData?.id || null;
+      setRivisteCondominio((prev) => [rivistaData, ...(prev || []).filter((r) => r.id !== rivistaData?.id)]);
 
       const rivistaDeepLink = buildAppDeepLink({
         section: 'rivista',
