@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -1074,7 +1074,7 @@ function Login() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') verificaCodice();
               }}
-              placeholder="••••••"
+              placeholder="••••••••"
               className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center text-3xl font-black tracking-[0.45em] text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
             />
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1088,10 +1088,10 @@ function Login() {
               <button
                 type="button"
                 onClick={verificaCodice}
-                disabled={invioInCorso || !email.trim() || !codiceOtpCompleto}
+                disabled={invioInCorso || !email.trim()}
                 className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {invioInCorso && codiceRichiesto ? 'Verifico...' : codiceOtpCompleto ? 'Accedi' : 'Inserisci 8 cifre'}
+                {invioInCorso && codiceRichiesto ? 'Verifico...' : 'Accedi'}
               </button>
             </div>
           </div>
