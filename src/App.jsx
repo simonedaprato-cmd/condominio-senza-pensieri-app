@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -895,6 +895,7 @@ function Login() {
   const [messaggio, setMessaggio] = useState('');
   const [messaggioTipo, setMessaggioTipo] = useState('info');
   const [codiceOtp, setCodiceOtp] = useState('');
+  const otpInputRef = useRef(null);
   const [invioInCorso, setInvioInCorso] = useState(false);
   const [codiceRichiesto, setCodiceRichiesto] = useState(false);
 
@@ -969,7 +970,7 @@ function Login() {
 
   const verificaCodice = async () => {
     const emailPulita = email.trim().toLowerCase();
-    const token = normalizzaCodiceOtp(codiceOtp);
+    const token = normalizzaCodiceOtp(codiceOtp || otpInputRef.current?.value || '');
 
     if (!emailPulita) return mostraMessaggio('Inserisci prima la tua email.', 'error');
     if (!token) return mostraMessaggio('Inserisci il codice ricevuto via email.', 'error');
@@ -1062,7 +1063,9 @@ function Login() {
               autoComplete="one-time-code"
               pattern="[0-9]*"
               maxLength={8}
+              ref={otpInputRef}
               value={codiceOtpPulito}
+              onInput={(e) => setCodiceOtp(normalizzaCodiceOtp(e.currentTarget.value))}
               onChange={(e) => setCodiceOtp(normalizzaCodiceOtp(e.target.value))}
               onPaste={(e) => {
                 e.preventDefault();
@@ -1088,8 +1091,8 @@ function Login() {
               <button
                 type="button"
                 onClick={verificaCodice}
-                disabled={invioInCorso || !email.trim()}
-                className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={invioInCorso}
+                className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {invioInCorso && codiceRichiesto ? 'Verifico...' : 'Accedi'}
               </button>
