@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -903,10 +903,10 @@ function Login() {
     setMessaggioTipo(tipo);
   };
 
-  const normalizzaCodiceOtp = (valore) => String(valore || '').replace(/\D/g, '').slice(0, 6);
+  const normalizzaCodiceOtp = (valore) => String(valore || '').replace(/\D/g, '').slice(0, 8);
 
   const codiceOtpPulito = normalizzaCodiceOtp(codiceOtp);
-  const codiceOtpCompleto = codiceOtpPulito.length === 6;
+  const codiceOtpCompleto = codiceOtpPulito.length === 8;
 
   const verificaEmailAbilitata = async (emailPulita) => {
     const emailNormalizzata = String(emailPulita || '').trim().toLowerCase();
@@ -958,7 +958,7 @@ function Login() {
       if (error) throw error;
 
       setCodiceRichiesto(true);
-      mostraMessaggio('Codice inviato. Controlla la tua email e inserisci le 6 cifre per accedere alla tua area riservata.', 'success');
+      mostraMessaggio('Codice inviato. Controlla la tua email e inserisci le 8 cifre per accedere alla tua area riservata.', 'success');
     } catch (error) {
       console.error(error);
       mostraMessaggio('Accesso non riuscito: ' + (error.message || 'errore sconosciuto'), 'error');
@@ -973,7 +973,7 @@ function Login() {
 
     if (!emailPulita) return mostraMessaggio('Inserisci prima la tua email.', 'error');
     if (!token) return mostraMessaggio('Inserisci il codice ricevuto via email.', 'error');
-    if (token.length !== 6) return mostraMessaggio('Il codice deve contenere 6 cifre.', 'error');
+    if (token.length !== 8) return mostraMessaggio('Il codice deve contenere 8 cifre.', 'error');
 
     setInvioInCorso(true);
     mostraMessaggio('Verifica del codice in corso...', 'info');
@@ -1006,7 +1006,7 @@ function Login() {
 
       const codice = normalizzaCodiceOtp(testo);
       setCodiceOtp(codice);
-      mostraMessaggio(codice.length === 6 ? 'Codice incollato automaticamente. Puoi procedere con l’accesso.' : 'Non ho trovato un codice valido negli appunti.', codice.length === 6 ? 'success' : 'error');
+      mostraMessaggio(codice.length === 8 ? 'Codice incollato automaticamente. Puoi procedere con l’accesso.' : 'Non ho trovato un codice valido negli appunti.', codice.length === 8 ? 'success' : 'error');
     } catch (error) {
       console.error(error);
       mostraMessaggio('Impossibile leggere gli appunti. Incolla manualmente il codice.', 'error');
@@ -1056,12 +1056,12 @@ function Login() {
 
           <div className="mt-6 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Codice OTP</p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">Inserisci le 6 cifre ricevute via email. Il codice è temporaneo e protegge il tuo accesso.</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">Inserisci le 8 cifre ricevute via email. Il codice è temporaneo e protegge il tuo accesso.</p>
             <input
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={8}
               value={codiceOtpPulito}
               onChange={(e) => setCodiceOtp(normalizzaCodiceOtp(e.target.value))}
               onPaste={(e) => {
@@ -1069,7 +1069,7 @@ function Login() {
                 const testo = e.clipboardData?.getData('text') || '';
                 const codice = normalizzaCodiceOtp(testo);
                 setCodiceOtp(codice);
-                if (codice.length === 6) mostraMessaggio('Codice acquisito. Puoi procedere con l’accesso.', 'success');
+                if (codice.length === 8) mostraMessaggio('Codice acquisito. Puoi procedere con l’accesso.', 'success');
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') verificaCodice();
@@ -1091,7 +1091,7 @@ function Login() {
                 disabled={invioInCorso || !email.trim() || !codiceOtpCompleto}
                 className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white shadow-lg shadow-slate-900/25 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {invioInCorso && codiceRichiesto ? 'Verifico...' : codiceOtpCompleto ? 'Accedi' : 'Inserisci 6 cifre'}
+                {invioInCorso && codiceRichiesto ? 'Verifico...' : codiceOtpCompleto ? 'Accedi' : 'Inserisci 8 cifre'}
               </button>
             </div>
           </div>
@@ -7082,7 +7082,7 @@ function FatturazionePartnerSuite({
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-xs font-black uppercase tracking-wide text-amber-700">Reminder documentali</p>
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {aziendeConDocumentiCritici.slice(0, 6).map((azienda) => {
+              {aziendeConDocumentiCritici.slice(0, 8).map((azienda) => {
                 const durc = statoDocumentoAzienda(azienda.durc_scadenza);
                 const polizza = statoDocumentoAzienda(azienda.polizza_scadenza);
                 return (
