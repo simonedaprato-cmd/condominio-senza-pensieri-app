@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.17';
-const APP_VERSION_LABEL = 'CSP v1.0.17';
+const APP_VERSION = '1.0.18';
+const APP_VERSION_LABEL = 'CSP v1.0.18';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -1949,7 +1949,7 @@ function GestioneAnagraficheBox({ condomini = [], amministratori = [], utentiSis
 }
 
 
-function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnovaContratto, onUpgradeContratto }) {
+function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnovaContratto, onUpgradeContratto, onSospendiContratto }) {
   const [ricercaContratti, setRicercaContratti] = useState('');
   const [filtroPianoContratti, setFiltroPianoContratti] = useState('');
   const [contrattoSelezionato, setContrattoSelezionato] = useState(null);
@@ -2047,6 +2047,20 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
                 Porta a Premium
               </button>
             )}
+            {typeof onSospendiContratto === 'function' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const conferma = window.confirm('Sospendere questo contratto per mancato pagamento? Gli accessi collegati potranno essere gestiti dalla logica abbonamenti.');
+                  if (!conferma) return;
+                  await onSospendiContratto(contratto);
+                  setContrattoSelezionato(null);
+                }}
+                className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5"
+              >
+                Sospendi per mancato pagamento
+              </button>
+            )}
             <button type="button" onClick={() => setContrattoSelezionato(null)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5">
               Chiudi scheda
             </button>
@@ -2119,7 +2133,7 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
   );
 }
 
-function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaContratto, onUpgradeContratto }) {
+function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaContratto, onUpgradeContratto, onSospendiContratto }) {
   const [condominioId, setCondominioId] = useState('');
   const [piano, setPiano] = useState('plus');
   const [famiglie, setFamiglie] = useState('');
@@ -2424,6 +2438,20 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
                     className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-amber-900/20 transition hover:-translate-y-0.5"
                   >
                     Porta a Premium
+                  </button>
+                )}
+                {typeof onSospendiContratto === 'function' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const conferma = window.confirm('Sospendere questo contratto per mancato pagamento? Gli accessi collegati potranno essere gestiti dalla logica abbonamenti.');
+                      if (!conferma) return;
+                      await onSospendiContratto(contratto);
+                      setContrattoSelezionato(null);
+                    }}
+                    className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5"
+                  >
+                    Sospendi per mancato pagamento
                   </button>
                 )}
                 <button
@@ -13610,6 +13638,40 @@ export default function App() {
     }
   };
 
+
+
+  const sospendiContratto = async (contratto) => {
+    try {
+      const sospensioneCompleta = {
+        stato: 'sospeso',
+        sospeso_il: new Date().toISOString(),
+        motivo_sospensione: 'Mancato pagamento',
+      };
+
+      let { error } = await supabase
+        .from('contratti_condominio')
+        .update(sospensioneCompleta)
+        .eq('id', contratto.id);
+
+      // Fallback prudente: se le colonne motivo_sospensione/sospeso_il non esistono ancora,
+      // non blocchiamo l'operazione principale e aggiorniamo almeno lo stato contratto.
+      if (error && String(error.message || '').toLowerCase().includes('column')) {
+        const fallback = await supabase
+          .from('contratti_condominio')
+          .update({ stato: 'sospeso' })
+          .eq('id', contratto.id);
+        error = fallback.error;
+      }
+
+      if (error) throw error;
+      setStatusMessage('Contratto sospeso per mancato pagamento.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore sospensione contratto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const uploadLavoroPrivatoFile = async (file, folder = 'lavori-privati') => {
     if (!file) return { url: '', name: '' };
     const safeName = file.name.split(' ').join('-');
@@ -14173,8 +14235,8 @@ export default function App() {
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
             <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} utentiSistema={utentiSistema} utentiCondomini={utentiCondomini} onSaved={carica} />
-            <ArchivioContrattiAttiviCards condomini={condomini} contratti={contratti} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} />
-            <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} />
+            <ArchivioContrattiAttiviCards condomini={condomini} contratti={contratti} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} onSospendiContratto={sospendiContratto} />
+            <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} onSospendiContratto={sospendiContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
               onRinnovaContratto={rinnovaContratto}
