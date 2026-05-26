@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -114,6 +114,7 @@ function buildAppDeepLink(params = {}) {
   });
   return url.toString();
 }
+
 
 
 function buildGoogleMapsUrl(parts = []) {
@@ -1489,25 +1490,15 @@ function GestioneAnagraficheBox({ condomini = [], amministratori = [], onSaved }
   );
 }
 
-function GestioneContratti({ condomini, contratti = [], onCreateContratto, onRinnovaContratto, onUpgradeContratto, onSospendiContratto, onRiattivaContratto, onToggleRinnovoContratto }) {
+function GestioneContratti({ condomini, contratti, onCreateContratto }) {
   const [condominioId, setCondominioId] = useState('');
   const [piano, setPiano] = useState('premium');
   const [famiglie, setFamiglie] = useState('');
-  const [motivoSospensione, setMotivoSospensione] = useState('');
 
   const pianoConfig = PIANI_ABBONAMENTO[piano] || PIANI_ABBONAMENTO.premium;
   const famiglieNum = Number(famiglie || 0);
   const ricavoMensile = famiglieNum * pianoConfig.costo;
   const ricavoAnnuale = ricavoMensile * 12;
-
-  const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
-  const normalizzaStatoContratto = (contratto) => String(contratto?.stato || contratto?.status || '').toLowerCase().trim();
-  const isContrattoAttivo = (contratto) => {
-    const stato = normalizzaStatoContratto(contratto);
-    if (!['attivo', 'attiva'].includes(stato)) return false;
-    if (contratto?.data_scadenza && String(contratto.data_scadenza).slice(0, 10) < new Date().toISOString().slice(0, 10)) return false;
-    return true;
-  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1522,7 +1513,6 @@ function GestioneContratti({ condomini, contratti = [], onCreateContratto, onRin
       ricavo_annuo: ricavoAnnuale,
       gruppo_whatsapp_attivo: pianoConfig.whatsapp,
       app_attiva: pianoConfig.app,
-      rinnovo_automatico: true,
     });
 
     setCondominioId('');
@@ -1530,144 +1520,53 @@ function GestioneContratti({ condomini, contratti = [], onCreateContratto, onRin
     setPiano('premium');
   };
 
-  const sortedContratti = [...(contratti || [])].sort((a, b) => {
-    const da = new Date(a.data_attivazione || a.created_at || 0).getTime();
-    const db = new Date(b.data_attivazione || b.created_at || 0).getTime();
-    return db - da;
-  });
-
-  const attivi = sortedContratti.filter((c) => isContrattoAttivo(c)).length;
-  const sospesi = sortedContratti.filter((c) => ['sospeso', 'sospesa', 'disdetto', 'disdetta'].includes(normalizzaStatoContratto(c))).length;
-  const rinnovoAutomatico = sortedContratti.filter((c) => c.rinnovo_automatico !== false && isContrattoAttivo(c)).length;
-
   return (
-    <section className="space-y-4">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Contratti CSP</p>
-        <h2 className="mt-1 text-xl font-black text-slate-900">Attiva nuovo abbonamento</h2>
-        <p className="mt-1 text-sm font-semibold text-slate-500">Gestione commerciale ricorrente Condominio Senza Pensieri.</p>
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Contratti</p>
+      <h2 className="mt-1 text-xl font-bold">Attiva nuovo abbonamento</h2>
+      <p className="mt-1 text-sm text-slate-500">Gestione commerciale ricorrente Condominio Senza Pensieri.</p>
 
-        <form onSubmit={submit} className="mt-4 space-y-3">
-          <select value={condominioId} onChange={(e) => setCondominioId(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
-            <option value="">Seleziona condominio</option>
-            {(condomini || []).map((c) => (
-              <option key={c.id} value={c.id}>{c.nome}</option>
-            ))}
-          </select>
+      <form onSubmit={submit} className="mt-4 space-y-3">
+        <select value={condominioId} onChange={(e) => setCondominioId(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
+          <option value="">Seleziona condominio</option>
+          {condomini.map((c) => (
+            <option key={c.id} value={c.id}>{c.nome}</option>
+          ))}
+        </select>
 
-          <select value={piano} onChange={(e) => setPiano(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
-            <option value="base">Base</option>
-            <option value="plus">Plus</option>
-            <option value="premium">Premium</option>
-          </select>
+        <select value={piano} onChange={(e) => setPiano(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
+          <option value="base">Base</option>
+          <option value="plus">Plus</option>
+          <option value="premium">Premium</option>
+        </select>
 
-          <input
-            type="number"
-            min="1"
-            placeholder="Numero famiglie"
-            value={famiglie}
-            onChange={(e) => setFamiglie(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 px-3 py-3"
-          />
+        <input
+          type="number"
+          min="1"
+          placeholder="Numero famiglie"
+          value={famiglie}
+          onChange={(e) => setFamiglie(e.target.value)}
+          className="w-full rounded-2xl border border-slate-200 px-3 py-3"
+        />
 
-          <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
-            <p className="text-sm font-black text-slate-900">Riepilogo economico</p>
-            <p className="text-sm text-slate-600">Costo unitario: {formatEuro(pianoConfig.costo)}</p>
-            <p className="text-sm text-slate-600">MRR: {formatEuro(ricavoMensile)}</p>
-            <p className="text-sm text-slate-600">ARR: {formatEuro(ricavoAnnuale)}</p>
-          </div>
-
-          <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5">
-            Attiva contratto
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Archivio contratti</p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">Contratti attivati</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">Rinnovi, sospensioni e stato accessi CSP raccolti in un’unica vista.</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl bg-emerald-50 px-3 py-2"><p className="text-[10px] font-black uppercase text-emerald-700">Attivi</p><p className="text-lg font-black text-slate-900">{attivi}</p></div>
-            <div className="rounded-2xl bg-amber-50 px-3 py-2"><p className="text-[10px] font-black uppercase text-amber-700">Auto</p><p className="text-lg font-black text-slate-900">{rinnovoAutomatico}</p></div>
-            <div className="rounded-2xl bg-red-50 px-3 py-2"><p className="text-[10px] font-black uppercase text-red-700">Sospesi</p><p className="text-lg font-black text-slate-900">{sospesi}</p></div>
-          </div>
+        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+          <p className="text-sm font-semibold">Riepilogo economico</p>
+          <p className="text-sm text-slate-600">Costo unitario: {formatEuro(pianoConfig.costo)}</p>
+          <p className="text-sm text-slate-600">MRR: {formatEuro(ricavoMensile)}</p>
+          <p className="text-sm text-slate-600">ARR: {formatEuro(ricavoAnnuale)}</p>
         </div>
 
-        {sortedContratti.length === 0 ? (
-          <div className="mt-4"><EmptyState icon="📑" title="Nessun contratto attivato" text="I contratti CSP compariranno qui dopo la prima attivazione." action="Archivio pronto" tone="emerald" /></div>
-        ) : (
-          <div className="mt-4 grid gap-3">
-            {sortedContratti.map((contratto) => {
-              const condominio = condominioById(contratto.condominio_id);
-              const stato = normalizzaStatoContratto(contratto) || 'attivo';
-              const active = isContrattoAttivo(contratto);
-              const suspended = ['sospeso', 'sospesa', 'disdetto', 'disdetta'].includes(stato);
-              const rinnovoAuto = contratto.rinnovo_automatico !== false;
-              const dataScadenza = contratto.data_scadenza ? new Date(contratto.data_scadenza).toLocaleDateString('it-IT') : 'Da impostare';
-              const dataAttivazione = contratto.data_attivazione ? new Date(contratto.data_attivazione).toLocaleDateString('it-IT') : 'n.d.';
-              const motivo = motivoSospensione.trim() || 'Disdetta / sospensione servizio CSP';
-              return (
-                <article key={contratto.id} className={`rounded-3xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${suspended ? 'border-red-100 bg-red-50/60' : active ? 'border-emerald-100 bg-emerald-50/40' : 'border-slate-200 bg-slate-50'}`}>
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-black text-slate-900">{condominio?.nome || `Condominio #${contratto.condominio_id}`}</h3>
-                        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide ${suspended ? 'bg-red-100 text-red-700' : active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
-                          {suspended ? 'Sospeso' : active ? 'Attivo' : stato || 'Da verificare'}
-                        </span>
-                        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide ${rinnovoAuto ? 'bg-sky-100 text-sky-700' : 'bg-slate-200 text-slate-600'}`}>
-                          {rinnovoAuto ? 'Rinnovo automatico' : 'Rinnovo manuale'}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm font-semibold text-slate-500">{condominio?.indirizzo || 'Indirizzo non indicato'}</p>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
-                        <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-black uppercase text-slate-400">Piano</p><p className="font-black text-slate-900">{PIANI_ABBONAMENTO[contratto.piano]?.nome || contratto.piano || 'n.d.'}</p></div>
-                        <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-black uppercase text-slate-400">Famiglie</p><p className="font-black text-slate-900">{contratto.famiglie || 0}</p></div>
-                        <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-black uppercase text-slate-400">MRR</p><p className="font-black text-slate-900">{formatEuro(contratto.ricavo_mensile)}</p></div>
-                        <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-black uppercase text-slate-400">ARR</p><p className="font-black text-slate-900">{formatEuro(contratto.ricavo_annuo)}</p></div>
-                        <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-black uppercase text-slate-400">Scadenza</p><p className="font-black text-slate-900">{dataScadenza}</p></div>
-                      </div>
-                      <p className="mt-2 text-xs font-semibold text-slate-500">Attivazione: {dataAttivazione}{contratto.sospeso_il ? ` • Sospeso il ${new Date(contratto.sospeso_il).toLocaleDateString('it-IT')}` : ''}</p>
-                      {contratto.motivo_sospensione && <p className="mt-1 text-xs font-bold text-red-700">Motivo: {contratto.motivo_sospensione}</p>}
-                    </div>
-                    <div className="flex min-w-[220px] flex-col gap-2">
-                      <button type="button" onClick={() => onRinnovaContratto?.(contratto)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-xs font-black uppercase tracking-wide text-white shadow-sm">Rinnova</button>
-                      {contratto.piano !== 'premium' && <button type="button" onClick={() => onUpgradeContratto?.(contratto)} className="rounded-2xl bg-sky-700 px-4 py-3 text-xs font-black uppercase tracking-wide text-white shadow-sm">Upgrade Premium</button>}
-                      <button type="button" onClick={() => onToggleRinnovoContratto?.(contratto, !rinnovoAuto)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-700 shadow-sm">
-                        {rinnovoAuto ? 'Rinnovo manuale' : 'Attiva rinnovo auto'}
-                      </button>
-                      {suspended ? (
-                        <button type="button" onClick={() => onRiattivaContratto?.(contratto)} className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-wide text-white shadow-sm">Riattiva accessi</button>
-                      ) : (
-                        <button type="button" onClick={() => onSospendiContratto?.(contratto, motivo)} className="rounded-2xl bg-red-600 px-4 py-3 text-xs font-black uppercase tracking-wide text-white shadow-sm">Sospendi accessi</button>
-                      )}
-                    </div>
-                  </div>
-                  {!suspended && (
-                    <input
-                      value={motivoSospensione}
-                      onChange={(e) => setMotivoSospensione(e.target.value)}
-                      placeholder="Motivo sospensione opzionale"
-                      className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-red-200 focus:ring-4 focus:ring-red-50"
-                    />
-                  )}
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-bold text-white">
+          Attiva contratto
+        </button>
+      </form>
     </section>
   );
 }
 
 function GestioneRinnoviContratti({ contratti, onRinnovaContratto, onUpgradeContratto }) {
   const inScadenza = contratti.filter((c) => {
-    if (!c.data_scadenza || String(c.stato || '').toLowerCase() !== 'attivo') return false;
+    if (!c.data_scadenza || c.stato !== 'attivo') return false;
     const oggi = new Date();
     const scadenza = new Date(c.data_scadenza);
     const diff = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
@@ -3921,23 +3820,18 @@ function CapitolatoSenzaPensieriSuite({
     return ['true', '1', 'si', 'sì', 'yes', 'attivo', 'attiva'].includes(normalizzato);
   };
 
-  const contrattoCspAttivo = (contratto) => {
-    const statoContratto = String(contratto?.stato || contratto?.status || '').toLowerCase().trim();
-    if (!['attivo', 'attiva'].includes(statoContratto)) return false;
-    if (contratto?.data_scadenza && String(contratto.data_scadenza).slice(0, 10) < new Date().toISOString().slice(0, 10)) return false;
-    return true;
-  };
+  const condominioCspAttivo = (condominioId) => {
+    const condominio = (condomini || []).find((item) => Number(item.id) === Number(condominioId));
+    if (valoreBooleanoAttivo(condominio?.csp_attivo)) return true;
 
-  const contrattoCspSospeso = (contratto) => {
-    const statoContratto = String(contratto?.stato || contratto?.status || '').toLowerCase().trim();
-    return ['sospeso', 'sospesa', 'disdetto', 'disdetta', 'annullato', 'annullata'].includes(statoContratto);
-  };
-
-  const condominioCspAttivo = () => {
-    // Recovery release 203: non filtriamo gli accessi lato frontend per ruolo non gestore.
-    // L'area contratti resta disponibile al gestore, ma il blocco operativo sarà riattivato
-    // solo dopo una verifica dedicata per evitare videate bianche agli altri ruoli.
-    return true;
+    const oggi = new Date().toISOString().slice(0, 10);
+    return (contratti || []).some((contratto) => {
+      if (Number(contratto.condominio_id) !== Number(condominioId)) return false;
+      const statoContratto = String(contratto.stato || contratto.status || '').toLowerCase();
+      if (['annullato', 'annullata', 'disdetto', 'disdetta', 'scaduto', 'scaduta'].includes(statoContratto)) return false;
+      if (contratto.data_scadenza && String(contratto.data_scadenza).slice(0, 10) < oggi) return false;
+      return Boolean(contratto.piano || contratto.app_attiva || contratto.gruppo_whatsapp_attivo || statoContratto === 'attivo' || statoContratto === 'attiva');
+    });
   };
 
   const eseguiCampagnaConsigliata = async (azienda, tipoCampagna) => {
@@ -10818,19 +10712,14 @@ export default function App() {
   const condominiVisibili = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return condomini;
     const ids = userProfile?.condominiIds || [];
-    return condomini.filter((c) => ids.includes(c.id) && condominioCspAttivo(c.id));
-  }, [ruoloNormalizzato, condomini, userProfile, contratti]);
-
-  const condominiSospesiUtente = useMemo(() => {
-    // Recovery release 203: sospensione accessi non applicata agli utenti finché il filtro non viene ri-validato.
-    return [];
-  }, []);
+    return condomini.filter((c) => ids.includes(c.id));
+  }, [ruoloNormalizzato, condomini, userProfile]);
 
   const segnalazioniFiltrate = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return segnalazioni;
     const ids = userProfile?.condominiIds || [];
-    return segnalazioni.filter((s) => ids.includes(s.condominio_id) && condominioCspAttivo(s.condominio_id));
-  }, [segnalazioni, ruoloNormalizzato, userProfile, contratti]);
+    return segnalazioni.filter((s) => ids.includes(s.condominio_id));
+  }, [segnalazioni, ruoloNormalizzato, userProfile]);
 
   const segnalazioniVisualizzate = useMemo(() => {
     const testo = searchTerm.toLowerCase().trim();
@@ -12554,16 +12443,10 @@ export default function App() {
 
   const creaContratto = async (contratto) => {
     try {
-      const dataAttivazione = new Date();
-      const dataScadenza = new Date(dataAttivazione);
-      dataScadenza.setFullYear(dataScadenza.getFullYear() + 1);
-
       const { error } = await supabase.from('contratti_condominio').insert({
         ...contratto,
         stato: 'attivo',
-        data_attivazione: dataAttivazione.toISOString(),
-        data_scadenza: dataScadenza.toISOString(),
-        rinnovo_automatico: contratto.rinnovo_automatico !== false,
+        data_attivazione: new Date().toISOString(),
       });
 
       if (error) throw error;
@@ -12621,94 +12504,6 @@ export default function App() {
     } catch (error) {
       console.error(error);
       alert('Errore upgrade contratto: ' + (error.message || 'sconosciuto'));
-    }
-  };
-
-
-  const toggleRinnovoContratto = async (contratto, rinnovoAutomatico) => {
-    try {
-      const { error } = await supabase
-        .from('contratti_condominio')
-        .update({ rinnovo_automatico: Boolean(rinnovoAutomatico) })
-        .eq('id', contratto.id);
-
-      if (error) throw error;
-      setStatusMessage(rinnovoAutomatico ? 'Rinnovo automatico attivato.' : 'Rinnovo automatico disattivato.');
-      await carica();
-    } catch (error) {
-      console.error(error);
-      alert('Errore aggiornamento rinnovo automatico: ' + (error.message || 'sconosciuto'));
-    }
-  };
-
-  const sospendiContratto = async (contratto, motivo = '') => {
-    try {
-      if (!window.confirm('Vuoi sospendere questo contratto CSP? Gli accessi collegati al condominio verranno bloccati, senza cancellare lo storico.')) return;
-
-      const { error } = await supabase
-        .from('contratti_condominio')
-        .update({
-          stato: 'sospeso',
-          sospeso_il: new Date().toISOString(),
-          motivo_sospensione: motivo || 'Sospensione servizio CSP',
-          rinnovo_automatico: false,
-          app_attiva: false,
-          gruppo_whatsapp_attivo: false,
-        })
-        .eq('id', contratto.id);
-
-      if (error) throw error;
-
-      try {
-        await supabase
-          .from('condomini')
-          .update({ csp_attivo: false })
-          .eq('id', contratto.condominio_id);
-      } catch (syncError) {
-        console.warn('Sync csp_attivo condominio non completato:', syncError);
-      }
-
-      setStatusMessage('Contratto sospeso. Accessi CSP bloccati per il condominio selezionato.');
-      await carica();
-    } catch (error) {
-      console.error(error);
-      alert('Errore sospensione contratto: ' + (error.message || 'sconosciuto'));
-    }
-  };
-
-  const riattivaContratto = async (contratto) => {
-    try {
-      const nuovaScadenza = new Date();
-      nuovaScadenza.setFullYear(nuovaScadenza.getFullYear() + 1);
-
-      const { error } = await supabase
-        .from('contratti_condominio')
-        .update({
-          stato: 'attivo',
-          data_scadenza: contratto.data_scadenza || nuovaScadenza.toISOString(),
-          sospeso_il: null,
-          motivo_sospensione: null,
-          app_attiva: true,
-          rinnovo_automatico: true,
-        })
-        .eq('id', contratto.id);
-
-      if (error) throw error;
-
-      try {
-        await supabase
-          .from('condomini')
-          .update({ csp_attivo: true })
-          .eq('id', contratto.condominio_id);
-      } catch (syncError) {
-        console.warn('Sync csp_attivo condominio non completato:', syncError);
-      }
-
-      setStatusMessage('Contratto riattivato. Accessi CSP ripristinati.');
-      await carica();
-    } catch (error) {
-      console.error(error);
-      alert('Errore riattivazione contratto: ' + (error.message || 'sconosciuto'));
     }
   };
 
@@ -13148,21 +12943,6 @@ export default function App() {
 
 
 
-        {ruoloNormalizzato !== 'gestore' && condominiSospesiUtente.length > 0 && (
-          <section className="rounded-3xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Accesso condominio sospeso</p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">Servizio temporaneamente non attivo</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Per {condominiSospesiUtente.length === 1 ? 'questo condominio' : 'alcuni condomìni collegati al tuo profilo'} il servizio CSP risulta sospeso. Lo storico resta conservato; per informazioni contatta il tuo amministratore o l’assistenza tecnica.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {condominiSospesiUtente.map((condominio) => (
-                <span key={condominio.id} className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800 shadow-sm">{condominio.nome || `Condominio #${condominio.id}`}</span>
-              ))}
-            </div>
-          </section>
-        )}
-
         {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
             <ActionBar
@@ -13290,16 +13070,7 @@ export default function App() {
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
             <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} onSaved={carica} />
-            <GestioneContratti
-              condomini={condomini}
-              contratti={contratti}
-              onCreateContratto={creaContratto}
-              onRinnovaContratto={rinnovaContratto}
-              onUpgradeContratto={upgradeContratto}
-              onSospendiContratto={sospendiContratto}
-              onRiattivaContratto={riattivaContratto}
-              onToggleRinnovoContratto={toggleRinnovoContratto}
-            />
+            <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
               onRinnovaContratto={rinnovaContratto}
