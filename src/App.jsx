@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -1421,71 +1421,425 @@ function DashboardStat({ label, value, tone = 'slate' }) {
 }
 
 
-function GestioneAnagraficheBox({ condomini = [], amministratori = [], onSaved }) {
+function GestioneAnagraficheBox({ condomini = [], amministratori = [], utentiSistema = [], utentiCondomini = [], contratti = [], onSaved }) {
   const condominiAttivi = Array.isArray(condomini) ? condomini : [];
-  const amministratoriAttivi = Array.isArray(amministratori) ? amministratori : [];
+  const utentiAttivi = Array.isArray(utentiSistema) ? utentiSistema : [];
+  const collegamentiAttivi = Array.isArray(utentiCondomini) ? utentiCondomini : [];
+  const contrattiAttivi = Array.isArray(contratti) ? contratti : [];
+
+  const [tab, setTab] = useState('condomini');
+  const [savingAnagrafica, setSavingAnagrafica] = useState(false);
+  const [csvText, setCsvText] = useState('');
+  const [csvMessage, setCsvMessage] = useState('');
+  const [condominioForm, setCondominioForm] = useState({ nome: '', indirizzo: '', famiglie: '' });
+  const [utenteForm, setUtenteForm] = useState({
+    email: '',
+    ruolo: 'condomino',
+    nome: '',
+    cognome: '',
+    studio: '',
+    amministratore_email: '',
+    condominio_id: '',
+    millesimi: '',
+  });
+
+  const emailNorm = (value) => String(value || '').toLowerCase().trim();
+  const ruoloLabel = (ruolo) => {
+    const r = String(ruolo || '').toLowerCase().trim();
+    if (r === 'condominio') return 'Condomino';
+    if (r === 'condomino') return 'Condomino';
+    if (r === 'amministratore') return 'Amministratore';
+    if (r === 'collaboratore') return 'Collaboratore';
+    if (r === 'gestore') return 'Gestore';
+    return ruolo || 'Utente';
+  };
+
+  const contrattiByCondominio = useMemo(() => {
+    const map = new Map();
+    contrattiAttivi.forEach((contratto) => {
+      const id = Number(contratto.condominio_id || 0);
+      if (!id) return;
+      const prev = map.get(id);
+      if (!prev || new Date(contratto.created_at || contratto.data_attivazione || 0) > new Date(prev.created_at || prev.data_attivazione || 0)) {
+        map.set(id, contratto);
+      }
+    });
+    return map;
+  }, [contrattiAttivi]);
+
+  const conteggiByCondominio = useMemo(() => {
+    const map = new Map();
+    collegamentiAttivi.forEach((item) => {
+      const id = Number(item.condominio_id || 0);
+      if (!id) return;
+      const row = map.get(id) || { condomini: 0, amministratori: 0, collaboratori: 0 };
+      const ruolo = String(item.ruolo || '').toLowerCase().trim();
+      if (ruolo === 'amministratore') row.amministratori += 1;
+      else if (ruolo === 'collaboratore') row.collaboratori += 1;
+      else row.condomini += 1;
+      map.set(id, row);
+    });
+    return map;
+  }, [collegamentiAttivi]);
+
+  const insertWithFallback = async (table, payload, fallbackKeys = []) => {
+    const tenta = async (body) => {
+      const { data, error } = await supabase.from(table).insert(body).select('*').maybeSingle();
+      return { data, error };
+    };
+
+    let result = await tenta(payload);
+    if (!result.error) return result.data;
+
+    if (result.error?.code === '42703' && fallbackKeys.length) {
+      const reduced = { ...payload };
+      fallbackKeys.forEach((key) => delete reduced[key]);
+      result = await tenta(reduced);
+      if (!result.error) return result.data;
+    }
+
+    throw result.error;
+  };
+
+  const creaContrattoBaseAutomatico = async (condominioId, famiglie = 0) => {
+    if (!condominioId || contrattiByCondominio.has(Number(condominioId))) return;
+    const famiglieNum = Number(famiglie || 0);
+    const payload = {
+      condominio_id: Number(condominioId),
+      piano: 'base',
+      famiglie: famiglieNum,
+      costo_unitario: PIANI_ABBONAMENTO.base?.costo || 3.9,
+      ricavo_mensile: famiglieNum * (PIANI_ABBONAMENTO.base?.costo || 3.9),
+      ricavo_annuo: famiglieNum * (PIANI_ABBONAMENTO.base?.costo || 3.9) * 12,
+      stato: 'attivo',
+      data_attivazione: new Date().toISOString(),
+      gruppo_whatsapp_attivo: false,
+      app_attiva: false,
+    };
+
+    try {
+      await insertWithFallback('contratti_condominio', payload, ['gruppo_whatsapp_attivo', 'app_attiva', 'data_attivazione']);
+    } catch (error) {
+      console.warn('Contratto base automatico non creato:', error);
+    }
+  };
+
+  const salvaCondominio = async (event) => {
+    event.preventDefault();
+    if (!condominioForm.nome.trim()) return alert('Inserisci il nome del condominio.');
+
+    try {
+      setSavingAnagrafica(true);
+      const nuovo = await insertWithFallback('condomini', {
+        nome: condominioForm.nome.trim(),
+        indirizzo: condominioForm.indirizzo.trim(),
+        csp_attivo: true,
+      }, ['csp_attivo']);
+
+      await creaContrattoBaseAutomatico(nuovo?.id, condominioForm.famiglie);
+      setCondominioForm({ nome: '', indirizzo: '', famiglie: '' });
+      await onSaved?.();
+    } catch (error) {
+      console.error(error);
+      alert('Errore inserimento condominio: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setSavingAnagrafica(false);
+    }
+  };
+
+  const salvaUtente = async (event) => {
+    event.preventDefault();
+    const email = emailNorm(utenteForm.email);
+    if (!email) return alert('Inserisci email utente.');
+
+    try {
+      setSavingAnagrafica(true);
+      const ruoloPulito = String(utenteForm.ruolo || 'condomino').toLowerCase().trim();
+      await insertWithFallback('utenti', {
+        email,
+        ruolo: ruoloPulito,
+        nome: utenteForm.nome.trim(),
+        studio: utenteForm.studio.trim(),
+        amministratore_email: emailNorm(utenteForm.amministratore_email),
+      }, ['amministratore_email', 'studio']);
+
+      if (utenteForm.condominio_id) {
+        await insertWithFallback('utenti_condomini', {
+          email,
+          condominio_id: Number(utenteForm.condominio_id),
+          ruolo: ruoloPulito,
+          cognome: utenteForm.cognome.trim(),
+          millesimi: Number(utenteForm.millesimi || 0),
+        }, ['cognome', 'millesimi']);
+      }
+
+      setUtenteForm({ email: '', ruolo: 'condomino', nome: '', cognome: '', studio: '', amministratore_email: '', condominio_id: '', millesimi: '' });
+      await onSaved?.();
+    } catch (error) {
+      console.error(error);
+      alert('Errore inserimento utente: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setSavingAnagrafica(false);
+    }
+  };
+
+  const splitCsvLine = (line, separator) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === separator && !inQuotes) {
+        result.push(current.replace(/^"|"$/g, '').trim());
+        current = '';
+      } else current += char;
+    }
+    result.push(current.replace(/^"|"$/g, '').trim());
+    return result;
+  };
+
+  const normalizzaHeader = (value) => String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[àá]/g, 'a')
+    .replace(/[èé]/g, 'e')
+    .replace(/[ìí]/g, 'i')
+    .replace(/[òó]/g, 'o')
+    .replace(/[ùú]/g, 'u');
+
+  const importaCsvAnagrafiche = async () => {
+    const righe = csvText.split(/\r?\n/).map((row) => row.trim()).filter(Boolean);
+    if (righe.length < 2) return setCsvMessage('Inserisci intestazione e almeno una riga dati.');
+
+    try {
+      setSavingAnagrafica(true);
+      setCsvMessage('Import in corso...');
+      const separator = righe[0].includes(';') ? ';' : ',';
+      const headers = splitCsvLine(righe[0], separator).map(normalizzaHeader);
+      const get = (row, names) => {
+        for (const name of names) {
+          const index = headers.indexOf(name);
+          if (index >= 0) return row[index] || '';
+        }
+        return '';
+      };
+
+      let importati = 0;
+      for (const riga of righe.slice(1)) {
+        const row = splitCsvLine(riga, separator);
+        const tipo = normalizzaHeader(get(row, ['tipo', 'record', 'categoria'])) || 'utente';
+
+        if (tipo === 'condominio' || get(row, ['nome_condominio', 'condominio_nome'])) {
+          const nome = get(row, ['nome', 'nome_condominio', 'condominio', 'condominio_nome']);
+          if (!nome) continue;
+          const nuovo = await insertWithFallback('condomini', {
+            nome,
+            indirizzo: get(row, ['indirizzo', 'address', 'via']),
+            csp_attivo: true,
+          }, ['csp_attivo']);
+          await creaContrattoBaseAutomatico(nuovo?.id, Number(get(row, ['famiglie', 'numero_famiglie']) || 0));
+          importati += 1;
+          continue;
+        }
+
+        const email = emailNorm(get(row, ['email', 'mail']));
+        if (!email) continue;
+        const ruoloImport = normalizzaHeader(get(row, ['ruolo', 'tipo_utente'])) || 'condomino';
+        const condominioId = Number(get(row, ['condominio_id', 'id_condominio']) || 0);
+        await insertWithFallback('utenti', {
+          email,
+          ruolo: ruoloImport,
+          nome: get(row, ['nome', 'nominativo', 'referente']),
+          studio: get(row, ['studio', 'nome_studio']),
+          amministratore_email: emailNorm(get(row, ['amministratore_email', 'email_amministratore'])),
+        }, ['amministratore_email', 'studio']);
+
+        if (condominioId) {
+          await insertWithFallback('utenti_condomini', {
+            email,
+            condominio_id: condominioId,
+            ruolo: ruoloImport,
+            cognome: get(row, ['cognome']),
+            millesimi: Number(get(row, ['millesimi']) || 0),
+          }, ['cognome', 'millesimi']);
+        }
+        importati += 1;
+      }
+
+      setCsvText('');
+      setCsvMessage(`Import completato: ${importati} righe elaborate.`);
+      await onSaved?.();
+    } catch (error) {
+      console.error(error);
+      setCsvMessage('Errore import: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setSavingAnagrafica(false);
+    }
+  };
+
+  const esportaCsv = (filename, headers, rows) => {
+    const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.join(';'), ...rows.map((row) => headers.map((header) => escape(row[header])).join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const esportaCondomini = () => esportaCsv('condomini-csp.csv', ['id', 'nome', 'indirizzo', 'piano', 'stato', 'famiglie'], condominiAttivi.map((c) => {
+    const contratto = contrattiByCondominio.get(Number(c.id)) || {};
+    return {
+      id: c.id,
+      nome: c.nome,
+      indirizzo: c.indirizzo,
+      piano: contratto.piano || 'base',
+      stato: contratto.stato || 'attivo',
+      famiglie: contratto.famiglie || conteggiByCondominio.get(Number(c.id))?.condomini || 0,
+    };
+  }));
+
+  const esportaUtenti = () => esportaCsv('utenti-csp.csv', ['email', 'ruolo', 'nome', 'studio', 'condominio_id', 'millesimi'], collegamentiAttivi.map((u) => {
+    const utente = utentiAttivi.find((item) => emailNorm(item.email) === emailNorm(u.email)) || {};
+    return {
+      email: u.email,
+      ruolo: ruoloLabel(u.ruolo),
+      nome: utente.nome || '',
+      studio: utente.studio || '',
+      condominio_id: u.condominio_id || '',
+      millesimi: u.millesimi || '',
+    };
+  }));
 
   return (
-    <section className="space-y-4 rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <section className="space-y-4 rounded-[2rem] border border-emerald-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Anagrafiche</p>
-          <h3 className="mt-1 text-xl font-black text-slate-900">Condomini e amministratori</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Vista rapida delle anagrafiche già presenti nel sistema.</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">CRM Anagrafiche</p>
+          <h3 className="mt-1 text-xl font-black text-slate-900">Condomini, amministratori, collaboratori e famiglie</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Inserisci le anagrafiche CSP, importa da CSV ed esporta gli archivi. Ogni nuovo condominio viene predisposto automaticamente come Base.</p>
         </div>
-        {typeof onSaved === 'function' && (
-          <button
-            type="button"
-            onClick={onSaved}
-            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700"
-          >
-            Aggiorna dati
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onSaved} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700 shadow-sm">Aggiorna</button>
+          <button type="button" onClick={esportaCondomini} className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black text-white shadow-sm">Esporta condomini</button>
+          <button type="button" onClick={esportaUtenti} className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black text-white shadow-sm">Esporta utenti</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <DashboardStat label="Condomini" value={condominiAttivi.length} tone="emerald" />
+        <DashboardStat label="Utenti" value={utentiAttivi.length} tone="sky" />
+        <DashboardStat label="Collegamenti" value={collegamentiAttivi.length} tone="amber" />
+        <DashboardStat label="Contratti" value={contrattiAttivi.length} tone="slate" />
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-100 bg-slate-50 p-2">
+        {[
+          ['condomini', 'Condomini'],
+          ['utenti', 'Utenti e famiglie'],
+          ['import', 'Import CSV'],
+        ].map(([id, label]) => (
+          <button key={id} type="button" onClick={() => setTab(id)} className={`rounded-2xl px-4 py-2 text-xs font-black uppercase tracking-wide transition ${tab === id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-white text-slate-600 hover:bg-emerald-50'}`}>
+            {label}
           </button>
-        )}
+        ))}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h4 className="font-black text-slate-900">Condomini</h4>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{condominiAttivi.length}</span>
-          </div>
-          {condominiAttivi.length === 0 ? (
-            <p className="text-sm font-semibold text-slate-500">Nessun condominio censito.</p>
-          ) : (
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 csp-scroll">
-              {condominiAttivi.map((condominio) => (
-                <div key={condominio.id || condominio.nome} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
-                  <p className="font-black text-slate-900">{condominio.nome || `Condominio #${condominio.id}`}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{condominio.indirizzo || condominio.citta || 'Indirizzo non indicato'}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {tab === 'condomini' && (
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <form onSubmit={salvaCondominio} className="space-y-3 rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="text-sm font-black text-emerald-900">Nuovo condominio</p>
+            <input value={condominioForm.nome} onChange={(e) => setCondominioForm((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome condominio" className="w-full rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-sm font-semibold" />
+            <input value={condominioForm.indirizzo} onChange={(e) => setCondominioForm((p) => ({ ...p, indirizzo: e.target.value }))} placeholder="Indirizzo completo" className="w-full rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-sm font-semibold" />
+            <input type="number" min="0" value={condominioForm.famiglie} onChange={(e) => setCondominioForm((p) => ({ ...p, famiglie: e.target.value }))} placeholder="Numero famiglie" className="w-full rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-sm font-semibold" />
+            <button disabled={savingAnagrafica} className="w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50">Crea condominio Base</button>
+          </form>
 
-        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h4 className="font-black text-slate-900">Amministratori</h4>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{amministratoriAttivi.length}</span>
-          </div>
-          {amministratoriAttivi.length === 0 ? (
-            <p className="text-sm font-semibold text-slate-500">Nessun amministratore censito.</p>
-          ) : (
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 csp-scroll">
-              {amministratoriAttivi.map((amministratore) => {
-                const email = amministratore.email || amministratore.amministratore_email || amministratore.id;
-                return (
-                  <div key={email || amministratore.nome} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
-                    <p className="font-black text-slate-900">{amministratore.nome || amministratore.studio || email || 'Amministratore'}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{email || 'Email non indicata'}</p>
+          <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1 csp-scroll">
+            {condominiAttivi.length === 0 ? <EmptyState icon="🏢" title="Nessun condominio" text="Inserisci il primo condominio per attivare l’ecosistema CSP Base." tone="emerald" /> : condominiAttivi.map((condominio) => {
+              const contratto = contrattiByCondominio.get(Number(condominio.id)) || {};
+              const conteggi = conteggiByCondominio.get(Number(condominio.id)) || {};
+              return (
+                <article key={condominio.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="font-black text-slate-900">{condominio.nome || `Condominio #${condominio.id}`}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{condominio.indirizzo || 'Indirizzo non indicato'}</p>
+                      <p className="mt-2 text-xs font-bold text-slate-500">Famiglie: {contratto.famiglie || conteggi.condomini || 0} • Amm.: {conteggi.amministratori || 0} • Coll.: {conteggi.collaboratori || 0}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase text-emerald-700 ring-1 ring-emerald-100">{contratto.piano || 'base'} • {contratto.stato || 'attivo'}</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </article>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {tab === 'utenti' && (
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <form onSubmit={salvaUtente} className="space-y-3 rounded-3xl border border-sky-100 bg-sky-50 p-4">
+            <p className="text-sm font-black text-sky-900">Nuovo utente / famiglia</p>
+            <input type="email" value={utenteForm.email} onChange={(e) => setUtenteForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="w-full rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-semibold" />
+            <div className="grid gap-2 md:grid-cols-2">
+              <input value={utenteForm.nome} onChange={(e) => setUtenteForm((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome / referente" className="rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-semibold" />
+              <input value={utenteForm.cognome} onChange={(e) => setUtenteForm((p) => ({ ...p, cognome: e.target.value }))} placeholder="Cognome" className="rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-semibold" />
+            </div>
+            <select value={utenteForm.ruolo} onChange={(e) => setUtenteForm((p) => ({ ...p, ruolo: e.target.value }))} className="w-full rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-black text-slate-800">
+              <option value="amministratore">Amministratore</option>
+              <option value="collaboratore">Collaboratore</option>
+              <option value="condomino">Condomino / famiglia</option>
+            </select>
+            <input value={utenteForm.studio} onChange={(e) => setUtenteForm((p) => ({ ...p, studio: e.target.value }))} placeholder="Studio / ragione sociale amministratore" className="w-full rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-semibold" />
+            <input type="email" value={utenteForm.amministratore_email} onChange={(e) => setUtenteForm((p) => ({ ...p, amministratore_email: e.target.value }))} placeholder="Email amministratore collegato (per collaboratore)" className="w-full rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-semibold" />
+            <div className="grid gap-2 md:grid-cols-2">
+              <select value={utenteForm.condominio_id} onChange={(e) => setUtenteForm((p) => ({ ...p, condominio_id: e.target.value }))} className="rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-black text-slate-800">
+                <option value="">Collega a condominio</option>
+                {condominiAttivi.map((condominio) => <option key={condominio.id} value={condominio.id}>{condominio.nome}</option>)}
+              </select>
+              <input type="number" step="0.01" min="0" value={utenteForm.millesimi} onChange={(e) => setUtenteForm((p) => ({ ...p, millesimi: e.target.value }))} placeholder="Millesimi" className="rounded-2xl border border-sky-100 bg-white px-3 py-3 text-sm font-semibold" />
+            </div>
+            <button disabled={savingAnagrafica} className="w-full rounded-2xl bg-sky-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50">Salva anagrafica</button>
+          </form>
+
+          <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1 csp-scroll">
+            {collegamentiAttivi.length === 0 ? <EmptyState icon="👥" title="Nessun utente collegato" text="Inserisci amministratori, collaboratori e famiglie per popolare il CRM anagrafico." tone="blue" /> : collegamentiAttivi.map((item, index) => {
+              const utente = utentiAttivi.find((u) => emailNorm(u.email) === emailNorm(item.email)) || {};
+              const condominio = condominiAttivi.find((c) => Number(c.id) === Number(item.condominio_id)) || {};
+              return (
+                <article key={`${item.email}-${item.condominio_id}-${index}`} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="font-black text-slate-900">{utente.nome || item.email}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{item.email} • {condominio.nome || `Condominio #${item.condominio_id}`}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">Millesimi: {item.millesimi || '0'}</p>
+                    </div>
+                    <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black uppercase text-sky-700 ring-1 ring-sky-100">{ruoloLabel(item.ruolo)}</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab === 'import' && (
+        <div className="rounded-3xl border border-amber-100 bg-amber-50 p-4">
+          <p className="text-sm font-black text-amber-900">Import CSV anagrafiche</p>
+          <p className="mt-1 text-xs font-semibold leading-relaxed text-amber-800">Puoi importare condomini oppure utenti. Esempi intestazioni: <strong>tipo;nome;indirizzo;famiglie</strong> oppure <strong>tipo;email;ruolo;nome;cognome;condominio_id;millesimi;studio;amministratore_email</strong>.</p>
+          <textarea value={csvText} onChange={(e) => setCsvText(e.target.value)} rows={9} placeholder={'tipo;nome;indirizzo;famiglie\ncondominio;Condominio Verdi;Via Roma 10, Pisa;12\n\ntipo;email;ruolo;nome;cognome;condominio_id;millesimi\nutente;mario@email.it;condomino;Mario;Rossi;1;123.45'} className="mt-3 w-full rounded-2xl border border-amber-200 bg-white px-3 py-3 text-sm" />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={importaCsvAnagrafiche} disabled={savingAnagrafica} className="rounded-2xl bg-amber-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50">Importa CSV</button>
+            {csvMessage && <p className="text-xs font-black text-amber-900">{csvMessage}</p>}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -13256,7 +13610,7 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'condominio' && (
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
-            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} onSaved={carica} />
+            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} utentiSistema={utentiSistema} utentiCondomini={utentiCondomini} contratti={contratti} onSaved={carica} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
