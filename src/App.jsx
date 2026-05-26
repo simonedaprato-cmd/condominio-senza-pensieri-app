@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -8692,7 +8692,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, condomini = [], onRefreshVoti }) {
   const ruoloDettaglio = String(ruolo || '').toLowerCase().trim();
   const isAmministratoreOperativoDettaglio = ruoloDettaglio === 'amministratore' || ruoloDettaglio === 'collaboratore';
   const [nota, setNota] = useState('');
@@ -8707,6 +8707,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const [scadenzeRateRiparto, setScadenzeRateRiparto] = useState(['']);
 
   if (!segnalazione) return null;
+
+  const condominioPratica = (condomini || []).find((c) => Number(c.id) === Number(segnalazione.condominio_id));
+  const mapsCspParts = [
+    segnalazione.indirizzo,
+    segnalazione.luogo,
+    condominioPratica?.indirizzo,
+    condominioPratica?.citta,
+    segnalazione.condominio,
+    condominioPratica?.nome,
+  ];
 
   const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazione.id));
   const votoUtente = votiPratica.find((v) => String(v.email || '').toLowerCase().trim() === String(utenteEmail || '').toLowerCase().trim());
@@ -8873,7 +8883,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
-            <GoogleMapsButton parts={[segnalazione.luogo, segnalazione.condominio]} className="mt-1" />
+            <GoogleMapsButton parts={mapsCspParts} className="mt-1" />
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
             {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
@@ -13402,6 +13412,7 @@ export default function App() {
         votazioniRiepiloghi={votazioniRiepiloghi}
         utentiCondomini={utentiCondomini}
         utentiSistema={utentiSistema}
+        condomini={condomini}
       />
     </div>
   );
