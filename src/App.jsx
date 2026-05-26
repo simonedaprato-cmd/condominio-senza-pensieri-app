@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -37,10 +37,54 @@ const STATI_PRATICA = [
 ];
 
 const PIANI_ABBONAMENTO = {
-  base: { nome: 'Base', costo: 3.9, app: false, whatsapp: false },
-  plus: { nome: 'Plus', costo: 6.9, app: false, whatsapp: true },
-  premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true },
+  base: { nome: 'Base', costo: 0, app: true, whatsapp: false, provvigione: 0.05, livello: 1 },
+  plus: { nome: 'Plus', costo: 3, app: true, whatsapp: true, provvigione: 0.07, livello: 2 },
+  premium: { nome: 'Premium', costo: 9.9, app: true, whatsapp: true, provvigione: 0.10, livello: 3 },
 };
+
+function normalizzaPianoAbbonamento(value) {
+  const piano = String(value || '').toLowerCase().trim();
+  if (piano === 'premium') return 'premium';
+  if (piano === 'plus') return 'plus';
+  return 'base';
+}
+
+function getPianoAbbonamentoCondominio(condominioId, contratti = []) {
+  const id = Number(condominioId || 0);
+  if (!id) return 'base';
+
+  const contrattiValidi = (contratti || [])
+    .filter((contratto) => Number(contratto.condominio_id) === id)
+    .filter((contratto) => {
+      const stato = String(contratto.stato || '').toLowerCase().trim();
+      return !['sospeso', 'disdetto', 'annullato', 'scaduto'].includes(stato);
+    })
+    .sort((a, b) => new Date(b.data_attivazione || b.created_at || 0) - new Date(a.data_attivazione || a.created_at || 0));
+
+  return normalizzaPianoAbbonamento(contrattiValidi[0]?.piano);
+}
+
+function getSubscriptionFlags(piano) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  return {
+    piano: pianoNorm,
+    isBase: pianoNorm === 'base',
+    isPlus: pianoNorm === 'plus' || pianoNorm === 'premium',
+    isPremium: pianoNorm === 'premium',
+    config: PIANI_ABBONAMENTO[pianoNorm] || PIANI_ABBONAMENTO.base,
+  };
+}
+
+function getNumeroFamiglieCondominio(condominio = {}) {
+  return Number(
+    condominio.numero_condomini ||
+    condominio.numero_famiglie ||
+    condominio.famiglie ||
+    condominio.unita_immobiliari ||
+    condominio.unita ||
+    0
+  );
+}
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -1421,454 +1465,70 @@ function DashboardStat({ label, value, tone = 'slate' }) {
 }
 
 
-function GestioneAnagraficheBox({ condomini = [], amministratori = [], utentiSistema = [], utentiCondomini = [], onSaved }) {
+function GestioneAnagraficheBox({ condomini = [], amministratori = [], onSaved }) {
   const condominiAttivi = Array.isArray(condomini) ? condomini : [];
-  const utentiAttivi = Array.isArray(utentiSistema) ? utentiSistema : [];
-  const collegamentiAttivi = Array.isArray(utentiCondomini) ? utentiCondomini : [];
-  const amministratoriAttivi = useMemo(() => {
-    const byEmail = new Map();
-    [...(amministratori || []), ...utentiAttivi]
-      .filter((utente) => String(utente?.ruolo || '').toLowerCase().trim() === 'amministratore')
-      .forEach((utente) => {
-        const email = normalizeEmail(utente.email);
-        if (email) byEmail.set(email, { ...utente, email });
-      });
-    return Array.from(byEmail.values()).sort((a, b) => String(a.nome || a.studio || a.email).localeCompare(String(b.nome || b.studio || b.email), 'it'));
-  }, [amministratori, utentiAttivi]);
-
-  const [tab, setTab] = useState('amministratore');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [csvText, setCsvText] = useState('');
-  const [csvTipo, setCsvTipo] = useState('amministratore');
-
-  const emptyAmministratore = {
-    nome: '', cognome: '', ragione_sociale: '', indirizzo: '', citta: '', provincia: '', condomini_totali: '', referente: '', telefono_ufficio: '', telefono_cellulare: '', email: '',
-  };
-  const emptyCollaboratore = { nome: '', cognome: '', telefono: '', email: '', amministratore_email: '' };
-  const emptyCondominio = { nome: '', indirizzo: '', citta: '', provincia: '', numero_condomini: '', codice_fiscale: '', codice_sdi: '', amministratore_email: '' };
-  const emptyCondomino = { nome: '', cognome: '', email: '', telefono: '', condominio_id: '', millesimi: '' };
-
-  const [adminForm, setAdminForm] = useState(emptyAmministratore);
-  const [collabForm, setCollabForm] = useState(emptyCollaboratore);
-  const [condominioForm, setCondominioForm] = useState(emptyCondominio);
-  const [condominoForm, setCondominoForm] = useState(emptyCondomino);
-
-  const updateForm = (setter, field, value) => setter((prev) => ({ ...prev, [field]: value }));
-  const emailKey = (value) => normalizeEmail(value);
-  const labelAmministratore = (utente) => [utente.ragione_sociale || utente.studio, [utente.nome, utente.cognome].filter(Boolean).join(' '), utente.email].filter(Boolean).join(' • ');
-
-  const safeNumber = (value, fallback = 0) => {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-  };
-
-  const upsertUtenteByEmail = async (payload) => {
-    const email = emailKey(payload.email);
-    if (!email) throw new Error('Email obbligatoria.');
-
-    // CRM anagrafiche prudente: sulla tabella utenti scriviamo SOLO colonne già presenti
-    // e già lette dal sistema. Tutto il materiale commerciale esteso resta in lead_amministratori.
-    const cleanPayload = {
-      email,
-      ruolo: payload.ruolo || 'condominio',
-      nome: String(payload.nome || '').trim(),
-      telefono: String(payload.telefono || '').trim(),
-      studio: String(payload.studio || '').trim(),
-      amministratore_email: payload.amministratore_email ? emailKey(payload.amministratore_email) : null,
-    };
-
-    Object.keys(cleanPayload).forEach((key) => {
-      if (cleanPayload[key] === undefined || cleanPayload[key] === '') delete cleanPayload[key];
-    });
-
-    const { data: existing, error: existingError } = await supabase
-      .from('utenti')
-      .select('id,email')
-      .ilike('email', email)
-      .maybeSingle();
-    if (existingError && existingError.code !== 'PGRST116') throw existingError;
-
-    if (existing?.id) {
-      const { error } = await supabase.from('utenti').update(cleanPayload).eq('id', existing.id);
-      if (error) throw error;
-      return existing.id;
-    }
-
-    const { data, error } = await supabase.from('utenti').insert(cleanPayload).select('id').maybeSingle();
-    if (error) throw error;
-    return data?.id || null;
-  };
-
-  const upsertLeadAmministratoreByEmail = async (payload) => {
-    const email = emailKey(payload.email);
-    if (!email) return;
-    const leadPayload = {
-      nome_studio: payload.ragione_sociale || payload.studio || [payload.nome, payload.cognome].filter(Boolean).join(' ') || email,
-      referente: payload.referente || [payload.nome, payload.cognome].filter(Boolean).join(' '),
-      telefono: payload.telefono_cellulare || payload.telefono_ufficio || payload.telefono || '',
-      email,
-      provincia: payload.provincia || '',
-      citta: payload.citta || '',
-      indirizzo: payload.indirizzo || '',
-      numero_condomini: safeNumber(payload.condomini_totali, 0),
-      numero_condomini_interessati: 0,
-      origine: 'Anagrafica CSP',
-      stato_pipeline: 'potenziale',
-      note: 'Creato automaticamente dal CRM anagrafiche CSP.',
-      data_appuntamento: null,
-      ora_appuntamento: null,
-      prossimo_followup: null,
-    };
-
-    const { data: existing, error: existingError } = await supabase
-      .from('lead_amministratori')
-      .select('id,email')
-      .ilike('email', email)
-      .maybeSingle();
-    if (existingError && existingError.code !== 'PGRST116') throw existingError;
-
-    if (existing?.id) {
-      const { error } = await supabase.from('lead_amministratori').update(leadPayload).eq('id', existing.id);
-      if (error) throw error;
-      return;
-    }
-
-    const { error } = await supabase.from('lead_amministratori').insert(leadPayload);
-    if (error) throw error;
-  };
-
-  const salvaAmministratore = async (e, formOverride = null) => {
-    e?.preventDefault?.();
-    const source = formOverride || adminForm;
-    const email = emailKey(source.email);
-    if (!email) return alert('Inserisci la mail dell’amministratore.');
-    try {
-      setSaving(true);
-      const payload = {
-        email,
-        ruolo: 'amministratore',
-        nome: String(source.nome || '').trim(),
-        cognome: String(source.cognome || '').trim(),
-        studio: String(source.ragione_sociale || '').trim(),
-        ragione_sociale: String(source.ragione_sociale || '').trim(),
-        indirizzo: String(source.indirizzo || '').trim(),
-        citta: String(source.citta || '').trim(),
-        provincia: String(source.provincia || '').trim(),
-        condomini_totali: safeNumber(source.condomini_totali, 0),
-        referente: String(source.referente || '').trim(),
-        telefono_ufficio: String(source.telefono_ufficio || '').trim(),
-        telefono_cellulare: String(source.telefono_cellulare || '').trim(),
-        telefono: String(source.telefono_cellulare || source.telefono_ufficio || '').trim(),
-      };
-      await upsertUtenteByEmail(payload);
-      await upsertLeadAmministratoreByEmail(payload);
-      if (!formOverride) setAdminForm(emptyAmministratore);
-      setMessage('Amministratore salvato anche nel CRM commerciale.');
-      await onSaved?.();
-    } catch (error) {
-      console.error(error);
-      alert('Errore salvataggio amministratore: ' + (error.message || 'sconosciuto'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const salvaCollaboratore = async (e, formOverride = null) => {
-    e?.preventDefault?.();
-    const source = formOverride || collabForm;
-    const email = emailKey(source.email);
-    if (!email) return alert('Inserisci la mail del collaboratore.');
-    if (!source.amministratore_email) return alert('Seleziona l’amministratore collegato.');
-    try {
-      setSaving(true);
-      await upsertUtenteByEmail({
-        email,
-        ruolo: 'collaboratore',
-        nome: String(source.nome || '').trim(),
-        cognome: String(source.cognome || '').trim(),
-        telefono: String(source.telefono || '').trim(),
-        amministratore_email: emailKey(source.amministratore_email),
-      });
-      if (!formOverride) setCollabForm(emptyCollaboratore);
-      setMessage('Collaboratore salvato e collegato all’amministratore.');
-      await onSaved?.();
-    } catch (error) {
-      console.error(error);
-      alert('Errore salvataggio collaboratore: ' + (error.message || 'sconosciuto'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const salvaCondominio = async (e, formOverride = null) => {
-    e?.preventDefault?.();
-    const source = formOverride || condominioForm;
-    if (!String(source.nome || '').trim()) return alert('Inserisci il nome del condominio.');
-    if (!source.amministratore_email) return alert('Seleziona l’amministratore collegato.');
-    try {
-      setSaving(true);
-      const amministratoreSelezionato = amministratori.find((admin) => emailKey(admin.email) === emailKey(source.amministratore_email));
-      const indirizzoCompleto = [source.indirizzo, source.citta, source.provincia].filter(Boolean).join(', ');
-      const payload = {
-        nome: String(source.nome || '').trim(),
-        indirizzo: String(indirizzoCompleto || source.indirizzo || '').trim(),
-        codice_fiscale: String(source.codice_fiscale || '').trim(),
-        codice_sdi: String(source.codice_sdi || '').trim(),
-        amministratore_email: emailKey(source.amministratore_email),
-        amministratore_telefono: String(amministratoreSelezionato?.telefono || '').trim(),
-        csp_attivo: true,
-      };
-      Object.keys(payload).forEach((key) => {
-        if (payload[key] === undefined || payload[key] === '') delete payload[key];
-      });
-      const { error } = await supabase.from('condomini').insert(payload);
-      if (error) throw error;
-      if (!formOverride) setCondominioForm(emptyCondominio);
-      setMessage('Condominio salvato. Il contratto/abbonamento resta gestibile nella sezione Contratti CSP.');
-      await onSaved?.();
-    } catch (error) {
-      console.error(error);
-      alert('Errore salvataggio condominio: ' + (error.message || 'sconosciuto'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const salvaCondomino = async (e, formOverride = null) => {
-    e?.preventDefault?.();
-    const source = formOverride || condominoForm;
-    const email = emailKey(source.email);
-    const condominioId = Number(source.condominio_id || 0);
-    if (!email) return alert('Inserisci la mail del condòmino.');
-    if (!condominioId) return alert('Seleziona il condominio.');
-    try {
-      setSaving(true);
-      await upsertUtenteByEmail({
-        email,
-        ruolo: 'condominio',
-        nome: String(source.nome || '').trim(),
-        cognome: String(source.cognome || '').trim(),
-        telefono: String(source.telefono || '').trim(),
-      });
-
-      const { data: existing, error: existingError } = await supabase
-        .from('utenti_condomini')
-        .select('id')
-        .ilike('email', email)
-        .eq('condominio_id', condominioId)
-        .maybeSingle();
-      if (existingError && existingError.code !== 'PGRST116') throw existingError;
-
-      const mapping = {
-        email,
-        condominio_id: condominioId,
-        ruolo: 'condominio',
-        millesimi: safeNumber(source.millesimi, 0),
-        cognome: String(source.cognome || '').trim(),
-      };
-
-      if (existing?.id) {
-        const { error } = await supabase.from('utenti_condomini').update(mapping).eq('id', existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('utenti_condomini').insert(mapping);
-        if (error) throw error;
-      }
-
-      if (!formOverride) setCondominoForm(emptyCondomino);
-      setMessage('Condòmino salvato e collegato al condominio.');
-      await onSaved?.();
-    } catch (error) {
-      console.error(error);
-      alert('Errore salvataggio condòmino: ' + (error.message || 'sconosciuto'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const downloadCsv = (filename, headers, rows) => {
-    const csv = [headers.join(';'), ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(';'))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportAnagrafiche = () => {
-    if (tab === 'amministratore') {
-      const headers = ['nome', 'cognome', 'ragione_sociale', 'indirizzo', 'citta', 'provincia', 'condomini_totali', 'referente', 'telefono_ufficio', 'telefono_cellulare', 'email'];
-      return downloadCsv('amministratori-csp.csv', headers, amministratoriAttivi);
-    }
-    if (tab === 'collaboratore') {
-      const headers = ['nome', 'cognome', 'telefono', 'email', 'amministratore_email'];
-      return downloadCsv('collaboratori-csp.csv', headers, utentiAttivi.filter((u) => String(u.ruolo || '').toLowerCase() === 'collaboratore'));
-    }
-    if (tab === 'condominio') {
-      const headers = ['nome', 'indirizzo', 'citta', 'provincia', 'numero_condomini', 'codice_fiscale', 'codice_sdi', 'amministratore_email'];
-      return downloadCsv('condomini-csp.csv', headers, condominiAttivi);
-    }
-    const headers = ['nome', 'cognome', 'email', 'telefono', 'condominio_id', 'millesimi'];
-    const rows = collegamentiAttivi.filter((u) => ['condominio', 'condomino'].includes(String(u.ruolo || '').toLowerCase())).map((u) => {
-      const user = utentiAttivi.find((item) => emailKey(item.email) === emailKey(u.email)) || {};
-      return { ...u, nome: user.nome || '', telefono: user.telefono || '' };
-    });
-    return downloadCsv('condomini-utenti-csp.csv', headers, rows);
-  };
-
-  const parseCsv = (text) => {
-    const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    if (lines.length < 2) return [];
-    const separator = lines[0].includes(';') ? ';' : ',';
-    const split = (line) => {
-      const out = [];
-      let current = '';
-      let quoted = false;
-      for (let i = 0; i < line.length; i += 1) {
-        const char = line[i];
-        if (char === '"') quoted = !quoted;
-        else if (char === separator && !quoted) { out.push(current.replace(/^"|"$/g, '').trim()); current = ''; }
-        else current += char;
-      }
-      out.push(current.replace(/^"|"$/g, '').trim());
-      return out;
-    };
-    const headers = split(lines[0]).map((h) => String(h || '').toLowerCase().trim());
-    return lines.slice(1).map((line) => {
-      const values = split(line);
-      return headers.reduce((acc, header, index) => ({ ...acc, [header]: values[index] || '' }), {});
-    });
-  };
-
-  const importaCsv = async () => {
-    const rows = parseCsv(csvText);
-    if (!rows.length) return alert('CSV vuoto o non valido.');
-    try {
-      setSaving(true);
-      for (const row of rows) {
-        if (csvTipo === 'amministratore') await salvaAmministratore(null, row);
-        if (csvTipo === 'collaboratore') await salvaCollaboratore(null, row);
-        if (csvTipo === 'condominio') await salvaCondominio(null, row);
-        if (csvTipo === 'condomino') await salvaCondomino(null, row);
-      }
-      setCsvText('');
-      setMessage(`Import completato: ${rows.length} righe elaborate.`);
-      await onSaved?.();
-    } catch (error) {
-      console.error(error);
-      alert('Errore import CSV: ' + (error.message || 'sconosciuto'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const inputClass = 'rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100';
-  const labelClass = 'text-[11px] font-black uppercase tracking-[0.16em] text-slate-500';
-
-  const AdminSelect = ({ value, onChange }) => (
-    <select value={value || ''} onChange={(e) => onChange(e.target.value)} className={inputClass}>
-      <option value="">Seleziona amministratore censito</option>
-      {amministratoriAttivi.map((admin) => <option key={admin.email} value={admin.email}>{labelAmministratore(admin)}</option>)}
-    </select>
-  );
+  const amministratoriAttivi = Array.isArray(amministratori) ? amministratori : [];
 
   return (
     <section className="space-y-4 rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">CRM anagrafiche</p>
-          <h3 className="mt-1 text-xl font-black text-slate-900">Utenti, condomìni e collegamenti</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Inserimento dati nelle tabelle reali CSP: utenti, utenti_condomini, condomini e lead amministratori.</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Anagrafiche</p>
+          <h3 className="mt-1 text-xl font-black text-slate-900">Condomini e amministratori</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Vista rapida delle anagrafiche già presenti nel sistema.</p>
         </div>
-        <button type="button" onClick={exportAnagrafiche} className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white shadow-sm">Esporta vista CSV</button>
+        {typeof onSaved === 'function' && (
+          <button
+            type="button"
+            onClick={onSaved}
+            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700"
+          >
+            Aggiorna dati
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        {[
-          ['amministratore', 'Amministratore'], ['collaboratore', 'Collaboratore'], ['condominio', 'Condominio'], ['condomino', 'Condòmino'],
-        ].map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-2xl px-4 py-3 text-sm font-black transition ${tab === key ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'}`}>{label}</button>
-        ))}
-      </div>
-
-      {message && <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{message}</p>}
-
-      {tab === 'amministratore' && (
-        <form onSubmit={salvaAmministratore} className="grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
-          <label className={labelClass}>Nome<input value={adminForm.nome} onChange={(e) => updateForm(setAdminForm, 'nome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Cognome<input value={adminForm.cognome} onChange={(e) => updateForm(setAdminForm, 'cognome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Ragione sociale<input value={adminForm.ragione_sociale} onChange={(e) => updateForm(setAdminForm, 'ragione_sociale', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Referente<input value={adminForm.referente} onChange={(e) => updateForm(setAdminForm, 'referente', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Indirizzo<input value={adminForm.indirizzo} onChange={(e) => updateForm(setAdminForm, 'indirizzo', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Città<input value={adminForm.citta} onChange={(e) => updateForm(setAdminForm, 'citta', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Provincia<input value={adminForm.provincia} onChange={(e) => updateForm(setAdminForm, 'provincia', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Condomìni totali<input type="number" value={adminForm.condomini_totali} onChange={(e) => updateForm(setAdminForm, 'condomini_totali', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Telefono ufficio<input value={adminForm.telefono_ufficio} onChange={(e) => updateForm(setAdminForm, 'telefono_ufficio', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Telefono cellulare<input value={adminForm.telefono_cellulare} onChange={(e) => updateForm(setAdminForm, 'telefono_cellulare', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={`${labelClass} md:col-span-2`}>Indirizzo mail<input type="email" value={adminForm.email} onChange={(e) => updateForm(setAdminForm, 'email', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <button disabled={saving} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white md:col-span-2 disabled:opacity-50">Salva amministratore</button>
-        </form>
-      )}
-
-      {tab === 'collaboratore' && (
-        <form onSubmit={salvaCollaboratore} className="grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
-          <label className={labelClass}>Nome<input value={collabForm.nome} onChange={(e) => updateForm(setCollabForm, 'nome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Cognome<input value={collabForm.cognome} onChange={(e) => updateForm(setCollabForm, 'cognome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Telefono<input value={collabForm.telefono} onChange={(e) => updateForm(setCollabForm, 'telefono', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Indirizzo mail<input type="email" value={collabForm.email} onChange={(e) => updateForm(setCollabForm, 'email', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={`${labelClass} md:col-span-2`}>Amministratore collegato<div className="mt-1"><AdminSelect value={collabForm.amministratore_email} onChange={(value) => updateForm(setCollabForm, 'amministratore_email', value)} /></div></label>
-          <button disabled={saving} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white md:col-span-2 disabled:opacity-50">Salva collaboratore</button>
-        </form>
-      )}
-
-      {tab === 'condominio' && (
-        <form onSubmit={salvaCondominio} className="grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
-          <label className={labelClass}>Nome condominio<input value={condominioForm.nome} onChange={(e) => updateForm(setCondominioForm, 'nome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Numero condòmini<input type="number" value={condominioForm.numero_condomini} onChange={(e) => updateForm(setCondominioForm, 'numero_condomini', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Indirizzo<input value={condominioForm.indirizzo} onChange={(e) => updateForm(setCondominioForm, 'indirizzo', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Città<input value={condominioForm.citta} onChange={(e) => updateForm(setCondominioForm, 'citta', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Provincia<input value={condominioForm.provincia} onChange={(e) => updateForm(setCondominioForm, 'provincia', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Codice fiscale<input value={condominioForm.codice_fiscale} onChange={(e) => updateForm(setCondominioForm, 'codice_fiscale', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>SDI<input value={condominioForm.codice_sdi} onChange={(e) => updateForm(setCondominioForm, 'codice_sdi', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Amministratore collegato<div className="mt-1"><AdminSelect value={condominioForm.amministratore_email} onChange={(value) => updateForm(setCondominioForm, 'amministratore_email', value)} /></div></label>
-          <button disabled={saving} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white md:col-span-2 disabled:opacity-50">Salva condominio</button>
-        </form>
-      )}
-
-      {tab === 'condomino' && (
-        <form onSubmit={salvaCondomino} className="grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2">
-          <label className={labelClass}>Nome<input value={condominoForm.nome} onChange={(e) => updateForm(setCondominoForm, 'nome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Cognome<input value={condominoForm.cognome} onChange={(e) => updateForm(setCondominoForm, 'cognome', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Indirizzo mail<input type="email" value={condominoForm.email} onChange={(e) => updateForm(setCondominoForm, 'email', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Telefono<input value={condominoForm.telefono} onChange={(e) => updateForm(setCondominoForm, 'telefono', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <label className={labelClass}>Condominio<select value={condominoForm.condominio_id} onChange={(e) => updateForm(setCondominoForm, 'condominio_id', e.target.value)} className={`mt-1 w-full ${inputClass}`}><option value="">Seleziona condominio</option>{condominiAttivi.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>
-          <label className={labelClass}>Millesimi di proprietà<input type="number" step="0.001" value={condominoForm.millesimi} onChange={(e) => updateForm(setCondominoForm, 'millesimi', e.target.value)} className={`mt-1 w-full ${inputClass}`} /></label>
-          <button disabled={saving} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white md:col-span-2 disabled:opacity-50">Salva condòmino</button>
-        </form>
-      )}
-
-      <div className="rounded-3xl border border-cyan-100 bg-cyan-50 p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Import CSV</p>
-            <h4 className="mt-1 text-lg font-black text-slate-900">Importa anagrafiche</h4>
-            <p className="mt-1 text-xs font-semibold text-slate-500">Usa intestazioni uguali ai campi del form selezionato.</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="font-black text-slate-900">Condomini</h4>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{condominiAttivi.length}</span>
           </div>
-          <select value={csvTipo} onChange={(e) => setCsvTipo(e.target.value)} className="rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm font-black text-cyan-800">
-            <option value="amministratore">Amministratori</option>
-            <option value="collaboratore">Collaboratori</option>
-            <option value="condominio">Condomìni</option>
-            <option value="condomino">Condòmini</option>
-          </select>
+          {condominiAttivi.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-500">Nessun condominio censito.</p>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 csp-scroll">
+              {condominiAttivi.map((condominio) => (
+                <div key={condominio.id || condominio.nome} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                  <p className="font-black text-slate-900">{condominio.nome || `Condominio #${condominio.id}`}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{condominio.indirizzo || condominio.citta || 'Indirizzo non indicato'}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <textarea value={csvText} onChange={(e) => setCsvText(e.target.value)} rows={5} className="mt-3 w-full rounded-2xl border border-cyan-200 bg-white px-3 py-3 text-sm" placeholder="nome;cognome;email;telefono..." />
-        <button type="button" onClick={importaCsv} disabled={saving} className="mt-3 rounded-2xl bg-cyan-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50">Importa CSV</button>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="font-black text-slate-900">Amministratori</h4>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{amministratoriAttivi.length}</span>
+          </div>
+          {amministratoriAttivi.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-500">Nessun amministratore censito.</p>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 csp-scroll">
+              {amministratoriAttivi.map((amministratore) => {
+                const email = amministratore.email || amministratore.amministratore_email || amministratore.id;
+                return (
+                  <div key={email || amministratore.nome} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                    <p className="font-black text-slate-900">{amministratore.nome || amministratore.studio || email || 'Amministratore'}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{email || 'Email non indicata'}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -1876,13 +1536,31 @@ function GestioneAnagraficheBox({ condomini = [], amministratori = [], utentiSis
 
 function GestioneContratti({ condomini, contratti, onCreateContratto }) {
   const [condominioId, setCondominioId] = useState('');
-  const [piano, setPiano] = useState('premium');
+  const [piano, setPiano] = useState('plus');
   const [famiglie, setFamiglie] = useState('');
+  const [famiglieAutocompilate, setFamiglieAutocompilate] = useState(false);
 
-  const pianoConfig = PIANI_ABBONAMENTO[piano] || PIANI_ABBONAMENTO.premium;
+  const condominioSelezionato = (condomini || []).find((c) => Number(c.id) === Number(condominioId));
+  const pianoConfig = PIANI_ABBONAMENTO[piano] || PIANI_ABBONAMENTO.plus;
   const famiglieNum = Number(famiglie || 0);
   const ricavoMensile = famiglieNum * pianoConfig.costo;
   const ricavoAnnuale = ricavoMensile * 12;
+  const pianoAttuale = condominioId ? getPianoAbbonamentoCondominio(condominioId, contratti) : 'base';
+  const subscriptionFlags = getSubscriptionFlags(pianoAttuale);
+
+  const selezionaCondominio = (value) => {
+    setCondominioId(value);
+    const condominio = (condomini || []).find((c) => Number(c.id) === Number(value));
+    const numeroFamiglie = getNumeroFamiglieCondominio(condominio);
+
+    if (numeroFamiglie > 0) {
+      setFamiglie(String(numeroFamiglie));
+      setFamiglieAutocompilate(true);
+    } else {
+      setFamiglie('');
+      setFamiglieAutocompilate(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1901,7 +1579,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto }) {
 
     setCondominioId('');
     setFamiglie('');
-    setPiano('premium');
+    setFamiglieAutocompilate(false);
+    setPiano('plus');
   };
 
   return (
@@ -1911,12 +1590,18 @@ function GestioneContratti({ condomini, contratti, onCreateContratto }) {
       <p className="mt-1 text-sm text-slate-500">Gestione commerciale ricorrente Condominio Senza Pensieri.</p>
 
       <form onSubmit={submit} className="mt-4 space-y-3">
-        <select value={condominioId} onChange={(e) => setCondominioId(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
+        <select value={condominioId} onChange={(e) => selezionaCondominio(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
           <option value="">Seleziona condominio</option>
-          {condomini.map((c) => (
-            <option key={c.id} value={c.id}>{c.nome}</option>
+          {(condomini || []).map((c) => (
+            <option key={c.id} value={c.id}>{c.nome || c.name || `Condominio #${c.id}`}</option>
           ))}
         </select>
+
+        {condominioId && (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+            Piano attuale: {subscriptionFlags.config.nome} • Famiglie censite: {getNumeroFamiglieCondominio(condominioSelezionato) || 'non indicate'}
+          </div>
+        )}
 
         <select value={piano} onChange={(e) => setPiano(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
           <option value="base">Base</option>
@@ -1924,20 +1609,32 @@ function GestioneContratti({ condomini, contratti, onCreateContratto }) {
           <option value="premium">Premium</option>
         </select>
 
-        <input
-          type="number"
-          min="1"
-          placeholder="Numero famiglie"
-          value={famiglie}
-          onChange={(e) => setFamiglie(e.target.value)}
-          className="w-full rounded-2xl border border-slate-200 px-3 py-3"
-        />
+        <label className="block">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-500">Famiglie</span>
+          <input
+            type="number"
+            min="1"
+            placeholder="Numero famiglie"
+            value={famiglie}
+            onChange={(e) => {
+              setFamiglie(e.target.value);
+              setFamiglieAutocompilate(false);
+            }}
+            className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3"
+          />
+          <span className="mt-1 block text-xs font-semibold text-slate-500">
+            {famiglieAutocompilate
+              ? 'Compilato automaticamente dall’anagrafica del condominio. Puoi modificarlo se necessario.'
+              : 'Il valore può essere corretto manualmente prima dell’attivazione.'}
+          </span>
+        </label>
 
         <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
           <p className="text-sm font-semibold">Riepilogo economico</p>
-          <p className="text-sm text-slate-600">Costo unitario: {formatEuro(pianoConfig.costo)}</p>
+          <p className="text-sm text-slate-600">Costo unitario mensile: {formatEuro(pianoConfig.costo)}</p>
           <p className="text-sm text-slate-600">MRR: {formatEuro(ricavoMensile)}</p>
           <p className="text-sm text-slate-600">ARR: {formatEuro(ricavoAnnuale)}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">Provvigione amministratore su interventi pagati: {Math.round((pianoConfig.provvigione || 0) * 100)}%</p>
         </div>
 
         <button type="submit" className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-bold text-white">
@@ -11604,7 +11301,7 @@ export default function App() {
 
       const { data: utentiSistemaData, error: utentiSistemaError } = await supabase
         .from('utenti')
-        .select('*');
+        .select('email, ruolo, nome, studio, onesignal_subscription_id');
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
@@ -13640,7 +13337,7 @@ export default function App() {
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'condominio' && (
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
-            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} utentiSistema={utentiSistema} utentiCondomini={utentiCondomini} onSaved={carica} />
+            <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} onSaved={carica} />
             <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
