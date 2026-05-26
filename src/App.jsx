@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.27';
-const APP_VERSION_LABEL = 'CSP v1.0.27';
+const APP_VERSION = '1.0.28';
+const APP_VERSION_LABEL = 'CSP v1.0.28';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -155,6 +155,28 @@ function SubscriptionPlanBadge({ piano = 'base', className = '' }) {
     <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${config.cls} ${className}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${pianoNorm === 'premium' ? 'bg-amber-500' : pianoNorm === 'plus' ? 'bg-sky-500' : 'bg-slate-400'}`} />
       {config.label}
+    </span>
+  );
+}
+
+
+function SubscriptionPlanInlineLabel({ piano = 'base' }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const cls = pianoNorm === 'premium'
+    ? 'text-amber-700'
+    : pianoNorm === 'plus'
+      ? 'text-sky-700'
+      : 'text-slate-500';
+  const label = pianoNorm === 'premium'
+    ? 'CSP PREMIUM'
+    : pianoNorm === 'plus'
+      ? 'CSP PLUS'
+      : 'CSP BASE';
+
+  return (
+    <span className={`font-black uppercase tracking-[0.12em] ${cls}`}>
+      <span className="mx-1 text-slate-400">▪</span>
+      {label}
     </span>
   );
 }
@@ -1493,11 +1515,6 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbboname
         <div className="mx-auto w-full max-w-4xl px-5 pb-2 pt-1 text-center md:px-7">
           <p className="text-xs font-semibold leading-snug tracking-[0.08em] text-white/65 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
           <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base">{saluto} {nomeUtente}</p>
-          {['condominio', 'condomino'].includes(String(userProfile?.ruolo || '').toLowerCase().trim()) && (
-            <div className="mt-2 flex justify-center">
-              <SubscriptionPlanBadge piano={pianoAbbonamento} className="bg-white/95" />
-            </div>
-          )}
         </div>
         <div className="mx-auto w-full max-w-4xl px-4 pb-2">
           <button
