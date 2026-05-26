@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.18';
-const APP_VERSION_LABEL = 'CSP v1.0.18';
+const APP_VERSION = '1.0.19';
+const APP_VERSION_LABEL = 'CSP v1.0.19';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -1949,7 +1949,7 @@ function GestioneAnagraficheBox({ condomini = [], amministratori = [], utentiSis
 }
 
 
-function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnovaContratto, onUpgradeContratto, onSospendiContratto }) {
+function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnovaContratto, onUpgradeContratto, onSospendiContratto, onRiattivaContratto }) {
   const [ricercaContratti, setRicercaContratti] = useState('');
   const [filtroPianoContratti, setFiltroPianoContratti] = useState('');
   const [contrattoSelezionato, setContrattoSelezionato] = useState(null);
@@ -1965,6 +1965,8 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
     return 'border-slate-200 bg-gradient-to-br from-slate-50 via-white to-white text-slate-900 ring-1 ring-slate-100';
   };
   const contrattoBadge = (contratto) => {
+    const statoContratto = String(contratto?.stato || 'attivo').toLowerCase().trim();
+    if (statoContratto === 'sospeso') return 'border-red-200 bg-red-100 text-red-800';
     const pianoContratto = getPianoContratto(contratto);
     if (pianoContratto === 'premium') return 'border-amber-200 bg-amber-100 text-amber-800';
     if (pianoContratto === 'plus') return 'border-sky-200 bg-sky-100 text-sky-800';
@@ -1974,7 +1976,7 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
   const contrattiAttivi = (contratti || [])
     .filter((contratto) => {
       const stato = String(contratto.stato || 'attivo').toLowerCase().trim();
-      return !['sospeso', 'scaduto', 'disdetto', 'annullato', 'annullata'].includes(stato);
+      return !['scaduto', 'disdetto', 'annullato', 'annullata'].includes(stato);
     })
     .map((contratto) => ({ ...contratto, condominio: getContrattoCondominio(contratto) }))
     .filter((contratto) => {
@@ -2008,7 +2010,7 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
                 <p className="mt-1 text-sm font-semibold text-slate-500">{[condominio?.indirizzo, condominio?.citta, condominio?.provincia].filter(Boolean).join(', ') || 'Indirizzo non indicato'}</p>
               </div>
               <span className={`w-fit rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] ${contrattoBadge(contratto)}`}>
-                {config.nome}
+                {String(contratto.stato || '').toLowerCase().trim() === 'sospeso' ? 'Sospeso' : config.nome}
               </span>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -2047,20 +2049,33 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
                 Porta a Premium
               </button>
             )}
-            {typeof onSospendiContratto === 'function' && (
-              <button
-                type="button"
-                onClick={async () => {
-                  const conferma = window.confirm('Sospendere questo contratto per mancato pagamento? Gli accessi collegati potranno essere gestiti dalla logica abbonamenti.');
-                  if (!conferma) return;
-                  await onSospendiContratto(contratto);
-                  setContrattoSelezionato(null);
-                }}
-                className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5"
-              >
-                Sospendi per mancato pagamento
-              </button>
-            )}
+            {String(contratto.stato || '').toLowerCase().trim() !== 'sospeso' && typeof onSospendiContratto === 'function' ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const conferma = window.confirm('Sospendere questo contratto per mancato pagamento? Potrai riattivarlo da questa stessa lista.');
+                    if (!conferma) return;
+                    await onSospendiContratto(contratto);
+                    setContrattoSelezionato(null);
+                  }}
+                  className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5"
+                >
+                  Sospendi per mancato pagamento
+                </button>
+              ) : typeof onRiattivaContratto === 'function' ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const conferma = window.confirm('Riattivare questo contratto e riportarlo tra gli attivi?');
+                    if (!conferma) return;
+                    await onRiattivaContratto(contratto);
+                    setContrattoSelezionato(null);
+                  }}
+                  className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5"
+                >
+                  Riattiva contratto
+                </button>
+              ) : null}
             <button type="button" onClick={() => setContrattoSelezionato(null)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5">
               Chiudi scheda
             </button>
@@ -2075,8 +2090,8 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Archivio contratti</p>
-          <h2 className="mt-1 text-xl font-black text-slate-900">Condomìni con contratto attivo</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Card cliccabili, ricerca rapida e colori dedicati per Base, Plus e Premium.</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">Condomìni con contratto attivo o sospeso</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Card cliccabili, ricerca rapida, sospensioni e riattivazioni sempre sotto controllo.</p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-[520px]">
           <input value={ricercaContratti} onChange={(e) => setRicercaContratti(e.target.value)} placeholder="Cerca condominio o indirizzo..." className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-300 focus:bg-white focus:ring-4 focus:ring-emerald-100" />
@@ -2133,7 +2148,7 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
   );
 }
 
-function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaContratto, onUpgradeContratto, onSospendiContratto }) {
+function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaContratto, onUpgradeContratto, onSospendiContratto, onRiattivaContratto }) {
   const [condominioId, setCondominioId] = useState('');
   const [piano, setPiano] = useState('plus');
   const [famiglie, setFamiglie] = useState('');
@@ -2161,6 +2176,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
     return 'border-slate-200 bg-gradient-to-br from-slate-50 via-white to-white text-slate-900 ring-1 ring-slate-100';
   };
   const contrattoBadge = (contratto) => {
+    const statoContratto = String(contratto?.stato || 'attivo').toLowerCase().trim();
+    if (statoContratto === 'sospeso') return 'border-red-200 bg-red-100 text-red-800';
     const pianoContratto = getPianoContratto(contratto);
     if (pianoContratto === 'premium') return 'border-amber-200 bg-amber-100 text-amber-800';
     if (pianoContratto === 'plus') return 'border-sky-200 bg-sky-100 text-sky-800';
@@ -2170,7 +2187,7 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
   const contrattiAttivi = (contratti || [])
     .filter((contratto) => {
       const stato = String(contratto.stato || 'attivo').toLowerCase().trim();
-      return !['sospeso', 'scaduto', 'disdetto', 'annullato'].includes(stato);
+      return !['scaduto', 'disdetto', 'annullato', 'annullata'].includes(stato);
     })
     .map((contratto) => ({ ...contratto, condominio: getContrattoCondominio(contratto) }))
     .filter((contratto) => {
@@ -2225,7 +2242,7 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Contratti CSP</p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">Condomìni con contratto attivo</h2>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Condomìni con contratto attivo o sospeso</h2>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               Archivio rapido degli abbonamenti attivi. Le card sono cliccabili e aprono la scheda contratto.
             </p>
@@ -2384,7 +2401,7 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
                     <p className="mt-1 text-sm font-semibold text-slate-500">{condominio?.indirizzo || condominio?.citta || 'Indirizzo non indicato'}</p>
                   </div>
                   <span className={`w-fit rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] ${contrattoBadge(contratto)}`}>
-                    {config.nome}
+                    {String(contratto.stato || '').toLowerCase().trim() === 'sospeso' ? 'Sospeso' : config.nome}
                   </span>
                 </div>
 
@@ -2440,20 +2457,33 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
                     Porta a Premium
                   </button>
                 )}
-                {typeof onSospendiContratto === 'function' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const conferma = window.confirm('Sospendere questo contratto per mancato pagamento? Gli accessi collegati potranno essere gestiti dalla logica abbonamenti.');
-                      if (!conferma) return;
-                      await onSospendiContratto(contratto);
-                      setContrattoSelezionato(null);
-                    }}
-                    className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5"
-                  >
-                    Sospendi per mancato pagamento
-                  </button>
-                )}
+                {String(contratto.stato || '').toLowerCase().trim() !== 'sospeso' && typeof onSospendiContratto === 'function' ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const conferma = window.confirm('Sospendere questo contratto per mancato pagamento? Potrai riattivarlo da questa stessa lista.');
+                        if (!conferma) return;
+                        await onSospendiContratto(contratto);
+                        setContrattoSelezionato(null);
+                      }}
+                      className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5"
+                    >
+                      Sospendi per mancato pagamento
+                    </button>
+                  ) : typeof onRiattivaContratto === 'function' ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const conferma = window.confirm('Riattivare questo contratto e riportarlo tra gli attivi?');
+                        if (!conferma) return;
+                        await onRiattivaContratto(contratto);
+                        setContrattoSelezionato(null);
+                      }}
+                      className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5"
+                    >
+                      Riattiva contratto
+                    </button>
+                  ) : null}
                 <button
                   type="button"
                   onClick={() => setContrattoSelezionato(null)}
@@ -13672,6 +13702,40 @@ export default function App() {
     }
   };
 
+
+
+  const riattivaContratto = async (contratto) => {
+    try {
+      const riattivazioneCompleta = {
+        stato: 'attivo',
+        sospeso_il: null,
+        motivo_sospensione: null,
+      };
+
+      let { error } = await supabase
+        .from('contratti_condominio')
+        .update(riattivazioneCompleta)
+        .eq('id', contratto.id);
+
+      // Fallback prudente: se le colonne motivo_sospensione/sospeso_il non esistono ancora,
+      // aggiorniamo almeno lo stato per rendere subito selezionabile il contratto.
+      if (error && String(error.message || '').toLowerCase().includes('column')) {
+        const fallback = await supabase
+          .from('contratti_condominio')
+          .update({ stato: 'attivo' })
+          .eq('id', contratto.id);
+        error = fallback.error;
+      }
+
+      if (error) throw error;
+      setStatusMessage('Contratto riattivato con successo.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore riattivazione contratto: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const uploadLavoroPrivatoFile = async (file, folder = 'lavori-privati') => {
     if (!file) return { url: '', name: '' };
     const safeName = file.name.split(' ').join('-');
@@ -14235,8 +14299,8 @@ export default function App() {
           <>
             {renderGestoreSectionTitle('Condominio', 'Anagrafiche, contratti, rinnovi, pagamenti, business, assemblee e report.')}
             <GestioneAnagraficheBox condomini={condomini} amministratori={amministratoriAnagrafiche} utentiSistema={utentiSistema} utentiCondomini={utentiCondomini} onSaved={carica} />
-            <ArchivioContrattiAttiviCards condomini={condomini} contratti={contratti} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} onSospendiContratto={sospendiContratto} />
-            <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} onSospendiContratto={sospendiContratto} />
+            <ArchivioContrattiAttiviCards condomini={condomini} contratti={contratti} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} onSospendiContratto={sospendiContratto} onRiattivaContratto={riattivaContratto} />
+            <GestioneContratti condomini={condomini} contratti={contratti} onCreateContratto={creaContratto} onRinnovaContratto={rinnovaContratto} onUpgradeContratto={upgradeContratto} onSospendiContratto={sospendiContratto} onRiattivaContratto={riattivaContratto} />
             <GestioneRinnoviContratti
               contratti={contratti}
               onRinnovaContratto={rinnovaContratto}
