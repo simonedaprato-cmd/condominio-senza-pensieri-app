@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.21';
-const APP_VERSION_LABEL = 'CSP v1.0.21';
+const APP_VERSION = '1.0.22';
+const APP_VERSION_LABEL = 'CSP v1.0.22';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -2141,7 +2141,9 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${contrattoBadge(contratto)}`}>{config.nome}</span>
-                      <span className="rounded-full border border-white/70 bg-white/75 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Attivo</span>
+                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${String(contratto.stato || 'attivo').toLowerCase().trim() === 'sospeso' ? 'border-red-200 bg-red-100 text-red-800' : 'border-white/70 bg-white/75 text-slate-600'}`}>
+                        {String(contratto.stato || 'attivo').toLowerCase().trim() === 'sospeso' ? 'Sospeso' : 'Attivo'}
+                      </span>
                     </div>
                     <h3 className="mt-3 truncate text-lg font-black text-slate-900">{nomeCondominio(condominio)}</h3>
                     <p className="mt-1 text-xs font-semibold text-slate-500">{[condominio?.indirizzo, condominio?.citta].filter(Boolean).join(', ') || 'Indirizzo non indicato'}</p>
@@ -2311,8 +2313,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
                         <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${contrattoBadge(contratto)}`}>
                           {config.nome}
                         </span>
-                        <span className="rounded-full border border-white/70 bg-white/75 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
-                          Attivo
+                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${String(contratto.stato || 'attivo').toLowerCase().trim() === 'sospeso' ? 'border-red-200 bg-red-100 text-red-800' : 'border-white/70 bg-white/75 text-slate-600'}`}>
+                          {String(contratto.stato || 'attivo').toLowerCase().trim() === 'sospeso' ? 'Sospeso' : 'Attivo'}
                         </span>
                       </div>
                       <h3 className="mt-3 truncate text-lg font-black text-slate-900">{nomeCondominio(condominio)}</h3>
