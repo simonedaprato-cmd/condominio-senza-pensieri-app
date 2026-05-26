@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -3935,11 +3935,19 @@ function CapitolatoSenzaPensieriSuite({
 
   const condominioCspAttivo = (condominioId) => {
     const contrattiCondominio = (contratti || []).filter((contratto) => Number(contratto.condominio_id) === Number(condominioId));
-    if (contrattiCondominio.some(contrattoCspAttivo)) return true;
+
+    // Fix accessi non-gestore: la sospensione deve bloccare solo quando è esplicita.
+    // Se non esiste ancora un contratto CSP censito per il condominio, manteniamo il comportamento storico
+    // e non oscuriamo amministratori, collaboratori o condòmini.
     if (contrattiCondominio.some(contrattoCspSospeso)) return false;
+    if (contrattiCondominio.some(contrattoCspAttivo)) return true;
 
     const condominio = (condomini || []).find((item) => Number(item.id) === Number(condominioId));
-    return valoreBooleanoAttivo(condominio?.csp_attivo);
+    if (Object.prototype.hasOwnProperty.call(condominio || {}, 'csp_attivo')) {
+      return valoreBooleanoAttivo(condominio?.csp_attivo);
+    }
+
+    return true;
   };
 
   const eseguiCampagnaConsigliata = async (azienda, tipoCampagna) => {
