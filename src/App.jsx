@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.19';
-const APP_VERSION_LABEL = 'CSP v1.0.19';
+const APP_VERSION = '1.0.20';
+const APP_VERSION_LABEL = 'CSP v1.0.20';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -49,19 +49,33 @@ function normalizzaPianoAbbonamento(value) {
   return 'base';
 }
 
+function getContrattoCorrenteCondominio(condominioId, contratti = []) {
+  const id = Number(condominioId || 0);
+  if (!id) return null;
+
+  return (contratti || [])
+    .filter((contratto) => Number(contratto.condominio_id) === id)
+    .sort((a, b) => new Date(b.data_attivazione || b.created_at || 0) - new Date(a.data_attivazione || a.created_at || 0))[0] || null;
+}
+
+function isContrattoSospesoCondominio(condominioId, contratti = []) {
+  const contratto = getContrattoCorrenteCondominio(condominioId, contratti);
+  const stato = String(contratto?.stato || '').toLowerCase().trim();
+  return ['sospeso', 'disdetto', 'annullato', 'scaduto'].includes(stato);
+}
+
 function getPianoAbbonamentoCondominio(condominioId, contratti = []) {
   const id = Number(condominioId || 0);
   if (!id) return 'base';
 
-  const contrattiValidi = (contratti || [])
-    .filter((contratto) => Number(contratto.condominio_id) === id)
-    .filter((contratto) => {
-      const stato = String(contratto.stato || '').toLowerCase().trim();
-      return !['sospeso', 'disdetto', 'annullato', 'scaduto'].includes(stato);
-    })
-    .sort((a, b) => new Date(b.data_attivazione || b.created_at || 0) - new Date(a.data_attivazione || a.created_at || 0));
+  const contrattoCorrente = getContrattoCorrenteCondominio(id, contratti);
+  const stato = String(contrattoCorrente?.stato || '').toLowerCase().trim();
 
-  return normalizzaPianoAbbonamento(contrattiValidi[0]?.piano);
+  if (['sospeso', 'disdetto', 'annullato', 'scaduto'].includes(stato)) {
+    return 'base';
+  }
+
+  return normalizzaPianoAbbonamento(contrattoCorrente?.piano);
 }
 
 function getSubscriptionFlags(piano) {
@@ -11857,6 +11871,8 @@ export default function App() {
     ? 'premium'
     : getPianoAbbonamentoCondominio(condominioIdPerAbbonamento, contratti);
   const subscriptionFlagsCorrenti = getSubscriptionFlags(pianoAbbonamentoCorrente);
+  const contrattoCorrenteSospeso = ruoloNormalizzato !== 'gestore'
+    && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
   const segnalazioniFiltrate = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return segnalazioni;
@@ -14521,7 +14537,13 @@ export default function App() {
           </section>
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'report' && (
-          subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
+          contrattoCorrenteSospeso ? (
+            <SubscriptionLockedCard
+              required="plus"
+              title="Servizio temporaneamente non attivo"
+              text="Il contratto CSP del condominio risulta sospeso. I report torneranno disponibili alla riattivazione del servizio."
+            />
+          ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
             <ArchivioReportPremium
               reports={reportVisibili}
               ruolo={ruoloNormalizzato}
@@ -14537,30 +14559,52 @@ export default function App() {
         )}
 
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'rivista' && (
-          <LaTuaRivistaSuite
-            riviste={rivisteCondominio}
-            ruolo={ruoloNormalizzato}
-            canPublish={false}
-          />
+          contrattoCorrenteSospeso ? (
+            <SubscriptionLockedCard
+              required="plus"
+              title="Servizio temporaneamente non attivo"
+              text="Il contratto CSP del condominio risulta sospeso. La rivista tornerà disponibile alla riattivazione del servizio."
+            />
+          ) : (
+            <LaTuaRivistaSuite
+              riviste={rivisteCondominio}
+              ruolo={ruoloNormalizzato}
+              canPublish={false}
+            />
+          )
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
-          <LavoriPrivatiSuite
-            ruolo={ruoloNormalizzato}
-            userProfile={userProfile}
-            condomini={condominiVisibili}
-            lavoriPrivati={lavoriPrivati}
-            fattureLavoriPrivati={fattureLavoriPrivati}
-            aziendePartner={aziendePartner}
-            lavoroApertoId={lavoroPrivatoApertoId}
-            onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
-            onCreateLavoro={creaLavoroPrivato}
-            onUpdateLavoro={aggiornaLavoroPrivato}
-            onCreateFattura={creaFatturaLavoroPrivato}
-            onUpdateFattura={aggiornaFatturaLavoroPrivato}
-            onUploadFile={uploadLavoroPrivatoFile}
-            onRefresh={carica}
-            subscriptionFlags={subscriptionFlagsCorrenti}
-          />
+          contrattoCorrenteSospeso ? (
+            <SubscriptionLockedCard
+              required="plus"
+              title="Servizio temporaneamente non attivo"
+              text="Il contratto CSP del condominio risulta sospeso. LSP tornerà disponibile alla riattivazione del servizio."
+            />
+          ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
+            <LavoriPrivatiSuite
+              ruolo={ruoloNormalizzato}
+              userProfile={userProfile}
+              condomini={condominiVisibili}
+              lavoriPrivati={lavoriPrivati}
+              fattureLavoriPrivati={fattureLavoriPrivati}
+              aziendePartner={aziendePartner}
+              lavoroApertoId={lavoroPrivatoApertoId}
+              onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
+              onCreateLavoro={creaLavoroPrivato}
+              onUpdateLavoro={aggiornaLavoroPrivato}
+              onCreateFattura={creaFatturaLavoroPrivato}
+              onUpdateFattura={aggiornaFatturaLavoroPrivato}
+              onUploadFile={uploadLavoroPrivatoFile}
+              onRefresh={carica}
+              subscriptionFlags={subscriptionFlagsCorrenti}
+            />
+          ) : (
+            <SubscriptionLockedCard
+              required="plus"
+              title="La tua casa Senza Pensieri è disponibile con CSP Plus"
+              text="Con Plus e Premium puoi usare LSP per richieste private, preventivi, documenti e aggiornamenti dedicati alla tua casa."
+            />
+          )
         )}
 
       </div>
