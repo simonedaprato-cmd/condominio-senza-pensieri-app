@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -6104,6 +6104,7 @@ function FatturazionePartnerSuite({
   onInviaFatturaPartner,
   onUploadFatturaPdf,
   onCreateFatturaProvvigioneGestore,
+  onUpdateFatturaProvvigioneGestore,
   onCreateFatturaProvvigioneAmministratore,
   onUpdateFatturaProvvigioneAmministratore,
 }) {
@@ -6226,6 +6227,34 @@ function FatturazionePartnerSuite({
 
   const [adminProvvigioniSelezionato, setAdminProvvigioniSelezionato] = useState('');
 
+  const [miaFatturaInModifica, setMiaFatturaInModifica] = useState(null);
+  const [miaFatturaEditForm, setMiaFatturaEditForm] = useState({
+    azienda_partner_id: '',
+    numero_fattura: '',
+    data_fattura: '',
+    importo_imponibile: '',
+    iva: '',
+    totale: '',
+    file_url: '',
+    stato: '',
+    note: '',
+  });
+  const [fatturaProvvAdminInModifica, setFatturaProvvAdminInModifica] = useState(null);
+  const [fatturaProvvAdminEditForm, setFatturaProvvAdminEditForm] = useState({
+    amministratore_email: '',
+    amministratore_nome: '',
+    azienda_partner_id: '',
+    numero_fattura: '',
+    trimestre: '',
+    anno: '',
+    data_fattura: '',
+    importo_imponibile: '',
+    iva: '',
+    totale: '',
+    stato: '',
+    note: '',
+  });
+
   const updateMiaFattura = (field, value) => {
     setMiaFatturaForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -6257,6 +6286,99 @@ function FatturazionePartnerSuite({
 
       return next;
     });
+  };
+
+
+  const apriModificaMiaFattura = (fattura) => {
+    setMiaFatturaInModifica(fattura);
+    setMiaFatturaEditForm({
+      azienda_partner_id: fattura.azienda_partner_id || '',
+      numero_fattura: fattura.numero_fattura || '',
+      data_fattura: fattura.data_fattura ? String(fattura.data_fattura).slice(0, 10) : '',
+      importo_imponibile: fattura.importo_imponibile || '',
+      iva: fattura.iva ?? '22',
+      totale: fattura.totale || '',
+      file_url: fattura.file_url || '',
+      stato: fattura.stato || 'bozza',
+      note: fattura.note || '',
+    });
+  };
+
+  const updateMiaFatturaEdit = (field, value) => {
+    setMiaFatturaEditForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'importo_imponibile' || field === 'iva') {
+        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
+        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
+      }
+      return next;
+    });
+  };
+
+  const salvaModificaMiaFattura = async () => {
+    if (!miaFatturaInModifica?.id) return;
+    if (typeof onUpdateFatturaProvvigioneGestore !== 'function') {
+      alert('Funzione aggiornamento fattura provvigione gestore non disponibile.');
+      return;
+    }
+    await onUpdateFatturaProvvigioneGestore(miaFatturaInModifica.id, {
+      ...miaFatturaEditForm,
+      azienda_partner_id: miaFatturaEditForm.azienda_partner_id ? Number(miaFatturaEditForm.azienda_partner_id) : null,
+      importo_imponibile: Number(miaFatturaEditForm.importo_imponibile || 0),
+      iva: Number(miaFatturaEditForm.iva || 0),
+      totale: Number(miaFatturaEditForm.totale || 0),
+      data_fattura: miaFatturaEditForm.data_fattura || null,
+    });
+    setMiaFatturaInModifica(null);
+  };
+
+  const apriModificaFatturaProvvAdmin = (fattura) => {
+    setFatturaProvvAdminInModifica(fattura);
+    setFatturaProvvAdminEditForm({
+      amministratore_email: fattura.amministratore_email || '',
+      amministratore_nome: fattura.amministratore_nome || '',
+      azienda_partner_id: fattura.azienda_partner_id || '',
+      numero_fattura: fattura.numero_fattura || '',
+      trimestre: fattura.trimestre || '',
+      anno: fattura.anno || '',
+      data_fattura: fattura.data_fattura ? String(fattura.data_fattura).slice(0, 10) : '',
+      importo_imponibile: fattura.importo_imponibile || '',
+      iva: fattura.iva ?? '0',
+      totale: fattura.totale || '',
+      stato: fattura.stato || 'da_pagare',
+      note: fattura.note || '',
+    });
+  };
+
+  const updateFatturaProvvAdminEdit = (field, value) => {
+    setFatturaProvvAdminEditForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'amministratore_email') {
+        const admin = amministratori.find((u) => String(u.email || '').toLowerCase() === String(value || '').toLowerCase());
+        next.amministratore_nome = admin?.nome || value || '';
+      }
+      if (field === 'importo_imponibile' || field === 'iva') {
+        const imponibile = Number(field === 'importo_imponibile' ? value : next.importo_imponibile || 0);
+        const ivaPercentuale = Number(field === 'iva' ? value : next.iva || 0);
+        next.totale = Math.round((imponibile + (imponibile * ivaPercentuale / 100)) * 100) / 100;
+      }
+      return next;
+    });
+  };
+
+  const salvaModificaFatturaProvvAdmin = async () => {
+    if (!fatturaProvvAdminInModifica?.id) return;
+    await onUpdateFatturaProvvigioneAmministratore(fatturaProvvAdminInModifica.id, {
+      ...fatturaProvvAdminEditForm,
+      azienda_partner_id: fatturaProvvAdminEditForm.azienda_partner_id ? Number(fatturaProvvAdminEditForm.azienda_partner_id) : null,
+      anno: fatturaProvvAdminEditForm.anno ? Number(fatturaProvvAdminEditForm.anno) : null,
+      importo_imponibile: Number(fatturaProvvAdminEditForm.importo_imponibile || 0),
+      iva: Number(fatturaProvvAdminEditForm.iva || 0),
+      totale: Number(fatturaProvvAdminEditForm.totale || 0),
+      data_fattura: fatturaProvvAdminEditForm.data_fattura || null,
+    });
+    setFatturaProvvAdminInModifica(null);
   };
 
   const salvaFatturaProvvAdmin = async (e) => {
@@ -6792,6 +6914,88 @@ function FatturazionePartnerSuite({
 
   return (
     <section className="space-y-4">
+      {miaFatturaInModifica && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" onClick={() => setMiaFatturaInModifica(null)}>
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 csp-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-700">Scheda fattura provvigione</p>
+                <h3 className="mt-1 text-xl font-black text-slate-900">{miaFatturaInModifica.numero_fattura || `Fattura #${miaFatturaInModifica.id}`}</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Modifica i dati della fattura gestore in uno spazio dedicato.</p>
+              </div>
+              <button type="button" onClick={() => setMiaFatturaInModifica(null)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-black text-slate-700">Chiudi</button>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <select value={miaFatturaEditForm.azienda_partner_id} onChange={(e) => updateMiaFatturaEdit('azienda_partner_id', e.target.value)} className="rounded-2xl border border-violet-200 bg-white px-3 py-3 font-bold text-slate-900">
+                <option value="">Azienda partner</option>
+                {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+              </select>
+              <input value={miaFatturaEditForm.numero_fattura} onChange={(e) => updateMiaFatturaEdit('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="date" value={miaFatturaEditForm.data_fattura || ''} onChange={(e) => updateMiaFatturaEdit('data_fattura', e.target.value)} className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <select value={miaFatturaEditForm.stato || 'bozza'} onChange={(e) => updateMiaFatturaEdit('stato', e.target.value)} className="rounded-2xl border border-violet-200 bg-white px-3 py-3 font-bold text-slate-900">
+                <option value="bozza">Bozza</option>
+                <option value="inviata">Inviata</option>
+                <option value="pagata">Pagata</option>
+                <option value="annullata">Annullata</option>
+              </select>
+              <input type="number" step="0.01" value={miaFatturaEditForm.importo_imponibile} onChange={(e) => updateMiaFatturaEdit('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={miaFatturaEditForm.iva} onChange={(e) => updateMiaFatturaEdit('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={miaFatturaEditForm.totale} onChange={(e) => updateMiaFatturaEdit('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+              <input value={miaFatturaEditForm.file_url} onChange={(e) => updateMiaFatturaEdit('file_url', e.target.value)} placeholder="URL PDF" className="rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+            </div>
+            <textarea value={miaFatturaEditForm.note} onChange={(e) => updateMiaFatturaEdit('note', e.target.value)} placeholder="Note" className="mt-3 min-h-24 w-full rounded-2xl border border-violet-200 bg-white px-3 py-3" />
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {miaFatturaEditForm.file_url && <a href={miaFatturaEditForm.file_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-center text-sm font-black text-violet-700">Apri PDF</a>}
+              <button type="button" onClick={salvaModificaMiaFattura} className="rounded-2xl bg-violet-700 px-4 py-3 text-sm font-black text-white">Salva modifiche</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fatturaProvvAdminInModifica && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" onClick={() => setFatturaProvvAdminInModifica(null)}>
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-[2rem] bg-white p-5 shadow-2xl shadow-slate-950/30 csp-scroll" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Scheda provvigione amministratore</p>
+                <h3 className="mt-1 text-xl font-black text-slate-900">{fatturaProvvAdminInModifica.numero_fattura || `Fattura #${fatturaProvvAdminInModifica.id}`}</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Apri, controlla e aggiorna lo stato della provvigione in un popup dedicato.</p>
+              </div>
+              <button type="button" onClick={() => setFatturaProvvAdminInModifica(null)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-black text-slate-700">Chiudi</button>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <select value={fatturaProvvAdminEditForm.amministratore_email} onChange={(e) => updateFatturaProvvAdminEdit('amministratore_email', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
+                <option value="">Amministratore</option>
+                {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
+              </select>
+              <select value={fatturaProvvAdminEditForm.azienda_partner_id} onChange={(e) => updateFatturaProvvAdminEdit('azienda_partner_id', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
+                <option value="">Azienda partner</option>
+                {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+              </select>
+              <input value={fatturaProvvAdminEditForm.numero_fattura} onChange={(e) => updateFatturaProvvAdminEdit('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+              <select value={fatturaProvvAdminEditForm.stato || 'da_pagare'} onChange={(e) => updateFatturaProvvAdminEdit('stato', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
+                <option value="da_pagare">Da pagare</option>
+                <option value="pagata">Pagata</option>
+                <option value="annullata">Annullata</option>
+              </select>
+              <select value={fatturaProvvAdminEditForm.trimestre} onChange={(e) => updateFatturaProvvAdminEdit('trimestre', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
+                <option value="">Trimestre</option>
+                <option value="Q1">Q1</option>
+                <option value="Q2">Q2</option>
+                <option value="Q3">Q3</option>
+                <option value="Q4">Q4</option>
+              </select>
+              <input type="number" value={fatturaProvvAdminEditForm.anno} onChange={(e) => updateFatturaProvvAdminEdit('anno', e.target.value)} placeholder="Anno" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+              <input type="date" value={fatturaProvvAdminEditForm.data_fattura || ''} onChange={(e) => updateFatturaProvvAdminEdit('data_fattura', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaProvvAdminEditForm.importo_imponibile} onChange={(e) => updateFatturaProvvAdminEdit('importo_imponibile', e.target.value)} placeholder="Imponibile" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaProvvAdminEditForm.iva} onChange={(e) => updateFatturaProvvAdminEdit('iva', e.target.value)} placeholder="IVA %" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+              <input type="number" step="0.01" value={fatturaProvvAdminEditForm.totale} onChange={(e) => updateFatturaProvvAdminEdit('totale', e.target.value)} placeholder="Totale" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+            </div>
+            <textarea value={fatturaProvvAdminEditForm.note} onChange={(e) => updateFatturaProvvAdminEdit('note', e.target.value)} placeholder="Note contabili" className="mt-3 min-h-24 w-full rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
+            <button type="button" onClick={salvaModificaFatturaProvvAdmin} className="mt-4 w-full rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-black text-white">Salva modifiche</button>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <DashboardStat label="Fatturato totale" value={formatEuro(fatturatoTotale)} tone="slate" />
         <DashboardStat label="Fatturato pagato" value={formatEuro(fatturatoPagato)} tone="emerald" />
@@ -7157,20 +7361,21 @@ function FatturazionePartnerSuite({
               <EmptyState icon="€" title="Nessuna fattura provvigione" text="Le fatture provvigione che emetti ai partner saranno raccolte qui." action="Archivio pronto" tone="slate" />
             ) : (
               fattureProvvigioniGestore.map((fattura) => (
-                <article key={fattura.id} className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                <button key={fattura.id} type="button" onClick={() => apriModificaMiaFattura(fattura)} className="w-full rounded-[1.75rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <p className="text-base font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
                       <p className="mt-1 text-sm font-semibold text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Azienda n.d.'}</p>
                       <p className="mt-1 text-xs text-slate-400">{fattura.data_fattura || 'Data n.d.'}</p>
-                      {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-violet-700">Apri PDF</a>}
+                      {fattura.file_url && <span className="mt-2 inline-flex rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-violet-700">PDF disponibile</span>}
                     </div>
                     <div className="text-left md:text-right">
                       <p className="text-xl font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</p>
                       <p className="text-xs font-bold text-violet-700">Totale {formatEuro(fattura.totale || 0)}</p>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">Apri scheda</p>
                     </div>
                   </div>
-                </article>
+                </button>
               ))
             )}
           </div>
@@ -7274,7 +7479,7 @@ function FatturazionePartnerSuite({
                   <EmptyState icon="🧾" title="Nessuna fattura provvigione" text="Quando saranno registrate fatture per questo amministratore, le vedrai qui in forma ordinata." action="Dashboard riservata" tone="slate" />
                 ) : (
                   riepilogoAdminSelezionato.fattureProvvigioneAdmin.map((fattura) => (
-                    <article key={fattura.id} className="rounded-[1.75rem] border border-indigo-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                    <button key={fattura.id} type="button" onClick={() => apriModificaFatturaProvvAdmin(fattura)} className="w-full rounded-[1.75rem] border border-indigo-100 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div>
                           <p className="text-base font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
@@ -7283,24 +7488,17 @@ function FatturazionePartnerSuite({
                         </div>
                         <div className="text-left md:text-right">
                           <p className="text-xl font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</p>
-                          <select
-                            value={fattura.stato || 'da_pagare'}
-                            onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
-                            className={`mt-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide ${
-                              fattura.stato === 'pagata'
-                                ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                                : fattura.stato === 'annullata'
-                                  ? 'border-slate-200 bg-slate-100 text-slate-600'
-                                  : 'border-amber-200 bg-amber-100 text-amber-700'
-                            }`}
-                          >
-                            <option value="da_pagare">Da pagare</option>
-                            <option value="pagata">Pagata</option>
-                            <option value="annullata">Annullata</option>
-                          </select>
+                          <span className={`mt-2 inline-flex rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide ${
+                            fattura.stato === 'pagata'
+                              ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                              : fattura.stato === 'annullata'
+                                ? 'border-slate-200 bg-slate-100 text-slate-600'
+                                : 'border-amber-200 bg-amber-100 text-amber-700'
+                          }`}>{fattura.stato || 'da_pagare'}</span>
+                          <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">Apri scheda</p>
                         </div>
                       </div>
-                    </article>
+                    </button>
                   ))
                 )}
               </div>
@@ -12379,6 +12577,24 @@ export default function App() {
     }
   };
 
+
+  const aggiornaFatturaProvvigioneGestore = async (fatturaId, updatePayload) => {
+    try {
+      const { error } = await supabase
+        .from('fatture_provvigioni_gestore')
+        .update(updatePayload)
+        .eq('id', fatturaId);
+
+      if (error) throw error;
+
+      setStatusMessage('Fattura provvigione gestore aggiornata.');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      alert('Errore aggiornamento fattura provvigione gestore: ' + (error.message || 'sconosciuto'));
+    }
+  };
+
   const creaFatturaProvvigioneAmministratore = async (fatturaProvvigione) => {
     try {
       const { error } = await supabase
@@ -13108,6 +13324,7 @@ export default function App() {
               onInviaFatturaPartner={inviaFatturaPartner}
               onUploadFatturaPdf={uploadFatturaPdf}
               onCreateFatturaProvvigioneGestore={creaFatturaProvvigioneGestore}
+              onUpdateFatturaProvvigioneGestore={aggiornaFatturaProvvigioneGestore}
               onCreateFatturaProvvigioneAmministratore={creaFatturaProvvigioneAmministratore}
               onUpdateFatturaProvvigioneAmministratore={aggiornaFatturaProvvigioneAmministratore}
             />
