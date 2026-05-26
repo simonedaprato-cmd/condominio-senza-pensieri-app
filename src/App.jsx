@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.25';
-const APP_VERSION_LABEL = 'CSP v1.0.25';
+const APP_VERSION = '1.0.26';
+const APP_VERSION_LABEL = 'CSP v1.0.26';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -158,6 +158,19 @@ function SubscriptionPlanBadge({ piano = 'base', className = '' }) {
     </span>
   );
 }
+
+function subscriptionPlanCardClass(piano = 'base') {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  if (pianoNorm === 'premium') {
+    return 'border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white shadow-amber-900/10';
+  }
+  if (pianoNorm === 'plus') {
+    return 'border-sky-200 bg-gradient-to-br from-sky-50 via-slate-50 to-cyan-50 shadow-sky-900/10';
+  }
+  return 'border-slate-200 bg-white';
+}
+
+
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -1432,7 +1445,7 @@ function MultiCondominioSwitcher({ ruolo, condomini = [], filtroCondominioId, on
 }
 
 
-function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile }) {
+function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbbonamento = 'base' }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -1480,6 +1493,11 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile }) {
         <div className="mx-auto w-full max-w-4xl px-5 pb-2 pt-1 text-center md:px-7">
           <p className="text-xs font-semibold leading-snug tracking-[0.08em] text-white/65 md:text-sm">Gestione evoluta delle pratiche condominiali</p>
           <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base">{saluto} {nomeUtente}</p>
+          {['condominio', 'condomino'].includes(String(userProfile?.ruolo || '').toLowerCase().trim()) && (
+            <div className="mt-2 flex justify-center">
+              <SubscriptionPlanBadge piano={pianoAbbonamento} className="bg-white/95" />
+            </div>
+          )}
         </div>
         <div className="mx-auto w-full max-w-4xl px-4 pb-2">
           <button
@@ -9754,13 +9772,10 @@ function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio,
 
 function SegnalazioneCard({ segnalazione, onOpen, pianoAbbonamento = 'base', showSubscriptionBadge = false }) {
   return (
-    <button onClick={() => onOpen(segnalazione)} className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:shadow-md">
+    <button onClick={() => onOpen(segnalazione)} className={`w-full overflow-hidden rounded-2xl border p-4 text-left transition hover:shadow-md ${showSubscriptionBadge ? subscriptionPlanCardClass(pianoAbbonamento) : 'border-slate-200 bg-white'}`}>
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
-            {showSubscriptionBadge && <SubscriptionPlanBadge piano={pianoAbbonamento} />}
-          </div>
+          <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
           <p className="break-words text-sm text-slate-500">{segnalazione.condominio}</p>
         </div>
         <span className={'shrink-0 rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
