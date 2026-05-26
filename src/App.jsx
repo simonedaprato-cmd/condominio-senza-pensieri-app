@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -83,6 +83,36 @@ function getNumeroFamiglieCondominio(condominio = {}) {
     condominio.unita_immobiliari ||
     condominio.unita ||
     0
+  );
+}
+
+
+function getLivelloPianoAbbonamento(piano) {
+  return PIANI_ABBONAMENTO[normalizzaPianoAbbonamento(piano)]?.livello || 1;
+}
+
+function canUseSubscriptionFeature(piano, required = 'plus') {
+  return getLivelloPianoAbbonamento(piano) >= getLivelloPianoAbbonamento(required);
+}
+
+function SubscriptionLockedCard({ required = 'plus', title, text, compact = false }) {
+  const requiredNorm = normalizzaPianoAbbonamento(required);
+  const label = requiredNorm === 'premium' ? 'CSP Premium' : 'CSP Plus';
+  return (
+    <section className={`rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-white ${compact ? 'p-4' : 'p-6'} shadow-sm`}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Riservato a {label}</p>
+          <h3 className="mt-1 text-xl font-black text-slate-900">{title || `Disponibile con ${label}`}</h3>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+            {text || `Questa funzione resta visibile per mostrarti cosa puoi attivare con ${label}, senza perdere il controllo della tua area CSP.`}
+          </p>
+        </div>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white text-2xl shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-100">
+          🔒
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -3236,6 +3266,18 @@ function GuadagniAmministratoreSuite({ fatturePartner, fattureProvvigioniAmminis
       daIncassare: Math.max(row.fatturato - row.pagato, 0),
     }))
     .sort((a, b) => String(a.azienda?.ragione_sociale || '').localeCompare(String(b.azienda?.ragione_sociale || '')));
+
+  if (isCondomino && !(subscriptionFlags?.isPlus || subscriptionFlags?.isPremium)) {
+    return (
+      <section className="space-y-4">
+        <SubscriptionLockedCard
+          required="plus"
+          title="La tua casa Senza Pensieri è disponibile con CSP Plus"
+          text="Il piano Base mantiene segnalazioni e pratiche condominiali. Con Plus puoi usare LSP per richieste private, preventivi, documenti e aggiornamenti dedicati alla tua casa."
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4">
@@ -8932,7 +8974,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, condomini = [], onRefreshVoti }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, condomini = [], onRefreshVoti, subscriptionFlags = getSubscriptionFlags('premium') }) {
   const ruoloDettaglio = String(ruolo || '').toLowerCase().trim();
   const isAmministratoreOperativoDettaglio = ruoloDettaglio === 'amministratore' || ruoloDettaglio === 'collaboratore';
   const [nota, setNota] = useState('');
@@ -9069,6 +9111,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
 
   const emailUtentePulita = String(utenteEmail || '').toLowerCase().trim();
   const ruoloRipartoVisibile = ['condominio', 'condomino'].includes(String(ruolo || '').toLowerCase().trim());
+  const canUseRipartoMillesimale = subscriptionFlags?.isPlus || subscriptionFlags?.isPremium;
   const quotaUtenteRiparto = ripartoSalvato?.quote?.find((item) => {
     const emailQuota = String(item.email || item.utente_email || item.email_condomino || '').toLowerCase().trim();
     return emailQuota && emailQuota === emailUtentePulita;
@@ -9497,7 +9540,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruoloRipartoVisibile && ripartoSalvato && (
+            {ruoloRipartoVisibile && ripartoSalvato && !canUseRipartoMillesimale && (
+              <SubscriptionLockedCard
+                required="plus"
+                compact
+                title="Riparto millesimale disponibile con CSP Plus"
+                text="Il dettaglio quote, rate e scadenze personali è una funzione Plus e Premium. Il condominio resta operativo in Base, ma senza riparto automatico e reminder dedicati."
+              />
+            )}
+
+            {ruoloRipartoVisibile && ripartoSalvato && canUseRipartoMillesimale && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto millesimale</p>
@@ -9546,7 +9598,16 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && (
+            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && !canUseRipartoMillesimale && (
+              <SubscriptionLockedCard
+                required="plus"
+                compact
+                title="Riparto millesimale disponibile con CSP Plus"
+                text="Con Plus e Premium l’amministratore può calcolare quote, rate e scadenze in automatico, riducendo lavoro manuale e richieste di chiarimento."
+              />
+            )}
+
+            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && canUseRipartoMillesimale && (
               <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <div>
                   <p className="font-semibold text-amber-900">Riparto costi per millesimi</p>
@@ -9706,6 +9767,7 @@ function LavoriPrivatiSuite({
   onUpdateFattura,
   onUploadFile,
   onRefresh,
+  subscriptionFlags = getSubscriptionFlags('premium'),
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
@@ -10964,6 +11026,12 @@ export default function App() {
     const ids = userProfile?.condominiIds || [];
     return condomini.filter((c) => ids.includes(c.id));
   }, [ruoloNormalizzato, condomini, userProfile]);
+
+  const condominioIdPerAbbonamento = filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || '';
+  const pianoAbbonamentoCorrente = ruoloNormalizzato === 'gestore'
+    ? 'premium'
+    : getPianoAbbonamentoCondominio(condominioIdPerAbbonamento, contratti);
+  const subscriptionFlagsCorrenti = getSubscriptionFlags(pianoAbbonamentoCorrente);
 
   const segnalazioniFiltrate = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return segnalazioni;
@@ -13464,6 +13532,7 @@ export default function App() {
               onUpdateFattura={aggiornaFatturaLavoroPrivato}
               onUploadFile={uploadLavoroPrivatoFile}
               onRefresh={carica}
+              subscriptionFlags={getSubscriptionFlags('premium')}
             />
           </>
         )}
@@ -13558,11 +13627,19 @@ export default function App() {
           </section>
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'report' && (
-          <ArchivioReportPremium
-            reports={reportVisibili}
-            ruolo={ruoloNormalizzato}
-            canSend={false}
-          />
+          subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
+            <ArchivioReportPremium
+              reports={reportVisibili}
+              ruolo={ruoloNormalizzato}
+              canSend={false}
+            />
+          ) : (
+            <SubscriptionLockedCard
+              required="plus"
+              title="I tuoi report sono disponibili con CSP Plus"
+              text="Il piano Base mantiene le funzioni operative essenziali. Con Plus e Premium il condominio accede alla memoria documentale dell’immobile e ai report dedicati."
+            />
+          )
         )}
 
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'rivista' && (
@@ -13588,6 +13665,7 @@ export default function App() {
             onUpdateFattura={aggiornaFatturaLavoroPrivato}
             onUploadFile={uploadLavoroPrivatoFile}
             onRefresh={carica}
+            subscriptionFlags={subscriptionFlagsCorrenti}
           />
         )}
 
@@ -13672,6 +13750,7 @@ export default function App() {
         utentiCondomini={utentiCondomini}
         utentiSistema={utentiSistema}
         condomini={condomini}
+        subscriptionFlags={getSubscriptionFlags(getPianoAbbonamentoCondominio(dettaglioAperto?.condominio_id, contratti))}
       />
     </div>
   );
