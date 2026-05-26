@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.24';
-const APP_VERSION_LABEL = 'CSP v1.0.24';
+const APP_VERSION = '1.0.25';
+const APP_VERSION_LABEL = 'CSP v1.0.25';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -127,6 +127,35 @@ function SubscriptionLockedCard({ required = 'plus', title, text, compact = fals
         </div>
       </div>
     </section>
+  );
+}
+
+
+function SubscriptionPlanBadge({ piano = 'base', className = '' }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const config = {
+    base: {
+      label: 'CSP Base',
+      cls: 'border-slate-200 bg-white text-slate-600 shadow-sm',
+    },
+    plus: {
+      label: 'CSP Plus',
+      cls: 'border-sky-200 bg-gradient-to-r from-sky-50 via-slate-50 to-cyan-50 text-sky-800 shadow-sm shadow-sky-900/5',
+    },
+    premium: {
+      label: 'CSP Premium',
+      cls: 'border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-white text-amber-800 shadow-sm shadow-amber-900/10',
+    },
+  }[pianoNorm] || {
+    label: 'CSP Base',
+    cls: 'border-slate-200 bg-white text-slate-600 shadow-sm',
+  };
+
+  return (
+    <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${config.cls} ${className}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${pianoNorm === 'premium' ? 'bg-amber-500' : pianoNorm === 'plus' ? 'bg-sky-500' : 'bg-slate-400'}`} />
+      {config.label}
+    </span>
   );
 }
 
@@ -9723,12 +9752,15 @@ function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio,
   );
 }
 
-function SegnalazioneCard({ segnalazione, onOpen }) {
+function SegnalazioneCard({ segnalazione, onOpen, pianoAbbonamento = 'base', showSubscriptionBadge = false }) {
   return (
     <button onClick={() => onOpen(segnalazione)} className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:shadow-md">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
+            {showSubscriptionBadge && <SubscriptionPlanBadge piano={pianoAbbonamento} />}
+          </div>
           <p className="break-words text-sm text-slate-500">{segnalazione.condominio}</p>
         </div>
         <span className={'shrink-0 rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
@@ -9815,7 +9847,7 @@ function TimelinePratica({ stato }) {
   );
 }
 
-function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, condomini = [], onRefreshVoti, subscriptionFlags = getSubscriptionFlags('premium') }) {
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, condomini = [], onRefreshVoti, subscriptionFlags = getSubscriptionFlags('premium'), pianoAbbonamento = 'base', showSubscriptionBadge = false }) {
   const ruoloDettaglio = String(ruolo || '').toLowerCase().trim();
   const isAmministratoreOperativoDettaglio = ruoloDettaglio === 'amministratore' || ruoloDettaglio === 'collaboratore';
   const [nota, setNota] = useState('');
@@ -9964,7 +9996,10 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
         <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur-xl md:p-5">
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
           <div>
-            <h3 className="break-words text-lg font-bold leading-tight md:text-xl">{segnalazione.titolo}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="break-words text-lg font-bold leading-tight md:text-xl">{segnalazione.titolo}</h3>
+              {showSubscriptionBadge && <SubscriptionPlanBadge piano={pianoAbbonamento} />}
+            </div>
             <p className="mt-1 text-sm text-slate-500">{segnalazione.condominio}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -14222,7 +14257,7 @@ export default function App() {
               <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
             ) : (
               <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
-                {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+                {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} pianoAbbonamento={getPianoAbbonamentoCondominio(s.condominio_id, contratti)} showSubscriptionBadge={!['condominio', 'condomino'].includes(ruoloNormalizzato)} />)}
               </div>
             )}
           </section>
@@ -14300,7 +14335,7 @@ export default function App() {
                 <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
               ) : (
                 <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
-                  {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+                  {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} pianoAbbonamento={getPianoAbbonamentoCondominio(s.condominio_id, contratti)} showSubscriptionBadge={!['condominio', 'condomino'].includes(ruoloNormalizzato)} />)}
                 </div>
               )}
             </section>
@@ -14533,7 +14568,7 @@ export default function App() {
               <EmptyState icon="🛠️" title="Nessuna segnalazione presente" text="Tutto tranquillo per ora. Quando arriverà una nuova segnalazione, la troverai qui con stato e priorità." action="Situazione sotto controllo" tone="emerald" />
             ) : (
               <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
-                {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} />)}
+                {segnalazioniVisualizzate.map((s) => <SegnalazioneCard key={s.id} segnalazione={s} onOpen={setDettaglioAperto} pianoAbbonamento={getPianoAbbonamentoCondominio(s.condominio_id, contratti)} showSubscriptionBadge={!['condominio', 'condomino'].includes(ruoloNormalizzato)} />)}
               </div>
             )}
           </section>
@@ -14691,6 +14726,8 @@ export default function App() {
         utentiSistema={utentiSistema}
         condomini={condomini}
         subscriptionFlags={getSubscriptionFlags(getPianoAbbonamentoCondominio(dettaglioAperto?.condominio_id, contratti))}
+        pianoAbbonamento={getPianoAbbonamentoCondominio(dettaglioAperto?.condominio_id, contratti)}
+        showSubscriptionBadge={!['condominio', 'condomino'].includes(ruoloNormalizzato)}
       />
     </div>
   );
