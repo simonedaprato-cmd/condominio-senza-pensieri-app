@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -6948,7 +6948,7 @@ function FatturazionePartnerSuite({
               <div className="rounded-2xl border border-amber-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza nei prossimi 15 giorni.</div>
             ) : (
               fattureInScadenza.map((fattura) => (
-                <div key={fattura.id} className="rounded-2xl border border-amber-100 bg-white p-3">
+                <button type="button" key={fattura.id} onClick={() => apriModificaFattura(fattura)} className="w-full rounded-2xl border border-amber-100 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
@@ -6960,7 +6960,7 @@ function FatturazionePartnerSuite({
                       <p className="text-xs font-bold text-slate-500">Scad. {fattura.data_scadenza}</p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -6981,7 +6981,7 @@ function FatturazionePartnerSuite({
               <div className="rounded-2xl border border-red-100 bg-white p-4 text-sm font-semibold text-slate-500">Nessuna fattura scaduta aperta.</div>
             ) : (
               fattureScaduteAperte.map((fattura) => (
-                <div key={fattura.id} className="rounded-2xl border border-red-100 bg-white p-3">
+                <button type="button" key={fattura.id} onClick={() => apriModificaFattura(fattura)} className="w-full rounded-2xl border border-red-100 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
@@ -6993,7 +6993,7 @@ function FatturazionePartnerSuite({
                       <p className="text-xs font-bold text-red-600">Scad. {fattura.data_scadenza}</p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -7024,7 +7024,9 @@ function FatturazionePartnerSuite({
         </div>
 
         {fatturaInModifica && (
-          <div className="mt-4 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+            <button type="button" aria-label="Chiudi scheda fattura" onClick={() => setFatturaInModifica(null)} className="absolute inset-0" />
+            <div className="relative max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[2rem] border border-sky-200 bg-sky-50 p-4 shadow-2xl shadow-slate-950/30 csp-scroll">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Dettagli fattura</p>
@@ -7067,72 +7069,53 @@ function FatturazionePartnerSuite({
             </div>
             <textarea value={fatturaEditForm.descrizione} onChange={(e) => updateFatturaEdit('descrizione', e.target.value)} placeholder="Descrizione" className="mt-3 min-h-20 w-full rounded-2xl border border-sky-200 bg-white px-3 py-3" />
             <button type="button" onClick={salvaModificaFattura} className="mt-3 w-full rounded-2xl bg-sky-700 px-4 py-3 font-black text-white">Salva dettagli fattura</button>
+            </div>
           </div>
         )}
 
-        <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-slate-200 csp-scroll">
-          <table className="min-w-[1040px] w-full border-collapse text-sm">
-            <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-3">Fattura</th>
-                <th className="px-3 py-3">Partner</th>
-                <th className="px-3 py-3">Condominio</th>
-                <th className="px-3 py-3">Pratica</th>
-                <th className="px-3 py-3 text-right min-w-[150px]">Totale</th>
-                <th className="px-3 py-3">Stato</th>
-                <th className="px-3 py-3 text-right">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fattureFiltrate.length === 0 ? (
-                <tr><td colSpan="7" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura trovata.</td></tr>
-              ) : (
-                fattureFiltrate.map((fattura) => (
-                  <tr key={fattura.id} className="border-t border-slate-100 align-top hover:bg-slate-50">
-                    <td className="px-3 py-3">
-                      <p className="font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
-                      <p className="text-xs text-slate-500">{fattura.data_emissione || 'n.d.'} • Scad. {fattura.data_scadenza || 'n.d.'}</p>
-                      {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-700">Apri PDF</a>}
-                    </td>
-                    <td className="px-3 py-3 font-semibold text-slate-700">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{condominioById(fattura.condominio_id)?.nome || 'n.d.'}</td>
-                    <td className="px-3 py-3 text-slate-600">{fattura.segnalazione_id ? `#${fattura.segnalazione_id}` : 'n.d.'}</td>
-                    <td className="px-3 py-3 text-right font-black text-slate-900 min-w-[150px]">{formatEuro(fattura.totale || 0)}</td>
-                    <td className="px-3 py-3">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
-                        fattura.stato === 'pagata' ? 'bg-emerald-100 text-emerald-700' :
-                        fattura.stato === 'scaduta' ? 'bg-red-100 text-red-700' :
-                        fattura.stato === 'inviata' ? 'bg-sky-100 text-sky-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {fattura.stato}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => apriModificaFattura(fattura)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Modifica</button>
-                        {fattura.stato !== 'inviata' && fattura.stato !== 'pagata' && (
-                          <button type="button" onClick={() => onInviaFatturaPartner(fattura.id)} className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-black text-white">
-                            Invia
-                          </button>
-                        )}
-                        {fattura.stato !== 'pagata' && (
-                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'pagata', pagata_il: new Date().toISOString().slice(0, 10) })} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">
-                            Pagata
-                          </button>
-                        )}
-                        {fattura.stato !== 'scaduta' && fattura.stato !== 'pagata' && (
-                          <button type="button" onClick={() => onUpdateFatturaPartner(fattura.id, { stato: 'scaduta' })} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">
-                            Scaduta
-                          </button>
-                        )}
+        <div className="mt-4 max-h-[540px] space-y-3 overflow-auto pr-1 csp-scroll">
+          {fattureFiltrate.length === 0 ? (
+            <EmptyState icon="🧾" title="Nessuna fattura trovata" text="Modifica filtri o ricerca per visualizzare altre fatture." action="Archivio ordinato" tone="slate" />
+          ) : (
+            fattureFiltrate.map((fattura) => {
+              const stato = String(fattura.stato || 'bozza').toLowerCase();
+              const statoClass = stato === 'pagata'
+                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                : stato === 'scaduta'
+                  ? 'bg-red-100 text-red-700 border-red-200'
+                  : stato === 'inviata'
+                    ? 'bg-sky-100 text-sky-700 border-sky-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200';
+              return (
+                <button
+                  key={fattura.id}
+                  type="button"
+                  onClick={() => apriModificaFattura(fattura)}
+                  className="w-full rounded-[1.75rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-lg"
+                >
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${statoClass}`}>{fattura.stato || 'bozza'}</span>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Partner n.d.'}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        {[condominioById(fattura.condominio_id)?.nome, fattura.amministratore_email].filter(Boolean).join(' • ') || 'Destinatario non indicato'}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Emessa: {fattura.data_emissione || 'n.d.'} • Scadenza: {fattura.data_scadenza || 'n.d.'} {fattura.segnalazione_id ? `• Pratica #${fattura.segnalazione_id}` : ''}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-left md:text-right">
+                      <p className="text-2xl font-black text-slate-900">{formatEuro(fattura.totale || 0)}</p>
+                      {fattura.file_url && <span className="mt-1 inline-flex rounded-full bg-sky-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-sky-700">PDF disponibile</span>}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
       </section>
 
@@ -7169,35 +7152,27 @@ function FatturazionePartnerSuite({
             <button type="submit" className="w-full rounded-2xl bg-violet-700 px-4 py-3 font-black text-white">Salva fattura provvigione</button>
           </form>
 
-          <div className="max-h-[430px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
-            <table className="min-w-[680px] w-full border-collapse text-sm">
-              <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-3">Fattura</th>
-                  <th className="px-3 py-3">Azienda</th>
-                  <th className="px-3 py-3 text-right">Imponibile</th>
-                  <th className="px-3 py-3 text-right">Totale</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(fattureProvvigioniGestore || []).length === 0 ? (
-                  <tr><td colSpan="4" className="px-3 py-6 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione registrata.</td></tr>
-                ) : (
-                  fattureProvvigioniGestore.map((fattura) => (
-                    <tr key={fattura.id} className="border-t border-slate-100 hover:bg-violet-50/40">
-                      <td className="px-3 py-3">
-                        <p className="font-black text-slate-900">{fattura.numero_fattura}</p>
-                        <p className="text-xs text-slate-500">{fattura.data_fattura}</p>
-                        {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="text-xs font-black text-violet-700">PDF</a>}
-                      </td>
-                      <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                      <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
-                      <td className="px-3 py-3 text-right font-black text-violet-700">{formatEuro(fattura.totale || 0)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="max-h-[430px] space-y-3 overflow-auto pr-1 csp-scroll">
+            {(fattureProvvigioniGestore || []).length === 0 ? (
+              <EmptyState icon="€" title="Nessuna fattura provvigione" text="Le fatture provvigione che emetti ai partner saranno raccolte qui." action="Archivio pronto" tone="slate" />
+            ) : (
+              fattureProvvigioniGestore.map((fattura) => (
+                <article key={fattura.id} className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-base font-black text-slate-900">{fattura.numero_fattura || `Fattura #${fattura.id}`}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Azienda n.d.'}</p>
+                      <p className="mt-1 text-xs text-slate-400">{fattura.data_fattura || 'Data n.d.'}</p>
+                      {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-violet-700">Apri PDF</a>}
+                    </div>
+                    <div className="text-left md:text-right">
+                      <p className="text-xl font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</p>
+                      <p className="text-xs font-bold text-violet-700">Totale {formatEuro(fattura.totale || 0)}</p>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -7222,19 +7197,19 @@ function FatturazionePartnerSuite({
         <form onSubmit={salvaFatturaProvvAdmin} className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
           <p className="text-sm font-black text-indigo-800">Nuovo riepilogo fattura</p>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <select value={fatturaProvvAdminForm.amministratore_email} onChange={(e) => updateFatturaProvvAdmin('amministratore_email', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+            <select value={fatturaProvvAdminForm.amministratore_email} onChange={(e) => updateFatturaProvvAdmin('amministratore_email', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
               <option value="">Amministratore</option>
               {amministratori.map((u) => <option key={u.email} value={u.email}>{u.nome || u.email}</option>)}
             </select>
 
-            <select value={fatturaProvvAdminForm.azienda_partner_id} onChange={(e) => updateFatturaProvvAdmin('azienda_partner_id', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+            <select value={fatturaProvvAdminForm.azienda_partner_id} onChange={(e) => updateFatturaProvvAdmin('azienda_partner_id', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
               <option value="">Azienda partner</option>
               {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
             </select>
 
             <input value={fatturaProvvAdminForm.numero_fattura} onChange={(e) => updateFatturaProvvAdmin('numero_fattura', e.target.value)} placeholder="Numero fattura" className="rounded-2xl border border-indigo-200 bg-white px-3 py-3" />
 
-            <select value={fatturaProvvAdminForm.trimestre} onChange={(e) => updateFatturaProvvAdmin('trimestre', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3">
+            <select value={fatturaProvvAdminForm.trimestre} onChange={(e) => updateFatturaProvvAdmin('trimestre', e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-900">
               <option value="">Trimestre</option>
               <option value="Q1">Q1</option>
               <option value="Q2">Q2</option>
@@ -7278,7 +7253,7 @@ function FatturazionePartnerSuite({
             <select value={adminProvvigioniSelezionato} onChange={(e) => setAdminProvvigioniSelezionato(e.target.value)} className="rounded-2xl border border-indigo-200 bg-white px-3 py-3 font-bold text-slate-700 md:min-w-[320px]">
               <option value="">Seleziona amministratore</option>
               {provvigioniPerAmministratore.map((admin) => (
-                <option key={admin.email} value={admin.email}>{admin.label}</option>
+                <option key={admin.email} value={admin.email}>{admin.nome || admin.email}</option>
               ))}
             </select>
           </div>
@@ -7294,54 +7269,40 @@ function FatturazionePartnerSuite({
                 <DashboardStat label="Da pagare" value={formatEuro(riepilogoAdminSelezionato.daPagare)} tone="red" />
               </div>
 
-              <div className="max-h-[360px] overflow-auto rounded-3xl border border-slate-200 csp-scroll">
-                <table className="min-w-[900px] w-full border-collapse text-sm">
-                  <thead className="bg-slate-100 text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-3 py-3">Fattura</th>
-                      <th className="px-3 py-3">Fornitore</th>
-                      <th className="px-3 py-3">Periodo</th>
-                      <th className="px-3 py-3 text-right">Imponibile</th>
-                      <th className="px-3 py-3">Stato</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {riepilogoAdminSelezionato.fattureProvvigioneAdmin.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="px-3 py-8 text-center text-sm font-semibold text-slate-500">Nessuna fattura provvigione registrata per questo amministratore.</td>
-                      </tr>
-                    ) : (
-                      riepilogoAdminSelezionato.fattureProvvigioneAdmin.map((fattura) => (
-                        <tr key={fattura.id} className="border-t border-slate-100 hover:bg-indigo-50/30">
-                          <td className="px-3 py-3">
-                            <p className="font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
-                            <p className="text-xs text-slate-500">{fattura.data_fattura || 'n.d.'}</p>
-                          </td>
-                          <td className="px-3 py-3 text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'n.d.'}</td>
-                          <td className="px-3 py-3 text-slate-600">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'n.d.'}</td>
-                          <td className="px-3 py-3 text-right font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</td>
-                          <td className="px-3 py-3">
-                            <select
-                              value={fattura.stato || 'da_pagare'}
-                              onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
-                              className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-wide ${
-                                fattura.stato === 'pagata'
-                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                                  : fattura.stato === 'annullata'
-                                    ? 'border-slate-200 bg-slate-100 text-slate-600'
-                                    : 'border-amber-200 bg-amber-100 text-amber-700'
-                              }`}
-                            >
-                              <option value="da_pagare">Da pagare</option>
-                              <option value="pagata">Pagata</option>
-                              <option value="annullata">Annullata</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <div className="max-h-[360px] space-y-3 overflow-auto pr-1 csp-scroll">
+                {riepilogoAdminSelezionato.fattureProvvigioneAdmin.length === 0 ? (
+                  <EmptyState icon="🧾" title="Nessuna fattura provvigione" text="Quando saranno registrate fatture per questo amministratore, le vedrai qui in forma ordinata." action="Dashboard riservata" tone="slate" />
+                ) : (
+                  riepilogoAdminSelezionato.fattureProvvigioneAdmin.map((fattura) => (
+                    <article key={fattura.id} className="rounded-[1.75rem] border border-indigo-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-base font-black text-slate-900">{fattura.numero_fattura || `#${fattura.id}`}</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-600">{aziendaById(fattura.azienda_partner_id)?.ragione_sociale || 'Fornitore n.d.'}</p>
+                          <p className="mt-1 text-xs text-slate-400">{[fattura.trimestre, fattura.anno].filter(Boolean).join(' ') || 'Periodo n.d.'} • {fattura.data_fattura || 'Data n.d.'}</p>
+                        </div>
+                        <div className="text-left md:text-right">
+                          <p className="text-xl font-black text-slate-900">{formatEuro(fattura.importo_imponibile || 0)}</p>
+                          <select
+                            value={fattura.stato || 'da_pagare'}
+                            onChange={(e) => onUpdateFatturaProvvigioneAmministratore(fattura.id, { stato: e.target.value })}
+                            className={`mt-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide ${
+                              fattura.stato === 'pagata'
+                                ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                : fattura.stato === 'annullata'
+                                  ? 'border-slate-200 bg-slate-100 text-slate-600'
+                                  : 'border-amber-200 bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            <option value="da_pagare">Da pagare</option>
+                            <option value="pagata">Pagata</option>
+                            <option value="annullata">Annullata</option>
+                          </select>
+                        </div>
+                      </div>
+                    </article>
+                  ))
+                )}
               </div>
             </div>
           ) : (
