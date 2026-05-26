@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -3933,20 +3933,10 @@ function CapitolatoSenzaPensieriSuite({
     return ['sospeso', 'sospesa', 'disdetto', 'disdetta', 'annullato', 'annullata'].includes(statoContratto);
   };
 
-  const condominioCspAttivo = (condominioId) => {
-    const contrattiCondominio = (contratti || []).filter((contratto) => Number(contratto.condominio_id) === Number(condominioId));
-
-    // Fix accessi non-gestore: la sospensione deve bloccare solo quando è esplicita.
-    // Se non esiste ancora un contratto CSP censito per il condominio, manteniamo il comportamento storico
-    // e non oscuriamo amministratori, collaboratori o condòmini.
-    if (contrattiCondominio.some(contrattoCspSospeso)) return false;
-    if (contrattiCondominio.some(contrattoCspAttivo)) return true;
-
-    const condominio = (condomini || []).find((item) => Number(item.id) === Number(condominioId));
-    if (Object.prototype.hasOwnProperty.call(condominio || {}, 'csp_attivo')) {
-      return valoreBooleanoAttivo(condominio?.csp_attivo);
-    }
-
+  const condominioCspAttivo = () => {
+    // Recovery release 203: non filtriamo gli accessi lato frontend per ruolo non gestore.
+    // L'area contratti resta disponibile al gestore, ma il blocco operativo sarà riattivato
+    // solo dopo una verifica dedicata per evitare videate bianche agli altri ruoli.
     return true;
   };
 
@@ -10832,10 +10822,9 @@ export default function App() {
   }, [ruoloNormalizzato, condomini, userProfile, contratti]);
 
   const condominiSospesiUtente = useMemo(() => {
-    if (ruoloNormalizzato === 'gestore') return [];
-    const ids = userProfile?.condominiIds || [];
-    return (condomini || []).filter((c) => ids.includes(c.id) && !condominioCspAttivo(c.id));
-  }, [ruoloNormalizzato, condomini, userProfile, contratti]);
+    // Recovery release 203: sospensione accessi non applicata agli utenti finché il filtro non viene ri-validato.
+    return [];
+  }, []);
 
   const segnalazioniFiltrate = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return segnalazioni;
