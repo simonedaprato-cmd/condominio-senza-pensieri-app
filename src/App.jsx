@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -113,6 +113,34 @@ function buildAppDeepLink(params = {}) {
     }
   });
   return url.toString();
+}
+
+
+function buildGoogleMapsUrl(parts = []) {
+  const query = (parts || [])
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ');
+
+  if (!query) return '';
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function GoogleMapsButton({ parts = [], label = 'Apri su Google Maps', className = '' }) {
+  const url = buildGoogleMapsUrl(parts);
+  if (!url) return null;
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className={`inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 ${className}`}
+    >
+      {label}
+    </a>
+  );
 }
 
 function isPushLaunchContext() {
@@ -4890,6 +4918,7 @@ function CapitolatoSenzaPensieriSuite({
               <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Scheda pratica capitolato</p>
               <h2 className="mt-1 text-xl font-black text-slate-900">{capitolatoAperto.numero_pratica || `#${capitolatoAperto.id}`} — {capitolatoAperto.titolo}</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">{capitolatoAperto.condominio_nome || 'Condominio n.d.'} • {capitolatoAperto.indirizzo || ''} {capitolatoAperto.citta || ''}</p>
+              <GoogleMapsButton parts={[capitolatoAperto.indirizzo, capitolatoAperto.citta, capitolatoAperto.condominio_nome]} className="mt-3" />
             </div>
             <button
               type="button"
@@ -8952,6 +8981,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
             <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
+            <GoogleMapsButton parts={[segnalazione.luogo, segnalazione.condominio]} className="mt-1" />
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
             <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
             {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
@@ -9577,7 +9607,8 @@ function LavoriPrivatiSuite({
     return lavoriPrivati.filter((item) => String(item.condomino_email || '').toLowerCase() === email);
   }, [isGestore, lavoriPrivati, userProfile]);
 
-  const getCondominioNome = (id) => condomini.find((c) => Number(c.id) === Number(id))?.nome || 'Condominio non indicato';
+  const getCondominioInfo = (id) => condomini.find((c) => Number(c.id) === Number(id));
+  const getCondominioNome = (id) => getCondominioInfo(id)?.nome || 'Condominio non indicato';
   const fatturaDelLavoro = (id) => fattureLavoriPrivati.find((f) => Number(f.lavoro_privato_id) === Number(id));
   const updateDraft = (id, patch) => setDrafts((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
   const imponibileDaLordo22 = (valoreLordo) => Math.round((Number(valoreLordo || 0) / 1.22) * 100) / 100;
@@ -9951,6 +9982,7 @@ function LavoriPrivatiSuite({
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Lavoro privato #{lavoroAperto.id}</p>
                 <h3 className="text-xl font-black text-slate-900">{lavoroAperto.titolo}</h3>
                 <p className="text-sm font-semibold text-slate-500">{getCondominioNome(lavoroAperto.condominio_id)} • {lavoroAperto.stato}</p>
+                <GoogleMapsButton parts={[getCondominioInfo(lavoroAperto.condominio_id)?.indirizzo, getCondominioInfo(lavoroAperto.condominio_id)?.citta, getCondominioNome(lavoroAperto.condominio_id)]} className="mt-3" />
               </div>
               <button onClick={() => setLavoroAperto(null)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
             </div>
