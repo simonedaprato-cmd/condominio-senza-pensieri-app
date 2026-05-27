@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.43';
-const APP_VERSION_LABEL = 'CSP v1.0.43';
+const APP_VERSION = '1.0.44';
+const APP_VERSION_LABEL = 'CSP v1.0.44';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -555,8 +555,111 @@ function AppMotionStyles() {
 
 
 
+function SchedaCondominioStrategicaModal({ row, onClose }) {
+  if (!row?.condominio) return null;
+
+  const condominio = row.condominio;
+  const famiglie = Number(
+    condominio.numero_condomini ||
+    condominio.famiglie ||
+    condominio.numero_famiglie ||
+    condominio.unita ||
+    0
+  );
+
+  const calcola = (piano) => {
+    const config = PIANI_ABBONAMENTO[piano] || PIANI_ABBONAMENTO.base;
+    const mensileFamiglia = Number(config.costo || 0);
+    const annuo = famiglie * mensileFamiglia * 12;
+    return { mensileFamiglia, annuo };
+  };
+
+  const plus = calcola('plus');
+  const premium = calcola('premium');
+
+  const richiedi = (piano) => {
+    window.alert(`Richiesta attivazione CSP ${piano.toUpperCase()} predisposta per ${row.nome}.\n\nNel prossimo step collegheremo invio push, mail e WhatsApp al gestore.`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[180] flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm md:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl csp-enter md:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Scheda condominio</p>
+            <h3 className="mt-1 text-2xl font-black leading-tight text-slate-900">{row.nome}</h3>
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              Utilizzo CSP annuale · {row.pratiche} pratiche · score {row.score}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-500 shadow-sm transition hover:bg-slate-50"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Famiglie</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{famiglie || '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Pratiche</p>
+            <p className="mt-1 text-2xl font-black text-emerald-800">{row.pratiche}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Attività CSP</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{row.score}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-[1.5rem] border border-white/70 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4">
+          <p className="text-sm font-bold leading-6 text-slate-700">
+            Questo condominio mostra un utilizzo CSP continuativo. Le funzioni evolute possono rendere più ordinata la gestione annuale e ridurre attività manuali ricorrenti.
+          </p>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="rounded-[1.6rem] border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-4 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700">Simulazione CSP Plus</p>
+            <p className="mt-2 text-2xl font-black text-slate-900">{formatCurrency(plus.annuo)} / anno</p>
+            <p className="mt-1 text-xs font-bold text-slate-500">≈ {formatCurrency(plus.mensileFamiglia)} / famiglia / mese</p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Riparti automatici, reminder quote e report annuale.</p>
+            <button
+              type="button"
+              onClick={() => richiedi('plus')}
+              className="mt-4 w-full rounded-2xl border border-sky-200 bg-white px-4 py-3 text-sm font-black text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              Richiedi attivazione CSP Plus
+            </button>
+          </div>
+
+          <div className="rounded-[1.6rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">Simulazione CSP Premium</p>
+            <p className="mt-2 text-2xl font-black text-slate-900">{formatCurrency(premium.annuo)} / anno</p>
+            <p className="mt-1 text-xs font-bold text-slate-500">≈ {formatCurrency(premium.mensileFamiglia)} / famiglia / mese</p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Priorità interventi, report semestrale e vantaggi Premium dedicati.</p>
+            <button
+              type="button"
+              onClick={() => richiedi('premium')}
+              className="mt-4 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm font-black text-amber-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              Richiedi attivazione CSP Premium
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UtilizzoCspCondominiale({ ruolo = '', condomini = [], segnalazioni = [] }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const [schedaAperta, setSchedaAperta] = useState(null);
+
   if (!['amministratore', 'collaboratore'].includes(ruoloNorm)) return null;
 
   const anno = new Date().getFullYear();
@@ -590,6 +693,7 @@ function UtilizzoCspCondominiale({ ruolo = '', condomini = [], segnalazioni = []
         nome: nomeCondominio(condominio),
         score,
         pratiche: praticheAnno.length,
+        condominio,
       };
     })
     .filter((row) => row.id && row.score > 0)
@@ -601,39 +705,53 @@ function UtilizzoCspCondominiale({ ruolo = '', condomini = [], segnalazioni = []
   const maxScore = Math.max(...righe.map((row) => row.score), 1);
 
   return (
-    <section className="rounded-[2rem] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur csp-enter">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Utilizzo CSP</p>
-          <h3 className="mt-1 text-base font-black text-slate-900">Condomìni più attivi</h3>
-        </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{anno}</p>
-      </div>
-
-      <div className="mt-3 max-h-[230px] space-y-2 overflow-y-auto pr-1 csp-scroll">
-        {righe.map((row, index) => (
-          <div key={row.id} className="rounded-2xl border border-slate-100 bg-white/75 px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-slate-900">{index + 1}. {row.nome}</p>
-                <p className="text-[11px] font-semibold text-slate-500">{row.pratiche} pratiche CSP</p>
-              </div>
-              <p className="text-xs font-black text-emerald-700">{row.score}</p>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-emerald-500/70"
-                style={{ width: `${Math.max(12, Math.round((row.score / maxScore) * 100))}%` }}
-              />
-            </div>
+    <>
+      <section className="rounded-[2rem] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur csp-enter">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Utilizzo CSP</p>
+            <h3 className="mt-1 text-base font-black text-slate-900">Condomìni più attivi</h3>
           </div>
-        ))}
-      </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{anno}</p>
+        </div>
 
-      <p className="mt-3 text-[11px] font-bold leading-5 text-slate-500">
-        I condomìni con utilizzo continuativo beneficiano maggiormente delle funzioni CSP evolute.
-      </p>
-    </section>
+        <div className="mt-3 max-h-[230px] space-y-2 overflow-y-auto pr-1 csp-scroll">
+          {righe.map((row, index) => (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => setSchedaAperta(row)}
+              className="w-full rounded-2xl border border-slate-100 bg-white/75 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-emerald-100 hover:shadow-md"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-900">{index + 1}. {row.nome}</p>
+                  <p className="text-[11px] font-semibold text-slate-500">{row.pratiche} pratiche CSP · apri scheda</p>
+                </div>
+                <p className="text-xs font-black text-emerald-700">{row.score}</p>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-emerald-500/70"
+                  style={{ width: `${Math.max(12, Math.round((row.score / maxScore) * 100))}%` }}
+                />
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-3 text-[11px] font-bold leading-5 text-slate-500">
+          I condomìni con utilizzo continuativo beneficiano maggiormente delle funzioni CSP evolute.
+        </p>
+      </section>
+
+      {schedaAperta && (
+        <SchedaCondominioStrategicaModal
+          row={schedaAperta}
+          onClose={() => setSchedaAperta(null)}
+        />
+      )}
+    </>
   );
 }
 
