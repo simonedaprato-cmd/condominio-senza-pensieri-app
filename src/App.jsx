@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.50';
-const APP_VERSION_LABEL = 'CSP v1.0.50';
+const APP_VERSION = '1.0.51';
+const APP_VERSION_LABEL = 'CSP v1.0.51';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -945,6 +945,177 @@ function CondominiOperativiSuite({ condomini = [], segnalazioni = [], capitolati
           row={schedaAperta}
           onClose={() => setSchedaAperta(null)}
         />
+      )}
+    </section>
+  );
+}
+
+
+
+
+function GestoreCondominiRegistratiSuite({ condomini = [], contratti = [], utentiSistema = [], segnalazioni = [], capitolati = [] }) {
+  const [search, setSearch] = useState('');
+  const [provinciaFiltro, setProvinciaFiltro] = useState('');
+  const [adminFiltro, setAdminFiltro] = useState('');
+  const [pianoFiltro, setPianoFiltro] = useState('');
+  const [schedaAperta, setSchedaAperta] = useState(null);
+
+  const nomeCondominio = (condominio) => (
+    condominio?.nome ||
+    condominio?.name ||
+    condominio?.denominazione ||
+    (condominio?.id ? `Condominio #${condominio.id}` : 'Condominio')
+  );
+
+  const adminLabel = (email) => {
+    const e = String(email || '').toLowerCase().trim();
+    if (!e) return 'Amministratore non indicato';
+    const u = (utentiSistema || []).find((utente) => String(utente.email || '').toLowerCase().trim() === e);
+    return u?.studio || u?.ragione_sociale || u?.nome || e;
+  };
+
+  const province = [...new Set((condomini || []).map((c) => String(c.provincia || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+
+  const amministratori = [...new Set((condomini || []).map((c) => String(c.amministratore_email || '').toLowerCase().trim()).filter(Boolean))]
+    .sort((a, b) => adminLabel(a).localeCompare(adminLabel(b)));
+
+  const righe = (Array.isArray(condomini) ? condomini : [])
+    .map((condominio) => {
+      const id = Number(condominio?.id || 0);
+      const piano = getPianoAbbonamentoCondominio(id, contratti);
+      const praticheCsp = (Array.isArray(segnalazioni) ? segnalazioni : []).filter((s) => Number(s.condominio_id || 0) === id);
+      const praticheCasep = (Array.isArray(capitolati) ? capitolati : []).filter((c) => Number(c.condominio_id || c.condominioId || 0) === id);
+      const famiglie = Number(condominio.numero_condomini || condominio.famiglie || condominio.numero_famiglie || condominio.unita || 0);
+      const score = praticheCsp.length + praticheCasep.length;
+      return {
+        id,
+        condominio,
+        nome: nomeCondominio(condominio),
+        provincia: String(condominio.provincia || '').trim(),
+        citta: String(condominio.citta || condominio.città || '').trim(),
+        indirizzo: String(condominio.indirizzo || '').trim(),
+        amministratoreEmail: String(condominio.amministratore_email || '').toLowerCase().trim(),
+        amministratore: adminLabel(condominio.amministratore_email),
+        piano,
+        famiglie,
+        praticheCsp: praticheCsp.length,
+        praticheCasep: praticheCasep.length,
+        score,
+      };
+    })
+    .filter((row) => row.id)
+    .filter((row) => {
+      const q = search.toLowerCase().trim();
+      if (!q) return true;
+      return [row.nome, row.indirizzo, row.citta, row.provincia, row.amministratore, row.amministratoreEmail].join(' ').toLowerCase().includes(q);
+    })
+    .filter((row) => !provinciaFiltro || row.provincia === provinciaFiltro)
+    .filter((row) => !adminFiltro || row.amministratoreEmail === adminFiltro)
+    .filter((row) => !pianoFiltro || normalizzaPianoAbbonamento(row.piano) === pianoFiltro)
+    .sort((a, b) => {
+      const order = { premium: 3, plus: 2, base: 1 };
+      return (order[normalizzaPianoAbbonamento(b.piano)] || 0) - (order[normalizzaPianoAbbonamento(a.piano)] || 0)
+        || b.score - a.score
+        || a.nome.localeCompare(b.nome);
+    });
+
+  const stats = {
+    totale: righe.length,
+    base: righe.filter((r) => normalizzaPianoAbbonamento(r.piano) === 'base').length,
+    plus: righe.filter((r) => normalizzaPianoAbbonamento(r.piano) === 'plus').length,
+    premium: righe.filter((r) => normalizzaPianoAbbonamento(r.piano) === 'premium').length,
+  };
+
+  const apriScheda = (row) => {
+    setSchedaAperta({
+      id: row.id,
+      nome: row.nome,
+      condominio: row.condominio,
+      pratiche: row.praticheCsp,
+      score: row.score,
+      praticheCasep: row.praticheCasep,
+      piano: row.piano,
+    });
+  };
+
+  return (
+    <section className="space-y-4 pb-36 md:pb-6">
+      <div className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Control room contratti</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">Condomìni registrati</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Piani attivi, filtri commerciali e schede operative per gestione upgrade.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="rounded-2xl bg-slate-50 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Totale</p><p className="text-lg font-black text-slate-900">{stats.totale}</p></div>
+            <div className="rounded-2xl bg-white px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Base</p><p className="text-lg font-black text-slate-700">{stats.base}</p></div>
+            <div className="rounded-2xl bg-sky-50 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-500">Plus</p><p className="text-lg font-black text-sky-800">{stats.plus}</p></div>
+            <div className="rounded-2xl bg-amber-50 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-600">Premium</p><p className="text-lg font-black text-amber-800">{stats.premium}</p></div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-4">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca..." className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
+          <select value={provinciaFiltro} onChange={(e) => setProvinciaFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100">
+            <option value="">Tutte le province</option>
+            {province.map((provincia) => <option key={provincia} value={provincia}>{provincia}</option>)}
+          </select>
+          <select value={adminFiltro} onChange={(e) => setAdminFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100">
+            <option value="">Tutti gli amministratori</option>
+            {amministratori.map((email) => <option key={email} value={email}>{adminLabel(email)}</option>)}
+          </select>
+          <select value={pianoFiltro} onChange={(e) => setPianoFiltro(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100">
+            <option value="">Tutti i piani</option>
+            <option value="base">Base</option>
+            <option value="plus">Plus</option>
+            <option value="premium">Premium</option>
+          </select>
+        </div>
+      </div>
+
+      {righe.length === 0 ? (
+        <EmptyState icon="🏢" title="Nessun condominio trovato" text="Nessun risultato per i filtri selezionati." action="Modifica filtri" tone="emerald" />
+      ) : (
+        <div className="max-h-[640px] space-y-3 overflow-y-auto pr-1 csp-scroll">
+          {righe.map((row) => {
+            const pianoNorm = normalizzaPianoAbbonamento(row.piano);
+            const cardClass = pianoNorm === 'premium'
+              ? 'border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white shadow-amber-900/10'
+              : pianoNorm === 'plus'
+                ? 'border-sky-200 bg-gradient-to-br from-sky-50 via-slate-50 to-cyan-50 shadow-sky-900/10'
+                : 'border-slate-200 bg-white';
+
+            return (
+              <button key={row.id} type="button" onClick={() => apriScheda(row)} className={`w-full rounded-[2rem] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${cardClass}`}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-lg font-black text-slate-900">{row.nome}</h3>
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">CSP {pianoNorm}</span>
+                    </div>
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-500">{[row.indirizzo, row.citta, row.provincia].filter(Boolean).join(' · ') || 'Indirizzo non indicato'}</p>
+                    <p className="mt-1 truncate text-xs font-bold text-slate-400">{row.amministratore}</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center md:min-w-[300px]">
+                    <div className="rounded-2xl bg-white/75 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Famiglie</p><p className="text-lg font-black text-slate-900">{row.famiglie || '—'}</p></div>
+                    <div className="rounded-2xl bg-white/75 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">CSP</p><p className="text-lg font-black text-emerald-700">{row.praticheCsp}</p></div>
+                    <div className="rounded-2xl bg-white/75 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">CaSeP</p><p className="text-lg font-black text-slate-900">{row.praticheCasep}</p></div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {schedaAperta && (
+        <SchedaCondominioStrategicaModal row={schedaAperta} onClose={() => setSchedaAperta(null)} />
       )}
     </section>
   );
@@ -14569,6 +14740,7 @@ export default function App() {
   const gestoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche e contratti' },
+    { id: 'condomini-registrati', label: '🏢 Condomini registrati', subtitle: 'Piani, filtri e upgrade' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
     { id: 'tecnici', label: 'Tecnici', subtitle: 'CRM tecnico CaSP' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
@@ -14776,6 +14948,16 @@ export default function App() {
         )}
 
 
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'condomini-registrati' && (
+          <GestoreCondominiRegistratiSuite
+            condomini={condomini}
+            contratti={contratti}
+            utentiSistema={utentiSistema}
+            segnalazioni={segnalazioni}
+            capitolati={capitolatiSenzaPensieri}
+          />
+        )}
 
         {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
