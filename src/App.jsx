@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.59';
-const APP_VERSION_LABEL = 'CSP v1.0.59';
+const APP_VERSION = '1.0.60';
+const APP_VERSION_LABEL = 'CSP v1.0.60';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -15004,7 +15004,7 @@ export default function App() {
                 >
                   <div className="border-b border-emerald-100/20 bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-700 px-3 py-2 text-white">
                     <div className="flex items-center justify-start overflow-hidden">
-                      <LogoMark className="h-12 w-auto max-w-full object-contain drop-shadow-2xl md:h-14" />
+                      <LogoMark className="h-18 w-auto max-w-full object-contain drop-shadow-2xl md:h-20" />
                     </div>
                   </div>
                   <nav className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
