@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.51';
-const APP_VERSION_LABEL = 'CSP v1.0.51';
+const APP_VERSION = '1.0.52';
+const APP_VERSION_LABEL = 'CSP v1.0.52';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -565,15 +565,22 @@ function formatCurrencySafeCsp(value) {
   }
 }
 
-function SchedaCondominioStrategicaModal({ row, onClose }) {
+function SchedaCondominioStrategicaModal({ row, onClose, mode = 'richiesta', utentiCondomini = [] }) {
   if (!row || !row.condominio) return null;
 
   const condominio = row.condominio;
+  const famiglieDaAnagrafica = (Array.isArray(utentiCondomini) ? utentiCondomini : [])
+    .filter((u) => Number(u.condominio_id || 0) === Number(row.id || condominio.id || 0))
+    .filter((u) => ['condominio', 'condomino'].includes(String(u.ruolo || '').toLowerCase().trim()))
+    .length;
+
   const famiglie = Number(
     condominio.numero_condomini ||
     condominio.famiglie ||
     condominio.numero_famiglie ||
     condominio.unita ||
+    condominio.numero_famiglie_censite ||
+    famiglieDaAnagrafica ||
     0
   );
 
@@ -590,6 +597,13 @@ function SchedaCondominioStrategicaModal({ row, onClose }) {
   const richiedi = async (piano) => {
     const pianoPulito = String(piano || '').toLowerCase().trim();
     const pianoLabel = pianoPulito.toUpperCase();
+
+    if (mode === 'gestore') {
+      window.alert(
+        `Attivazione CSP ${pianoLabel} selezionata per ${row.nome}.\n\nNel prossimo step collegheremo questo pulsante alla creazione/aggiornamento del contratto e alle notifiche ufficiali di avvenuta attivazione.`
+      );
+      return;
+    }
 
     const conferma = window.confirm(
       `Confermare richiesta attivazione CSP ${pianoLabel} per ${row.nome}?\n\nIl gestore riceverà una richiesta dedicata.`
@@ -677,7 +691,7 @@ function SchedaCondominioStrategicaModal({ row, onClose }) {
               onClick={() => richiedi('plus')}
               className="mt-4 w-full rounded-2xl border border-sky-200 bg-white px-4 py-3 text-sm font-black text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              Richiedi attivazione CSP Plus
+              {mode === 'gestore' ? 'Attiva CSP Plus' : 'Richiedi attivazione CSP Plus'}
             </button>
           </div>
 
@@ -691,7 +705,7 @@ function SchedaCondominioStrategicaModal({ row, onClose }) {
               onClick={() => richiedi('premium')}
               className="mt-4 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm font-black text-amber-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              Richiedi attivazione CSP Premium
+              {mode === 'gestore' ? 'Attiva CSP Premium' : 'Richiedi attivazione CSP Premium'}
             </button>
           </div>
         </div>
@@ -953,7 +967,7 @@ function CondominiOperativiSuite({ condomini = [], segnalazioni = [], capitolati
 
 
 
-function GestoreCondominiRegistratiSuite({ condomini = [], contratti = [], utentiSistema = [], segnalazioni = [], capitolati = [] }) {
+function GestoreCondominiRegistratiSuite({ condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], segnalazioni = [], capitolati = [] }) {
   const [search, setSearch] = useState('');
   const [provinciaFiltro, setProvinciaFiltro] = useState('');
   const [adminFiltro, setAdminFiltro] = useState('');
@@ -986,7 +1000,11 @@ function GestoreCondominiRegistratiSuite({ condomini = [], contratti = [], utent
       const piano = getPianoAbbonamentoCondominio(id, contratti);
       const praticheCsp = (Array.isArray(segnalazioni) ? segnalazioni : []).filter((s) => Number(s.condominio_id || 0) === id);
       const praticheCasep = (Array.isArray(capitolati) ? capitolati : []).filter((c) => Number(c.condominio_id || c.condominioId || 0) === id);
-      const famiglie = Number(condominio.numero_condomini || condominio.famiglie || condominio.numero_famiglie || condominio.unita || 0);
+      const famiglieDaAnagrafica = (Array.isArray(utentiCondomini) ? utentiCondomini : [])
+        .filter((u) => Number(u.condominio_id || 0) === id)
+        .filter((u) => ['condominio', 'condomino'].includes(String(u.ruolo || '').toLowerCase().trim()))
+        .length;
+      const famiglie = Number(condominio.numero_condomini || condominio.famiglie || condominio.numero_famiglie || condominio.unita || condominio.numero_famiglie_censite || famiglieDaAnagrafica || 0);
       const score = praticheCsp.length + praticheCasep.length;
       return {
         id,
@@ -1115,7 +1133,7 @@ function GestoreCondominiRegistratiSuite({ condomini = [], contratti = [], utent
       )}
 
       {schedaAperta && (
-        <SchedaCondominioStrategicaModal row={schedaAperta} onClose={() => setSchedaAperta(null)} />
+        <SchedaCondominioStrategicaModal row={schedaAperta} mode="gestore" utentiCondomini={utentiCondomini} onClose={() => setSchedaAperta(null)} />
       )}
     </section>
   );
@@ -14954,6 +14972,7 @@ export default function App() {
             condomini={condomini}
             contratti={contratti}
             utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
             segnalazioni={segnalazioni}
             capitolati={capitolatiSenzaPensieri}
           />
