@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.35';
-const APP_VERSION_LABEL = 'CSP v1.0.35';
+const APP_VERSION = '1.0.36';
+const APP_VERSION_LABEL = 'CSP v1.0.36';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -108,6 +108,35 @@ function getLivelloPianoAbbonamento(piano) {
 function canUseSubscriptionFeature(piano, required = 'plus') {
   return getLivelloPianoAbbonamento(piano) >= getLivelloPianoAbbonamento(required);
 }
+
+
+function ReportSubscriptionGateCard({ required = 'plus', title, text }) {
+  const tone = required === 'premium' ? 'amber' : 'sky';
+  const cls = required === 'premium'
+    ? 'border-amber-100 bg-gradient-to-br from-amber-50 via-yellow-50 to-white text-amber-900'
+    : 'border-sky-100 bg-gradient-to-br from-sky-50 via-white to-cyan-50 text-sky-900';
+
+  return (
+    <div className={`rounded-[2rem] border p-5 shadow-sm ${cls}`}>
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
+          🔒
+        </div>
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-70">
+            {required === 'premium' ? 'Riservato a CSP Premium' : 'Riservato a CSP Plus'}
+          </p>
+          <h3 className="mt-1 text-lg font-black text-slate-900">{title}</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{text}</p>
+          <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] opacity-70">
+            Contatta il tuo amministratore per l’attivazione del piano.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function SubscriptionLockedCard({ required = 'plus', title, text, compact = false }) {
   const requiredNorm = normalizzaPianoAbbonamento(required);
@@ -11968,6 +11997,8 @@ export default function App() {
     ? 'premium'
     : getPianoAbbonamentoCondominio(condominioIdPerAbbonamento, contratti);
   const subscriptionFlagsCorrenti = getSubscriptionFlags(pianoAbbonamentoCorrente);
+  const reportAnnualeAttivo = subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium;
+  const reportSemestraleAttivo = subscriptionFlagsCorrenti.isPremium;
   const contrattoCorrenteSospeso = ruoloNormalizzato !== 'gestore'
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
