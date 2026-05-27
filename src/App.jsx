@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.32';
-const APP_VERSION_LABEL = 'CSP v1.0.32';
+const APP_VERSION = '1.0.33';
+const APP_VERSION_LABEL = 'CSP v1.0.33';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -193,6 +193,28 @@ function subscriptionPlanCardClass(piano = 'base') {
 }
 
 
+
+
+function TopbarPlanTextLabel({ piano = 'base' }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const label = pianoNorm === 'premium'
+    ? 'CSP PREMIUM'
+    : pianoNorm === 'plus'
+      ? 'CSP PLUS'
+      : 'CSP BASE';
+
+  const cls = pianoNorm === 'premium'
+    ? 'text-amber-100'
+    : pianoNorm === 'plus'
+      ? 'text-sky-100'
+      : 'text-white/80';
+
+  return (
+    <span className={`text-xs font-black uppercase tracking-[0.16em] ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -1507,9 +1529,15 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbboname
             ☰
           </button>
           <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
-            <span>{formattedDate}</span>
-            <span className="mx-2 text-white/45">•</span>
-            <span className="text-white">{formattedTime}</span>
+            {['condominio', 'condomino'].includes(String(userProfile?.ruolo || '').toLowerCase().trim()) ? (
+              <TopbarPlanTextLabel piano={pianoAbbonamento} />
+            ) : (
+              <>
+                <span>{formattedDate}</span>
+                <span className="mx-2 text-white/45">•</span>
+                <span className="text-white">{formattedTime}</span>
+              </>
+            )}
           </div>
         </div>
         <div className="mx-auto w-full max-w-4xl px-5 pb-2 pt-1 text-center md:px-7">
