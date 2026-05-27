@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.39';
-const APP_VERSION_LABEL = 'CSP v1.0.39';
+const APP_VERSION = '1.0.40';
+const APP_VERSION_LABEL = 'CSP v1.0.40';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -549,6 +549,67 @@ function AppMotionStyles() {
         box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.45);
       }
     `}</style>
+  );
+}
+
+
+
+function SmartMicroInsight({ ruolo = '', piano = 'base', segnalazioni = [], subscriptionFlags = getSubscriptionFlags('base') }) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const pratiche = Array.isArray(segnalazioni) ? segnalazioni : [];
+  const anno = new Date().getFullYear();
+
+  const praticheAnno = pratiche.filter((s) => {
+    const rawDate = s.created_at || s.data || s.createdAt;
+    if (!rawDate) return false;
+    const d = new Date(rawDate);
+    return Number.isFinite(d.getTime()) && d.getFullYear() === anno;
+  });
+
+  const praticheChiuse = praticheAnno.filter((s) => String(s.stato || '').toLowerCase().includes('chius'));
+  const valoreLavori = praticheAnno.reduce((sum, s) => {
+    const valore = Number(s.importo || s.importo_preventivo || s.importo_lavori || s.valore || 0);
+    return sum + (Number.isFinite(valore) ? valore : 0);
+  }, 0);
+
+  const insight = (() => {
+    if (ruoloNorm === 'amministratore' || ruoloNorm === 'collaboratore') {
+      if (subscriptionFlags?.isPlus || subscriptionFlags?.isPremium) {
+        return `Insight CSP · Gestione Plus attiva: riparti e reminder possono lavorare al posto delle attività manuali.`;
+      }
+      if (praticheAnno.length >= 8) {
+        return `Insight CSP · ${praticheAnno.length} pratiche nel ${anno}: il condominio sta usando CSP in modo continuativo.`;
+      }
+      return `Insight CSP · CSP Plus automatizza riparti, reminder quote e report annuali.`;
+    }
+
+    if (ruoloNorm === 'gestore') {
+      return `Insight CSP · Monitoraggio attivo su ${pratiche.length} pratiche complessive dell’ecosistema.`;
+    }
+
+    if (['condominio', 'condomino'].includes(ruoloNorm)) {
+      if (subscriptionFlags?.isPremium && valoreLavori > 0) {
+        return `Insight CSP · Nel ${anno} sono stati coordinati ${formatCurrency(valoreLavori)} di lavori tramite CSP.`;
+      }
+      if (subscriptionFlags?.isPlus || subscriptionFlags?.isPremium) {
+        return `Insight CSP · Il tuo condominio ha accesso agli strumenti evoluti del piano ${normalizzaPianoAbbonamento(piano).toUpperCase()}.`;
+      }
+      if (praticheAnno.length > 0) {
+        return `Insight CSP · ${praticheAnno.length} pratiche gestite nel ${anno} per il tuo condominio.`;
+      }
+      return `Insight CSP · La tua area CSP raccoglie pratiche, aggiornamenti e comunicazioni del condominio.`;
+    }
+
+    return '';
+  })();
+
+  if (!insight) return null;
+
+  return (
+    <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 text-xs font-bold leading-5 text-slate-700 shadow-sm backdrop-blur md:text-sm">
+      <span className="font-black text-emerald-700">✦</span>
+      <span className="ml-2">{insight}</span>
+    </div>
   );
 }
 
@@ -14343,6 +14404,7 @@ export default function App() {
               <h2 className="text-xl font-bold">Segnalazioni</h2>
             </div>
             {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
+            <SmartMicroInsight ruolo={ruoloNormalizzato} piano={pianoAbbonamentoCorrente} segnalazioni={segnalazioniVisualizzate} subscriptionFlags={subscriptionFlagsCorrenti} />
             {loading ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
             ) : segnalazioniVisualizzate.length === 0 ? (
@@ -14654,6 +14716,7 @@ export default function App() {
               <h2 className="text-xl font-bold">Segnalazioni</h2>
             </div>
             {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
+            <SmartMicroInsight ruolo={ruoloNormalizzato} piano={pianoAbbonamentoCorrente} segnalazioni={segnalazioniVisualizzate} subscriptionFlags={subscriptionFlagsCorrenti} />
             {loading ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
             ) : segnalazioniVisualizzate.length === 0 ? (
