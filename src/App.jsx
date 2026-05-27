@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.30';
-const APP_VERSION_LABEL = 'CSP v1.0.30';
+const APP_VERSION = '1.0.31';
+const APP_VERSION_LABEL = 'CSP v1.0.31';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -14245,7 +14245,12 @@ export default function App() {
                     </button>
                     <div className="mt-4 bg-white text-center">
                       <p className="text-sm font-black leading-tight text-slate-900">{userProfile?.nome || utente?.email || 'Utente CSP'}</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-500">{ruoloMenuLabel}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        {ruoloMenuLabel}
+                        {['condominio', 'condomino'].includes(ruoloNormalizzato) && (
+                          <DrawerCondominoPlanLabel piano={getPianoAbbonamentoCondominio(filtroCondominioId || userProfile?.condominiIds?.[0], contratti)} />
+                        )}
+                      </p>
                       <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{APP_VERSION_LABEL}</p>
                     </div>
                   </div>
