@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.47';
-const APP_VERSION_LABEL = 'CSP v1.0.47';
+const APP_VERSION = '1.0.48';
+const APP_VERSION_LABEL = 'CSP v1.0.48';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -587,36 +587,29 @@ function SchedaCondominioStrategicaModal({ row, onClose }) {
   const plus = calcola('plus');
   const premium = calcola('premium');
 
-  const richiedi = async (piano) => {
-    const pianoPulito = String(piano || '').toLowerCase().trim();
-    const pianoLabel = pianoPulito.toUpperCase();
-
+  const richiedi = (piano) => {
+    const pianoLabel = String(piano || '').toUpperCase();
     const conferma = window.confirm(
-      `Confermare richiesta attivazione CSP ${pianoLabel} per ${row.nome}?\n\nIl gestore riceverà una richiesta dedicata.`
+      `Confermare richiesta attivazione CSP ${pianoLabel} per ${row.nome}?\n\nLa richiesta verrà predisposta per il gestore.`
     );
 
     if (!conferma) return;
 
-    const payload = {
-      piano: pianoPulito,
-      condominioId: row.id,
-      condominioNome: row.nome,
-      famiglie,
-      praticheAnno: row.pratiche,
-      attivitaCsp: row.score,
-    };
+    const dettaglio = [
+      `CSP · Richiesta attivazione ${pianoLabel}`,
+      '',
+      `Condominio: ${row.nome}`,
+      `Famiglie: ${famiglie || 'non indicate'}`,
+      `Pratiche anno: ${row.pratiche}`,
+      `Attività CSP: ${row.score}`,
+      '',
+      'Nel prossimo step collegheremo invio automatico push, mail e WhatsApp al gestore.'
+    ].join('\n');
 
     try {
-      const { data, error } = await supabase.functions.invoke('request-upgrade-csp', {
-        body: payload,
-      });
-
-      if (error) throw error;
-
-      window.alert(data?.message || `Richiesta CSP ${pianoLabel} inviata al gestore.`);
-    } catch (error) {
-      console.error('Errore richiesta attivazione CSP:', error);
-      window.alert(`Non sono riuscito a inviare la richiesta CSP ${pianoLabel}. Riprova tra poco.`);
+      window.alert(dettaglio);
+    } catch {
+      console.log('Richiesta attivazione CSP', piano, row?.nome, { famiglie, pratiche: row.pratiche, score: row.score });
     }
   };
 
@@ -793,6 +786,158 @@ function UtilizzoCspCondominiale({ ruolo = '', condomini = [], segnalazioni = []
     </>
   );
 }
+
+
+
+function CondominiOperativiSuite({ condomini = [], segnalazioni = [], capitolati = [], contratti = [] }) {
+  const [search, setSearch] = useState('');
+  const [schedaAperta, setSchedaAperta] = useState(null);
+  const anno = new Date().getFullYear();
+
+  const nomeCondominio = (condominio) => (
+    condominio?.nome ||
+    condominio?.name ||
+    condominio?.denominazione ||
+    (condominio?.id ? `Condominio #${condominio.id}` : 'Condominio')
+  );
+
+  const numeroFamiglie = (condominio) => Number(
+    condominio?.numero_condomini ||
+    condominio?.famiglie ||
+    condominio?.numero_famiglie ||
+    condominio?.unita ||
+    0
+  );
+
+  const righe = (Array.isArray(condomini) ? condomini : [])
+    .map((condominio) => {
+      const id = Number(condominio?.id || 0);
+      const praticheCsp = (Array.isArray(segnalazioni) ? segnalazioni : []).filter((s) => Number(s.condominio_id || 0) === id);
+      const praticheCasep = (Array.isArray(capitolati) ? capitolati : []).filter((c) => Number(c.condominio_id || c.condominioId || 0) === id);
+      const praticheAnno = praticheCsp.filter((s) => {
+        const raw = s.created_at || s.data || s.createdAt;
+        if (!raw) return true;
+        const d = new Date(raw);
+        return Number.isFinite(d.getTime()) ? d.getFullYear() === anno : true;
+      });
+      const chiuse = praticheAnno.filter((s) => String(s.stato || '').toLowerCase().includes('chius')).length;
+      const score = praticheAnno.length + chiuse + praticheCasep.length;
+      const piano = getPianoAbbonamentoCondominio(id, contratti);
+      return {
+        id,
+        nome: nomeCondominio(condominio),
+        condominio,
+        famiglie: numeroFamiglie(condominio),
+        pratiche: praticheAnno.length,
+        praticheCasep: praticheCasep.length,
+        score,
+        piano,
+      };
+    })
+    .filter((row) => row.id)
+    .filter((row) => {
+      const q = search.toLowerCase().trim();
+      if (!q) return true;
+      return row.nome.toLowerCase().includes(q) || String(row.condominio?.indirizzo || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => b.score - a.score || a.nome.localeCompare(b.nome));
+
+  const maxScore = Math.max(...righe.map((row) => row.score), 1);
+
+  const apriScheda = (row) => {
+    setSchedaAperta({
+      ...row,
+      pratiche: row.pratiche,
+      score: row.score,
+    });
+  };
+
+  return (
+    <section className="space-y-4 pb-36 md:pb-6">
+      <div className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Control room amministratore</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">I tuoi condomìni</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Schede anagrafiche, utilizzo CSP/CaSeP e simulazione piani evoluti.
+            </p>
+          </div>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cerca condominio..."
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 md:max-w-xs"
+          />
+        </div>
+      </div>
+
+      {righe.length === 0 ? (
+        <EmptyState icon="🏢" title="Nessun condominio trovato" text="Non risultano condomìni collegati al tuo profilo o alla ricerca corrente." action="Modifica ricerca" tone="emerald" />
+      ) : (
+        <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1 csp-scroll">
+          {righe.map((row) => {
+            const pianoNorm = normalizzaPianoAbbonamento(row.piano);
+            const pianoClass = pianoNorm === 'premium'
+              ? 'border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white'
+              : pianoNorm === 'plus'
+                ? 'border-sky-200 bg-gradient-to-br from-sky-50 via-slate-50 to-cyan-50'
+                : 'border-slate-200 bg-white';
+
+            return (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => apriScheda(row)}
+                className={`w-full rounded-[2rem] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${pianoClass}`}
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-lg font-black text-slate-900">{row.nome}</h3>
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">CSP {pianoNorm}</span>
+                    </div>
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-500">{row.condominio?.indirizzo || 'Indirizzo non indicato'}</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center md:min-w-[280px]">
+                    <div className="rounded-2xl bg-white/75 px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Famiglie</p>
+                      <p className="text-lg font-black text-slate-900">{row.famiglie || '—'}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/75 px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">CSP</p>
+                      <p className="text-lg font-black text-emerald-700">{row.pratiche}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/75 px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">CaSeP</p>
+                      <p className="text-lg font-black text-slate-900">{row.praticheCasep}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/80">
+                  <div
+                    className="h-full rounded-full bg-emerald-500/70"
+                    style={{ width: `${Math.max(10, Math.round((row.score / maxScore) * 100))}%` }}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {schedaAperta && (
+        <SchedaCondominioStrategicaModal
+          row={schedaAperta}
+          onClose={() => setSchedaAperta(null)}
+        />
+      )}
+    </section>
+  );
+}
+
 
 
 function SmartMicroInsight({ ruolo = '', piano = 'base', segnalazioni = [], subscriptionFlags = getSubscriptionFlags('base') }) {
@@ -14426,6 +14571,7 @@ export default function App() {
 
   const amministratoreSections = [
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
+    { id: 'condomini', label: '🏢 Condomini', subtitle: 'Schede, statistiche e upgrade' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture interventi, scadenze e PDF' },
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
     ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
@@ -14657,6 +14803,15 @@ export default function App() {
               </div>
             )}
           </section>
+        )}
+
+        {isAmministratoreOperativo && amministratoreSection === 'condomini' && (
+          <CondominiOperativiSuite
+            condomini={condominiVisibili}
+            segnalazioni={segnalazioniVisualizzate}
+            capitolati={capitolatiSenzaPensieri}
+            contratti={contratti}
+          />
         )}
 
         {ruolo === 'non_configurato' && (
