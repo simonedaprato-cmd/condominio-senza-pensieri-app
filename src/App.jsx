@@ -4,11 +4,13 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.56';
-const APP_VERSION_LABEL = 'CSP v1.0.56';
+const APP_VERSION = '1.0.57';
+const APP_VERSION_LABEL = 'CSP v1.0.57';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
-const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
-const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
+const LOGO_SRC = '/brand/csp-logo-sidebar.png';
+const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
+const MAIL_LOGO_SRC = '/brand/csp-logo-mail.png';
+const OTP_MAIL_LOGO_URL = MAIL_LOGO_SRC;
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
 
@@ -287,10 +289,10 @@ function priorityClass(priorita) {
   return 'text-amber-600';
 }
 
-function LogoMark({ className = 'h-[4.5rem] w-auto md:h-24', alt = 'Condominio Senza Pensieri' }) {
+function LogoMark({ className = 'h-[4.5rem] w-auto md:h-24', alt = 'Condominio Senza Pensieri', src = LOGO_SRC }) {
   return (
     <img
-      src={LOGO_SRC}
+      src={src}
       alt={alt}
       className={className}
       onError={(e) => {
@@ -14826,22 +14828,19 @@ export default function App() {
 
   if (showSplash) {
     return (
-      <div className="flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-6 text-white">
+      <div className="flex min-h-screen items-center justify-center overflow-hidden bg-black p-6 text-white">
         <div className="relative flex w-full max-w-sm flex-col items-center text-center">
-          <div className="absolute -top-10 h-52 w-52 rounded-full bg-emerald-400/15 blur-3xl csp-splash-glow" />
-          <div className="relative csp-enter csp-premium-pulse rounded-[2rem] border border-white/10 bg-black/30 p-7 shadow-2xl shadow-emerald-950/50 backdrop-blur-xl">
-            <LogoMark className="h-28 w-auto md:h-40" />
+          <div className="absolute h-64 w-64 rounded-full bg-amber-300/10 blur-3xl csp-splash-glow" />
+          <div className="relative csp-enter csp-premium-pulse rounded-[2.5rem] border border-amber-200/10 bg-black p-5 shadow-2xl shadow-amber-950/40">
+            <LogoMark src={SPLASH_LOGO_SRC} className="h-44 w-auto md:h-56" />
           </div>
-          <p className="relative csp-enter-slow mt-6 text-xs font-black uppercase tracking-[0.35em] text-emerald-100">
-            Condominio Senza Pensieri
-          </p>
-          <p className="relative mt-2 text-sm text-emerald-50/80">
+          <p className="relative csp-enter-slow mt-5 text-sm font-black tracking-[0.12em] text-slate-300">
             Gestione evoluta. Serenità reale.
           </p>
-          <div className="relative mt-7 h-1.5 w-44 overflow-hidden rounded-full bg-white/15 shadow-inner shadow-black/20">
-            <div className="h-full rounded-full bg-gradient-to-r from-emerald-200 via-emerald-300 to-white csp-splash-progress" />
+          <div className="relative mt-7 h-1.5 w-44 overflow-hidden rounded-full bg-white/10 shadow-inner shadow-black/20">
+            <div className="h-full rounded-full bg-gradient-to-r from-amber-300 via-yellow-200 to-white csp-splash-progress" />
           </div>
-          <p className="relative mt-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/45">preparo la tua area riservata</p>
+          <p className="relative mt-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/35">preparo la tua area riservata</p>
         </div>
       </div>
     );
@@ -15003,11 +15002,9 @@ export default function App() {
                   className="relative z-[122] flex h-full w-[86vw] max-w-sm flex-col overflow-hidden border-r border-emerald-100 bg-white shadow-2xl shadow-slate-950/30"
                   style={{ animation: menuLateraleInChiusura ? 'cspMenuSlideOut 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'cspMenuSlideIn 520ms cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
-                  <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-800 via-emerald-600 to-teal-700 px-5 py-6 text-white">
-                    <div className="flex flex-col items-center text-center">
-                      <LogoMark className="h-20 w-auto drop-shadow-2xl md:h-24" />
-                      <p className="mt-3 text-[10px] font-black uppercase tracking-[0.28em] text-emerald-50/85">Condominio Senza Pensieri</p>
-                      <p className="mt-1 text-xs font-semibold text-emerald-50/75">Gestione evoluta. Serenità reale.</p>
+                  <div className="border-b border-amber-200/15 bg-black px-4 py-3 text-white">
+                    <div className="flex items-center justify-center">
+                      <LogoMark className="h-16 w-auto max-w-[92%] drop-shadow-2xl md:h-18" />
                     </div>
                   </div>
                   <nav className="flex-1 space-y-2 overflow-y-auto p-4 csp-scroll">
