@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.41';
-const APP_VERSION_LABEL = 'CSP v1.0.41';
+const APP_VERSION = '1.0.42';
+const APP_VERSION_LABEL = 'CSP v1.0.42';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/logo-condominio-senza-pensieri.png';
 const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/logo%20su%20sfondo%20nero%202.0.png';
@@ -552,6 +552,90 @@ function AppMotionStyles() {
   );
 }
 
+
+
+
+function UtilizzoCspCondominiale({ ruolo = '', condomini = [], segnalazioni = [] }) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  if (!['amministratore', 'collaboratore'].includes(ruoloNorm)) return null;
+
+  const anno = new Date().getFullYear();
+  const condominiLista = Array.isArray(condomini) ? condomini : [];
+  const pratiche = Array.isArray(segnalazioni) ? segnalazioni : [];
+
+  const nomeCondominio = (condominio) => (
+    condominio?.nome ||
+    condominio?.name ||
+    condominio?.denominazione ||
+    (condominio?.id ? `Condominio #${condominio.id}` : 'Condominio')
+  );
+
+  const righe = condominiLista
+    .map((condominio) => {
+      const id = Number(condominio?.id || 0);
+      const praticheCondominio = pratiche.filter((s) => Number(s.condominio_id || 0) === id);
+      const praticheAnno = praticheCondominio.filter((s) => {
+        const raw = s.created_at || s.data || s.createdAt;
+        if (!raw) return true;
+        const d = new Date(raw);
+        return Number.isFinite(d.getTime()) ? d.getFullYear() === anno : true;
+      });
+
+      const chiuse = praticheAnno.filter((s) => String(s.stato || '').toLowerCase().includes('chius')).length;
+      const votazioni = praticheAnno.filter((s) => String(s.stato || '').toLowerCase().includes('vot')).length;
+      const score = praticheAnno.length + chiuse + votazioni;
+
+      return {
+        id,
+        nome: nomeCondominio(condominio),
+        score,
+        pratiche: praticheAnno.length,
+      };
+    })
+    .filter((row) => row.id && row.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  if (righe.length === 0) return null;
+
+  const maxScore = Math.max(...righe.map((row) => row.score), 1);
+
+  return (
+    <section className="rounded-[2rem] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur csp-enter">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Utilizzo CSP</p>
+          <h3 className="mt-1 text-base font-black text-slate-900">Condomìni più attivi</h3>
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{anno}</p>
+      </div>
+
+      <div className="mt-3 max-h-[230px] space-y-2 overflow-y-auto pr-1 csp-scroll">
+        {righe.map((row, index) => (
+          <div key={row.id} className="rounded-2xl border border-slate-100 bg-white/75 px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-slate-900">{index + 1}. {row.nome}</p>
+                <p className="text-[11px] font-semibold text-slate-500">{row.pratiche} pratiche CSP</p>
+              </div>
+              <p className="text-xs font-black text-emerald-700">{row.score}</p>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-500/70"
+                style={{ width: `${Math.max(12, Math.round((row.score / maxScore) * 100))}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-3 text-[11px] font-bold leading-5 text-slate-500">
+        I condomìni con utilizzo continuativo beneficiano maggiormente delle funzioni CSP evolute.
+      </p>
+    </section>
+  );
+}
 
 
 function SmartMicroInsight({ ruolo = '', piano = 'base', segnalazioni = [], subscriptionFlags = getSubscriptionFlags('base') }) {
@@ -14405,6 +14489,7 @@ export default function App() {
             </div>
             {statusMessage && <p className="text-sm text-slate-600">{statusMessage}</p>}
             <SmartMicroInsight ruolo={ruoloNormalizzato} piano={pianoAbbonamentoCorrente} segnalazioni={segnalazioniVisualizzate} subscriptionFlags={subscriptionFlagsCorrenti} />
+            <UtilizzoCspCondominiale ruolo={ruoloNormalizzato} condomini={condominiVisibili} segnalazioni={segnalazioniVisualizzate} />
             {loading ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500">Caricamento segnalazioni...</div>
             ) : segnalazioniVisualizzate.length === 0 ? (
