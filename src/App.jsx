@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.61';
-const APP_VERSION_LABEL = 'CSP v1.0.61';
+const APP_VERSION = '1.0.62';
+const APP_VERSION_LABEL = 'CSP v1.0.62';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12268,10 +12268,38 @@ export default function App() {
   const historySyncRef = useRef({ ready: false, applyingPop: false, didPrimeBackStack: false });
   const lastCspHistoryRouteRef = useRef(null);
 
+  const normalizzaSezionePerRuolo = (role, section) => {
+    const ruoloSafe = String(role || ruoloNormalizzato || '').toLowerCase().trim();
+    const sezione = String(section || '').trim();
+
+    const allowed = {
+      gestore: ['pratiche', 'condominio', 'condomini-registrati', 'amministratori', 'tecnici', 'territorio', 'fatturazione', 'capitolato', 'campagne', 'lavori-privati', 'guadagni', 'report', 'rivista'],
+      amministratore: ['pratiche', 'condomini', 'fatturazione', 'capitolato', 'guadagni', 'report', 'rivista'],
+      collaboratore: ['pratiche', 'condomini', 'fatturazione', 'capitolato', 'report', 'rivista'],
+      condomino: ['segnalazioni', 'lavori-privati', 'report', 'rivista'],
+      condominio: ['segnalazioni', 'lavori-privati', 'report', 'rivista'],
+    };
+
+    const fallback = {
+      gestore: 'pratiche',
+      amministratore: 'pratiche',
+      collaboratore: 'pratiche',
+      condomino: 'segnalazioni',
+      condominio: 'segnalazioni',
+    };
+
+    const lista = allowed[ruoloSafe] || [];
+    if (lista.includes(sezione)) return sezione;
+
+    // Deep link contratti/abbonamenti: il condòmino non ha una pagina contratti dedicata.
+    // Lo riportiamo alla home operativa per evitare schermate bianche.
+    return fallback[ruoloSafe] || 'segnalazioni';
+  };
+
   const getCspHistoryRoute = () => {
-    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: gestoreSection || 'pratiche' };
-    if (isAmministratoreOperativo) return { role: 'amministratore', section: amministratoreSection || 'pratiche' };
-    if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: condominoSection || 'segnalazioni' };
+    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: normalizzaSezionePerRuolo('gestore', gestoreSection || 'pratiche') };
+    if (isAmministratoreOperativo) return { role: 'amministratore', section: normalizzaSezionePerRuolo(ruoloNormalizzato, amministratoreSection || 'pratiche') };
+    if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: normalizzaSezionePerRuolo(ruoloNormalizzato, condominoSection || 'segnalazioni') };
     return { role: ruoloNormalizzato || 'utente', section: 'home' };
   };
 
@@ -12298,11 +12326,21 @@ export default function App() {
 
   const applicaCspHistoryRoute = (route) => {
     if (!route?.section) return;
-    lastCspHistoryRouteRef.current = route;
+    const targetRole = route.role === 'gestore'
+      ? 'gestore'
+      : route.role === 'amministratore'
+        ? ruoloNormalizzato || 'amministratore'
+        : route.role === 'condomino'
+          ? ruoloNormalizzato || 'condomino'
+          : ruoloNormalizzato;
+    const safeSection = normalizzaSezionePerRuolo(targetRole, route.section);
+    const safeRoute = { ...route, section: safeSection };
+
+    lastCspHistoryRouteRef.current = safeRoute;
     historySyncRef.current.applyingPop = true;
-    if (route.role === 'gestore' || ruoloNormalizzato === 'gestore') setGestoreSection(route.section);
-    else if (route.role === 'amministratore' || isAmministratoreOperativo) setAmministratoreSection(route.section);
-    else if (route.role === 'condomino' || ['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(route.section);
+    if (safeRoute.role === 'gestore' || ruoloNormalizzato === 'gestore') setGestoreSection(safeSection);
+    else if (safeRoute.role === 'amministratore' || isAmministratoreOperativo) setAmministratoreSection(safeSection);
+    else if (safeRoute.role === 'condomino' || ['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(safeSection);
     setDettaglioAperto(null);
     setShowNuovaSegnalazione(false);
     setShowReportSemestrale(false);
@@ -12380,9 +12418,9 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
         const section = params.get('section');
         if (!section) return null;
-        if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section };
-        if (isAmministratoreOperativo) return { role: 'amministratore', section };
-        if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section };
+        if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: normalizzaSezionePerRuolo('gestore', section) };
+        if (isAmministratoreOperativo) return { role: 'amministratore', section: normalizzaSezionePerRuolo(ruoloNormalizzato, section) };
+        if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: normalizzaSezionePerRuolo(ruoloNormalizzato, section) };
         return null;
       } catch (_) {
         return null;
@@ -14603,6 +14641,33 @@ export default function App() {
 
 
 
+
+  const notificaStatoContratto = async ({ contratto, eventType }) => {
+    try {
+      if (!contratto?.condominio_id || !eventType) return null;
+
+      const { data, error } = await supabase.functions.invoke('notify-contratto-stato', {
+        body: {
+          eventType,
+          condominioId: Number(contratto.condominio_id),
+          piano: normalizzaPianoAbbonamento(contratto.piano),
+          contrattoId: contratto.id || null,
+        },
+      });
+
+      if (error) {
+        console.warn('Notifica stato contratto non completata:', error);
+        return null;
+      }
+
+      console.log('Notifica stato contratto inviata:', data);
+      return data;
+    } catch (error) {
+      console.warn('Errore notifica stato contratto:', error);
+      return null;
+    }
+  };
+
   const sospendiContratto = async (contratto) => {
     try {
       const sospensioneCompleta = {
@@ -14627,6 +14692,12 @@ export default function App() {
       }
 
       if (error) throw error;
+
+      await notificaStatoContratto({
+        contratto,
+        eventType: 'sospeso_mancato_pagamento',
+      });
+
       setStatusMessage('Contratto sospeso per mancato pagamento.');
       await carica();
     } catch (error) {
@@ -14661,6 +14732,12 @@ export default function App() {
       }
 
       if (error) throw error;
+
+      await notificaStatoContratto({
+        contratto,
+        eventType: 'riattivato',
+      });
+
       setStatusMessage('Contratto riattivato con successo.');
       await carica();
     } catch (error) {
@@ -15512,6 +15589,18 @@ export default function App() {
             />
           )
         )}
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && !['segnalazioni', 'lavori-privati', 'report', 'rivista'].includes(condominoSection) && (
+          <section className="space-y-3 pb-36 md:pb-6">
+            <EmptyState
+              icon="🏠"
+              title="Area condòmino"
+              text="Ti ho riportato alla tua area operativa perché il collegamento ricevuto puntava a una sezione non disponibile per il profilo condòmino."
+              action="Apri segnalazioni"
+              tone="emerald"
+            />
+          </section>
+        )}
+
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
           contrattoCorrenteSospeso ? (
             <SubscriptionLockedCard
