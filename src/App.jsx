@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.54';
-const APP_VERSION_LABEL = 'CSP v1.0.54';
+const APP_VERSION = '1.0.55';
+const APP_VERSION_LABEL = 'CSP v1.0.55';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -57,7 +57,7 @@ function getContrattoCorrenteCondominio(condominioId, contratti = []) {
 
   return (contratti || [])
     .filter((contratto) => Number(contratto.condominio_id) === id)
-    .sort((a, b) => new Date(b.data_attivazione || b.created_at || 0) - new Date(a.data_attivazione || a.created_at || 0))[0] || null;
+    .sort((a, b) => new Date(b.updated_at || b.data_attivazione || b.created_at || 0) - new Date(a.updated_at || a.data_attivazione || a.created_at || 0))[0] || null;
 }
 
 function isContrattoSospesoCondominio(condominioId, contratti = []) {
@@ -14522,31 +14522,66 @@ export default function App() {
 
   const creaContratto = async (contratto) => {
     try {
+      const condominioId = Number(contratto?.condominio_id || 0);
+      if (!condominioId) throw new Error('Condominio non valido.');
+
       const payloadContratto = {
         ...contratto,
+        condominio_id: condominioId,
         stato: 'attivo',
         data_attivazione: new Date().toISOString(),
       };
 
-      const { data: contrattoCreato, error } = await supabase
+      // Un condominio deve avere una sola scheda contratto corrente.
+      // Se esiste già, aggiorniamo quella invece di creare duplicati Plus/Premium.
+      const { data: contrattoEsistente, error: existingError } = await supabase
         .from('contratti_condominio')
-        .insert(payloadContratto)
         .select('*')
+        .eq('condominio_id', condominioId)
+        .order('data_attivazione', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (existingError && existingError.code !== 'PGRST116') throw existingError;
+
+      let contrattoFinale = null;
+
+      if (contrattoEsistente?.id) {
+        const { data, error } = await supabase
+          .from('contratti_condominio')
+          .update({
+            ...payloadContratto,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', contrattoEsistente.id)
+          .select('*')
+          .maybeSingle();
+
+        if (error) throw error;
+        contrattoFinale = data || { ...contrattoEsistente, ...payloadContratto };
+      } else {
+        const { data, error } = await supabase
+          .from('contratti_condominio')
+          .insert(payloadContratto)
+          .select('*')
+          .maybeSingle();
+
+        if (error) throw error;
+        contrattoFinale = data || payloadContratto;
+      }
 
       await notificaAbbonamentoAttivato({
-        condominioId: contrattoCreato?.condominio_id || payloadContratto.condominio_id,
-        piano: contrattoCreato?.piano || payloadContratto.piano,
-        contratto: contrattoCreato || payloadContratto,
+        condominioId: contrattoFinale?.condominio_id || payloadContratto.condominio_id,
+        piano: contrattoFinale?.piano || payloadContratto.piano,
+        contratto: contrattoFinale || payloadContratto,
       });
 
-      setStatusMessage('Contratto attivato con successo.');
+      setStatusMessage(contrattoEsistente?.id ? 'Contratto aggiornato con successo.' : 'Contratto attivato con successo.');
       await carica();
     } catch (error) {
       console.error(error);
-      alert('Errore creazione contratto: ' + (error.message || 'sconosciuto'));
+      alert('Errore creazione/aggiornamento contratto: ' + (error.message || 'sconosciuto'));
     }
   };
 
@@ -14586,6 +14621,7 @@ export default function App() {
           ricavo_annuo: ricavoMensile * 12,
           app_attiva: true,
           gruppo_whatsapp_attivo: true,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', contratto.id);
 
