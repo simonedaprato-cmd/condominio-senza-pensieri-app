@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.59';
-const APP_VERSION_LABEL = 'CSP v1.0.59';
+const APP_VERSION = '1.0.60';
+const APP_VERSION_LABEL = 'CSP v1.0.60';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -14495,50 +14495,35 @@ export default function App() {
 
   const notificaAbbonamentoAttivato = async ({ condominioId, piano, contratto = null }) => {
     const pianoNorm = normalizzaPianoAbbonamento(piano);
+    const id = Number(condominioId || contratto?.condominio_id || 0);
+
+    if (!id || !['plus', 'premium'].includes(pianoNorm)) {
+      console.log('[CSP abbonamento] notifica saltata', { condominioId, piano, pianoNorm, contratto });
+      return null;
+    }
+
     const payload = {
-      condominioId: Number(condominioId),
+      condominioId: id,
       piano: pianoNorm,
       contrattoId: contratto?.id || null,
     };
 
-    console.log('[CSP notify-abbonamento-attivato] invoke start', payload);
+    console.log('[CSP abbonamento] invoke notify-abbonamento-attivato', payload);
 
-    try {
-      if (!Number(condominioId || 0)) {
-        console.warn('[CSP notify-abbonamento-attivato] skipped: condominioId mancante', payload);
-        return null;
-      }
+    const { data, error } = await supabase.functions.invoke('notify-abbonamento-attivato', {
+      body: payload,
+    });
 
-      if (!['plus', 'premium'].includes(pianoNorm)) {
-        console.warn('[CSP notify-abbonamento-attivato] skipped: piano non notificabile', payload);
-        return null;
-      }
+    console.log('[CSP abbonamento] risposta notify-abbonamento-attivato', { data, error });
 
-      const { data, error } = await supabase.functions.invoke('notify-abbonamento-attivato', {
-        body: payload,
-      });
-
-      console.log('[CSP notify-abbonamento-attivato] invoke response', { data, error });
-
-      if (error) {
-        const msg = error?.message || error?.context?.message || JSON.stringify(error);
-        window.alert('Contratto salvato, ma notifica abbonamento NON inviata.\n\nErrore edge:\n' + msg);
-        return null;
-      }
-
-      if (data?.ok === false) {
-        window.alert('Contratto salvato, ma notifica abbonamento NON completata.\n\nErrore:\n' + (data?.error || 'Errore sconosciuto'));
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.warn('Errore notifica abbonamento attivato:', error);
-      const msg = error?.message || JSON.stringify(error || {});
-      window.alert('Contratto salvato, ma notifica abbonamento NON inviata.\n\nErrore tecnico:\n' + msg);
+    if (error) {
+      console.warn('[CSP abbonamento] notifica non completata', error);
       return null;
     }
+
+    return data;
   };
+
 
   const creaContratto = async (contratto) => {
     try {
@@ -14603,12 +14588,12 @@ export default function App() {
       }
 
       await notificaAbbonamentoAttivato({
-        condominioId: contrattoFinale?.condominio_id || payloadContratto.condominio_id,
+        condominioId: condominioId,
         piano: contrattoFinale?.piano || payloadContratto.piano,
         contratto: contrattoFinale || payloadContratto,
       });
 
-      setStatusMessage(contrattoEsistente?.id ? 'Contratto aggiornato con successo. Notifica verificata.' : 'Contratto attivato con successo. Notifica verificata.');
+      setStatusMessage(contrattoEsistente?.id ? 'Contratto aggiornato con successo.' : 'Contratto attivato con successo.');
       await carica();
     } catch (error) {
       console.error(error);
@@ -14673,7 +14658,7 @@ export default function App() {
         contratto: { ...contratto, piano: 'premium' },
       });
 
-      setStatusMessage('Contratto aggiornato a Premium con successo. Notifica verificata.');
+      setStatusMessage('Contratto aggiornato a Premium con successo.');
       await carica();
     } catch (error) {
       console.error(error);
