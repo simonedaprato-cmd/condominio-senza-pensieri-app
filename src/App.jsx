@@ -4,13 +4,13 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.60';
-const APP_VERSION_LABEL = 'CSP v1.0.60';
+const APP_VERSION = '1.0.61';
+const APP_VERSION_LABEL = 'CSP v1.0.61';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
 const MAIL_LOGO_SRC = '/brand/csp-logo-mail.png';
-const OTP_MAIL_LOGO_URL = MAIL_LOGO_SRC;
+const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/nuovo%20logo%20sfondo%20nero%20per%20mail.png';
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
 
@@ -93,9 +93,9 @@ function getSubscriptionFlags(piano) {
 
 function getNumeroFamiglieCondominio(condominio = {}) {
   return Number(
+    condominio.famiglie ||
     condominio.numero_condomini ||
     condominio.numero_famiglie ||
-    condominio.famiglie ||
     condominio.unita_immobiliari ||
     condominio.unita ||
     0
@@ -14488,15 +14488,55 @@ export default function App() {
     }
   };
 
+
+  const notificaAbbonamentoAttivato = async ({ condominioId, piano, contratto = null }) => {
+    try {
+      const pianoNorm = normalizzaPianoAbbonamento(piano);
+      if (!Number(condominioId || 0)) return null;
+      if (!['plus', 'premium'].includes(pianoNorm)) return null;
+
+      const { data, error } = await supabase.functions.invoke('notify-abbonamento-attivato', {
+        body: {
+          condominioId: Number(condominioId),
+          piano: pianoNorm,
+          contrattoId: contratto?.id || null,
+        },
+      });
+
+      if (error) {
+        console.warn('Notifica abbonamento attivato non completata:', error);
+        return null;
+      }
+
+      console.log('Notifica abbonamento attivato inviata:', data);
+      return data;
+    } catch (error) {
+      console.warn('Errore notifica abbonamento attivato:', error);
+      return null;
+    }
+  };
+
   const creaContratto = async (contratto) => {
     try {
-      const { error } = await supabase.from('contratti_condominio').insert({
+      const payloadContratto = {
         ...contratto,
         stato: 'attivo',
         data_attivazione: new Date().toISOString(),
-      });
+      };
+
+      const { data: contrattoCreato, error } = await supabase
+        .from('contratti_condominio')
+        .insert(payloadContratto)
+        .select('*')
+        .maybeSingle();
 
       if (error) throw error;
+
+      await notificaAbbonamentoAttivato({
+        condominioId: contrattoCreato?.condominio_id || payloadContratto.condominio_id,
+        piano: contrattoCreato?.piano || payloadContratto.piano,
+        contratto: contrattoCreato || payloadContratto,
+      });
 
       setStatusMessage('Contratto attivato con successo.');
       await carica();
@@ -14546,6 +14586,13 @@ export default function App() {
         .eq('id', contratto.id);
 
       if (error) throw error;
+
+      await notificaAbbonamentoAttivato({
+        condominioId: contratto.condominio_id,
+        piano: 'premium',
+        contratto: { ...contratto, piano: 'premium' },
+      });
+
       setStatusMessage('Contratto aggiornato a Premium con successo.');
       await carica();
     } catch (error) {
