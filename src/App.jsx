@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.55';
-const APP_VERSION_LABEL = 'CSP v1.0.55';
+const APP_VERSION = '1.0.57';
+const APP_VERSION_LABEL = 'CSP v1.0.57';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -57,7 +57,7 @@ function getContrattoCorrenteCondominio(condominioId, contratti = []) {
 
   return (contratti || [])
     .filter((contratto) => Number(contratto.condominio_id) === id)
-    .sort((a, b) => new Date(b.updated_at || b.data_attivazione || b.created_at || 0) - new Date(a.updated_at || a.data_attivazione || a.created_at || 0))[0] || null;
+    .sort((a, b) => new Date(b.data_attivazione || b.created_at || 0) - new Date(a.data_attivazione || a.created_at || 0))[0] || null;
 }
 
 function isContrattoSospesoCondominio(condominioId, contratti = []) {
@@ -14552,7 +14552,6 @@ export default function App() {
           .from('contratti_condominio')
           .update({
             ...payloadContratto,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', contrattoEsistente.id)
           .select('*')
@@ -14569,6 +14568,18 @@ export default function App() {
 
         if (error) throw error;
         contrattoFinale = data || payloadContratto;
+      }
+
+      if (contrattoFinale?.id) {
+        const { error: cleanupError } = await supabase
+          .from('contratti_condominio')
+          .delete()
+          .eq('condominio_id', condominioId)
+          .neq('id', contrattoFinale.id);
+
+        if (cleanupError) {
+          console.warn('Pulizia duplicati contratti non completata:', cleanupError);
+        }
       }
 
       await notificaAbbonamentoAttivato({
@@ -14621,11 +14632,20 @@ export default function App() {
           ricavo_annuo: ricavoMensile * 12,
           app_attiva: true,
           gruppo_whatsapp_attivo: true,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', contratto.id);
 
       if (error) throw error;
+
+      const { error: cleanupError } = await supabase
+        .from('contratti_condominio')
+        .delete()
+        .eq('condominio_id', contratto.condominio_id)
+        .neq('id', contratto.id);
+
+      if (cleanupError) {
+        console.warn('Pulizia duplicati contratti non completata:', cleanupError);
+      }
 
       await notificaAbbonamentoAttivato({
         condominioId: contratto.condominio_id,
