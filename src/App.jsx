@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.58';
-const APP_VERSION_LABEL = 'CSP v1.0.58';
+const APP_VERSION = '1.0.59';
+const APP_VERSION_LABEL = 'CSP v1.0.59';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -14494,28 +14494,48 @@ export default function App() {
 
 
   const notificaAbbonamentoAttivato = async ({ condominioId, piano, contratto = null }) => {
+    const pianoNorm = normalizzaPianoAbbonamento(piano);
+    const payload = {
+      condominioId: Number(condominioId),
+      piano: pianoNorm,
+      contrattoId: contratto?.id || null,
+    };
+
+    console.log('[CSP notify-abbonamento-attivato] invoke start', payload);
+
     try {
-      const pianoNorm = normalizzaPianoAbbonamento(piano);
-      if (!Number(condominioId || 0)) return null;
-      if (!['plus', 'premium'].includes(pianoNorm)) return null;
-
-      const { data, error } = await supabase.functions.invoke('notify-abbonamento-attivato', {
-        body: {
-          condominioId: Number(condominioId),
-          piano: pianoNorm,
-          contrattoId: contratto?.id || null,
-        },
-      });
-
-      if (error) {
-        console.warn('Notifica abbonamento attivato non completata:', error);
+      if (!Number(condominioId || 0)) {
+        console.warn('[CSP notify-abbonamento-attivato] skipped: condominioId mancante', payload);
         return null;
       }
 
-      console.log('Notifica abbonamento attivato inviata:', data);
+      if (!['plus', 'premium'].includes(pianoNorm)) {
+        console.warn('[CSP notify-abbonamento-attivato] skipped: piano non notificabile', payload);
+        return null;
+      }
+
+      const { data, error } = await supabase.functions.invoke('notify-abbonamento-attivato', {
+        body: payload,
+      });
+
+      console.log('[CSP notify-abbonamento-attivato] invoke response', { data, error });
+
+      if (error) {
+        const msg = error?.message || error?.context?.message || JSON.stringify(error);
+        window.alert('Contratto salvato, ma notifica abbonamento NON inviata.\n\nErrore edge:\n' + msg);
+        return null;
+      }
+
+      if (data?.ok === false) {
+        window.alert('Contratto salvato, ma notifica abbonamento NON completata.\n\nErrore:\n' + (data?.error || 'Errore sconosciuto'));
+        return null;
+      }
+
       return data;
     } catch (error) {
       console.warn('Errore notifica abbonamento attivato:', error);
+      const msg = error?.message || JSON.stringify(error || {});
+      window.alert('Contratto salvato, ma notifica abbonamento NON inviata.\n\nErrore tecnico:\n' + msg);
       return null;
     }
   };
@@ -14588,7 +14608,7 @@ export default function App() {
         contratto: contrattoFinale || payloadContratto,
       });
 
-      setStatusMessage(contrattoEsistente?.id ? 'Contratto aggiornato con successo.' : 'Contratto attivato con successo.');
+      setStatusMessage(contrattoEsistente?.id ? 'Contratto aggiornato con successo. Notifica verificata.' : 'Contratto attivato con successo. Notifica verificata.');
       await carica();
     } catch (error) {
       console.error(error);
@@ -14653,7 +14673,7 @@ export default function App() {
         contratto: { ...contratto, piano: 'premium' },
       });
 
-      setStatusMessage('Contratto aggiornato a Premium con successo.');
+      setStatusMessage('Contratto aggiornato a Premium con successo. Notifica verificata.');
       await carica();
     } catch (error) {
       console.error(error);
