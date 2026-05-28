@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.62';
-const APP_VERSION_LABEL = 'CSP v1.0.62';
+const APP_VERSION = '1.0.63';
+const APP_VERSION_LABEL = 'CSP v1.0.63';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -556,6 +556,55 @@ function AppMotionStyles() {
 
 
 
+
+
+
+class CspSafeBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Errore imprevisto',
+    };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[CSP SafeBoundary]', this.props?.label || 'area', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <section className="rounded-[2rem] border border-amber-100 bg-amber-50 p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Area protetta CSP</p>
+          <h3 className="mt-1 text-lg font-black text-slate-900">Sto caricando la tua area in modalità sicura</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            Una sezione non ha risposto correttamente. Puoi comunque tornare alle segnalazioni e continuare a usare l’app.
+          </p>
+          <p className="mt-3 text-[11px] font-bold text-amber-700">{this.state.errorMessage}</p>
+          {this.props?.onReset && (
+            <button
+              type="button"
+              onClick={() => {
+                this.setState({ hasError: false, errorMessage: '' });
+                this.props.onReset();
+              }}
+              className="mt-4 rounded-2xl bg-amber-600 px-4 py-3 text-sm font-black text-white shadow-sm"
+            >
+              Torna alle segnalazioni
+            </button>
+          )}
+        </section>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 
 function formatCurrencySafeCsp(value) {
@@ -12767,9 +12816,10 @@ export default function App() {
   };
 
   const condominiVisibili = useMemo(() => {
-    if (ruoloNormalizzato === 'gestore') return condomini;
-    const ids = userProfile?.condominiIds || [];
-    return condomini.filter((c) => ids.includes(c.id));
+    const lista = Array.isArray(condomini) ? condomini : [];
+    if (ruoloNormalizzato === 'gestore') return lista;
+    const ids = (userProfile?.condominiIds || []).map((id) => Number(id));
+    return lista.filter((c) => ids.includes(Number(c.id)));
   }, [ruoloNormalizzato, condomini, userProfile]);
 
   const condominioIdPerAbbonamento = filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || '';
@@ -12783,9 +12833,10 @@ export default function App() {
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
   const segnalazioniFiltrate = useMemo(() => {
-    if (ruoloNormalizzato === 'gestore') return segnalazioni;
-    const ids = userProfile?.condominiIds || [];
-    return segnalazioni.filter((s) => ids.includes(s.condominio_id));
+    const lista = Array.isArray(segnalazioni) ? segnalazioni : [];
+    if (ruoloNormalizzato === 'gestore') return lista;
+    const ids = (userProfile?.condominiIds || []).map((id) => Number(id));
+    return lista.filter((s) => ids.includes(Number(s.condominio_id)));
   }, [segnalazioni, ruoloNormalizzato, userProfile]);
 
   const segnalazioniVisualizzate = useMemo(() => {
@@ -15560,11 +15611,13 @@ export default function App() {
               text="Il contratto CSP del condominio risulta sospeso. I report torneranno disponibili alla riattivazione del servizio."
             />
           ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
-            <ArchivioReportPremium
-              reports={reportVisibili}
-              ruolo={ruoloNormalizzato}
-              canSend={false}
-            />
+            <CspSafeBoundary label="Archivio report condòmino" onReset={() => setCondominoSection('segnalazioni')}>
+              <ArchivioReportPremium
+                reports={reportVisibili}
+                ruolo={ruoloNormalizzato}
+                canSend={false}
+              />
+            </CspSafeBoundary>
           ) : (
             <SubscriptionLockedCard
               required="plus"
@@ -15582,11 +15635,13 @@ export default function App() {
               text="Il contratto CSP del condominio risulta sospeso. La rivista tornerà disponibile alla riattivazione del servizio."
             />
           ) : (
-            <LaTuaRivistaSuite
-              riviste={rivisteCondominio}
-              ruolo={ruoloNormalizzato}
-              canPublish={false}
-            />
+            <CspSafeBoundary label="Rivista condòmino" onReset={() => setCondominoSection('segnalazioni')}>
+              <LaTuaRivistaSuite
+                riviste={rivisteCondominio}
+                ruolo={ruoloNormalizzato}
+                canPublish={false}
+              />
+            </CspSafeBoundary>
           )
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && !['segnalazioni', 'lavori-privati', 'report', 'rivista'].includes(condominoSection) && (
@@ -15609,23 +15664,25 @@ export default function App() {
               text="Il contratto CSP del condominio risulta sospeso. LSP tornerà disponibile alla riattivazione del servizio."
             />
           ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
-            <LavoriPrivatiSuite
-              ruolo={ruoloNormalizzato}
-              userProfile={userProfile}
-              condomini={condominiVisibili}
-              lavoriPrivati={lavoriPrivati}
-              fattureLavoriPrivati={fattureLavoriPrivati}
-              aziendePartner={aziendePartner}
-              lavoroApertoId={lavoroPrivatoApertoId}
-              onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
-              onCreateLavoro={creaLavoroPrivato}
-              onUpdateLavoro={aggiornaLavoroPrivato}
-              onCreateFattura={creaFatturaLavoroPrivato}
-              onUpdateFattura={aggiornaFatturaLavoroPrivato}
-              onUploadFile={uploadLavoroPrivatoFile}
-              onRefresh={carica}
-              subscriptionFlags={subscriptionFlagsCorrenti}
-            />
+            <CspSafeBoundary label="La tua casa Senza Pensieri" onReset={() => setCondominoSection('segnalazioni')}>
+              <LavoriPrivatiSuite
+                ruolo={ruoloNormalizzato}
+                userProfile={userProfile}
+                condomini={condominiVisibili}
+                lavoriPrivati={lavoriPrivati}
+                fattureLavoriPrivati={fattureLavoriPrivati}
+                aziendePartner={aziendePartner}
+                lavoroApertoId={lavoroPrivatoApertoId}
+                onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
+                onCreateLavoro={creaLavoroPrivato}
+                onUpdateLavoro={aggiornaLavoroPrivato}
+                onCreateFattura={creaFatturaLavoroPrivato}
+                onUpdateFattura={aggiornaFatturaLavoroPrivato}
+                onUploadFile={uploadLavoroPrivatoFile}
+                onRefresh={carica}
+                subscriptionFlags={subscriptionFlagsCorrenti}
+              />
+            </CspSafeBoundary>
           ) : (
             <SubscriptionLockedCard
               required="plus"
