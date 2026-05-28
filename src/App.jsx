@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.51';
-const APP_VERSION_LABEL = 'CSP v1.0.51';
+const APP_VERSION = '1.0.52';
+const APP_VERSION_LABEL = 'CSP v1.0.52';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12030,7 +12030,7 @@ function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
 }
 
 
-export default function App() {
+function AppInner() {
   const generaPdfVotazioni = (pratica, ruoloExport = ruoloNormalizzato) => {
     if (!pratica) return;
 
@@ -15587,3 +15587,74 @@ export default function App() {
     </div>
   );
 }
+
+
+class CspFatalBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      errorMessage: '',
+      errorStack: '',
+      componentStack: '',
+    };
+  }
+
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || String(error || 'Errore sconosciuto'),
+      errorStack: error?.stack || '',
+    };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[CSP FATAL RENDER ERROR]', error, info);
+    this.setState({
+      componentStack: info?.componentStack || '',
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const details = [
+        this.state.errorMessage,
+        this.state.errorStack,
+        this.state.componentStack,
+      ].filter(Boolean).join('\n\n');
+
+      return (
+        <main className="min-h-screen bg-slate-950 p-5 text-white">
+          <section className="mx-auto mt-10 max-w-3xl rounded-[2rem] border border-amber-300/30 bg-amber-50 p-6 text-slate-950 shadow-2xl">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">Diagnostica CSP</p>
+            <h1 className="mt-2 text-2xl font-black">Errore vista utente</h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+              La pagina non è più bianca: qui sotto trovi l’errore reale che impedisce il caricamento. Copialo e incollalo in chat.
+            </p>
+            <pre className="mt-4 max-h-[55vh] overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-amber-100">
+              {details || 'Nessun dettaglio disponibile'}
+            </pre>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
+            >
+              Ricarica
+            </button>
+          </section>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  return (
+    <CspFatalBoundary>
+      <AppInner />
+    </CspFatalBoundary>
+  );
+}
+
