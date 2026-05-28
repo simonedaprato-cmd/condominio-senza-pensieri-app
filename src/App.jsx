@@ -1,16 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.64';
-const APP_VERSION_LABEL = 'CSP v1.0.64';
+const APP_VERSION = '1.0.50';
+const APP_VERSION_LABEL = 'CSP v1.0.50';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
 const MAIL_LOGO_SRC = '/brand/csp-logo-mail.png';
-const OTP_MAIL_LOGO_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/nuovo%20logo%20sfondo%20nero%20per%20mail.png';
+const OTP_MAIL_LOGO_URL = MAIL_LOGO_SRC;
 const AUTH_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : '';
 const ONESIGNAL_APP_ID = '61ae6769-0000-4811-af73-41e2007d5d96';
 
@@ -93,9 +93,9 @@ function getSubscriptionFlags(piano) {
 
 function getNumeroFamiglieCondominio(condominio = {}) {
   return Number(
-    condominio.famiglie ||
     condominio.numero_condomini ||
     condominio.numero_famiglie ||
+    condominio.famiglie ||
     condominio.unita_immobiliari ||
     condominio.unita ||
     0
@@ -556,55 +556,6 @@ function AppMotionStyles() {
 
 
 
-
-
-
-class CspSafeBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, errorMessage: '' };
-  }
-
-  static getDerivedStateFromError(error) {
-    return {
-      hasError: true,
-      errorMessage: error?.message || 'Errore imprevisto',
-    };
-  }
-
-  componentDidCatch(error, info) {
-    console.error('[CSP SafeBoundary]', this.props?.label || 'area', error, info);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <section className="rounded-[2rem] border border-amber-100 bg-amber-50 p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Area protetta CSP</p>
-          <h3 className="mt-1 text-lg font-black text-slate-900">Sto caricando la tua area in modalità sicura</h3>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            Una sezione non ha risposto correttamente. Puoi comunque tornare alle segnalazioni e continuare a usare l’app.
-          </p>
-          <p className="mt-3 text-[11px] font-bold text-amber-700">{this.state.errorMessage}</p>
-          {this.props?.onReset && (
-            <button
-              type="button"
-              onClick={() => {
-                this.setState({ hasError: false, errorMessage: '' });
-                this.props.onReset();
-              }}
-              className="mt-4 rounded-2xl bg-amber-600 px-4 py-3 text-sm font-black text-white shadow-sm"
-            >
-              Torna alle segnalazioni
-            </button>
-          )}
-        </section>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 
 function formatCurrencySafeCsp(value) {
@@ -12317,38 +12268,10 @@ export default function App() {
   const historySyncRef = useRef({ ready: false, applyingPop: false, didPrimeBackStack: false });
   const lastCspHistoryRouteRef = useRef(null);
 
-  const normalizzaSezionePerRuolo = (role, section) => {
-    const ruoloSafe = String(role || ruoloNormalizzato || '').toLowerCase().trim();
-    const sezione = String(section || '').trim();
-
-    const allowed = {
-      gestore: ['pratiche', 'condominio', 'condomini-registrati', 'amministratori', 'tecnici', 'territorio', 'fatturazione', 'capitolato', 'campagne', 'lavori-privati', 'guadagni', 'report', 'rivista'],
-      amministratore: ['pratiche', 'condomini', 'fatturazione', 'capitolato', 'guadagni', 'report', 'rivista'],
-      collaboratore: ['pratiche', 'condomini', 'fatturazione', 'capitolato', 'report', 'rivista'],
-      condomino: ['segnalazioni', 'lavori-privati', 'report', 'rivista'],
-      condominio: ['segnalazioni', 'lavori-privati', 'report', 'rivista'],
-    };
-
-    const fallback = {
-      gestore: 'pratiche',
-      amministratore: 'pratiche',
-      collaboratore: 'pratiche',
-      condomino: 'segnalazioni',
-      condominio: 'segnalazioni',
-    };
-
-    const lista = allowed[ruoloSafe] || [];
-    if (lista.includes(sezione)) return sezione;
-
-    // Deep link contratti/abbonamenti: il condòmino non ha una pagina contratti dedicata.
-    // Lo riportiamo alla home operativa per evitare schermate bianche.
-    return fallback[ruoloSafe] || 'segnalazioni';
-  };
-
   const getCspHistoryRoute = () => {
-    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: normalizzaSezionePerRuolo('gestore', gestoreSection || 'pratiche') };
-    if (isAmministratoreOperativo) return { role: 'amministratore', section: normalizzaSezionePerRuolo(ruoloNormalizzato, amministratoreSection || 'pratiche') };
-    if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: normalizzaSezionePerRuolo(ruoloNormalizzato, condominoSection || 'segnalazioni') };
+    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: gestoreSection || 'pratiche' };
+    if (isAmministratoreOperativo) return { role: 'amministratore', section: amministratoreSection || 'pratiche' };
+    if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: condominoSection || 'segnalazioni' };
     return { role: ruoloNormalizzato || 'utente', section: 'home' };
   };
 
@@ -12375,21 +12298,11 @@ export default function App() {
 
   const applicaCspHistoryRoute = (route) => {
     if (!route?.section) return;
-    const targetRole = route.role === 'gestore'
-      ? 'gestore'
-      : route.role === 'amministratore'
-        ? ruoloNormalizzato || 'amministratore'
-        : route.role === 'condomino'
-          ? ruoloNormalizzato || 'condomino'
-          : ruoloNormalizzato;
-    const safeSection = normalizzaSezionePerRuolo(targetRole, route.section);
-    const safeRoute = { ...route, section: safeSection };
-
-    lastCspHistoryRouteRef.current = safeRoute;
+    lastCspHistoryRouteRef.current = route;
     historySyncRef.current.applyingPop = true;
-    if (safeRoute.role === 'gestore' || ruoloNormalizzato === 'gestore') setGestoreSection(safeSection);
-    else if (safeRoute.role === 'amministratore' || isAmministratoreOperativo) setAmministratoreSection(safeSection);
-    else if (safeRoute.role === 'condomino' || ['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(safeSection);
+    if (route.role === 'gestore' || ruoloNormalizzato === 'gestore') setGestoreSection(route.section);
+    else if (route.role === 'amministratore' || isAmministratoreOperativo) setAmministratoreSection(route.section);
+    else if (route.role === 'condomino' || ['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection(route.section);
     setDettaglioAperto(null);
     setShowNuovaSegnalazione(false);
     setShowReportSemestrale(false);
@@ -12467,9 +12380,9 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
         const section = params.get('section');
         if (!section) return null;
-        if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: normalizzaSezionePerRuolo('gestore', section) };
-        if (isAmministratoreOperativo) return { role: 'amministratore', section: normalizzaSezionePerRuolo(ruoloNormalizzato, section) };
-        if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: normalizzaSezionePerRuolo(ruoloNormalizzato, section) };
+        if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section };
+        if (isAmministratoreOperativo) return { role: 'amministratore', section };
+        if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section };
         return null;
       } catch (_) {
         return null;
@@ -12816,10 +12729,9 @@ export default function App() {
   };
 
   const condominiVisibili = useMemo(() => {
-    const lista = Array.isArray(condomini) ? condomini : [];
-    if (ruoloNormalizzato === 'gestore') return lista;
-    const ids = (userProfile?.condominiIds || []).map((id) => Number(id));
-    return lista.filter((c) => ids.includes(Number(c.id)));
+    if (ruoloNormalizzato === 'gestore') return condomini;
+    const ids = userProfile?.condominiIds || [];
+    return condomini.filter((c) => ids.includes(c.id));
   }, [ruoloNormalizzato, condomini, userProfile]);
 
   const condominioIdPerAbbonamento = filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || '';
@@ -12833,10 +12745,9 @@ export default function App() {
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
   const segnalazioniFiltrate = useMemo(() => {
-    const lista = Array.isArray(segnalazioni) ? segnalazioni : [];
-    if (ruoloNormalizzato === 'gestore') return lista;
-    const ids = (userProfile?.condominiIds || []).map((id) => Number(id));
-    return lista.filter((s) => ids.includes(Number(s.condominio_id)));
+    if (ruoloNormalizzato === 'gestore') return segnalazioni;
+    const ids = userProfile?.condominiIds || [];
+    return segnalazioni.filter((s) => ids.includes(s.condominio_id));
   }, [segnalazioni, ruoloNormalizzato, userProfile]);
 
   const segnalazioniVisualizzate = useMemo(() => {
@@ -14577,55 +14488,15 @@ export default function App() {
     }
   };
 
-
-  const notificaAbbonamentoAttivato = async ({ condominioId, piano, contratto = null }) => {
-    try {
-      const pianoNorm = normalizzaPianoAbbonamento(piano);
-      if (!Number(condominioId || 0)) return null;
-      if (!['plus', 'premium'].includes(pianoNorm)) return null;
-
-      const { data, error } = await supabase.functions.invoke('notify-abbonamento-attivato', {
-        body: {
-          condominioId: Number(condominioId),
-          piano: pianoNorm,
-          contrattoId: contratto?.id || null,
-        },
-      });
-
-      if (error) {
-        console.warn('Notifica abbonamento attivato non completata:', error);
-        return null;
-      }
-
-      console.log('Notifica abbonamento attivato inviata:', data);
-      return data;
-    } catch (error) {
-      console.warn('Errore notifica abbonamento attivato:', error);
-      return null;
-    }
-  };
-
   const creaContratto = async (contratto) => {
     try {
-      const payloadContratto = {
+      const { error } = await supabase.from('contratti_condominio').insert({
         ...contratto,
         stato: 'attivo',
         data_attivazione: new Date().toISOString(),
-      };
-
-      const { data: contrattoCreato, error } = await supabase
-        .from('contratti_condominio')
-        .insert(payloadContratto)
-        .select('*')
-        .maybeSingle();
+      });
 
       if (error) throw error;
-
-      await notificaAbbonamentoAttivato({
-        condominioId: contrattoCreato?.condominio_id || payloadContratto.condominio_id,
-        piano: contrattoCreato?.piano || payloadContratto.piano,
-        contratto: contrattoCreato || payloadContratto,
-      });
 
       setStatusMessage('Contratto attivato con successo.');
       await carica();
@@ -14675,13 +14546,6 @@ export default function App() {
         .eq('id', contratto.id);
 
       if (error) throw error;
-
-      await notificaAbbonamentoAttivato({
-        condominioId: contratto.condominio_id,
-        piano: 'premium',
-        contratto: { ...contratto, piano: 'premium' },
-      });
-
       setStatusMessage('Contratto aggiornato a Premium con successo.');
       await carica();
     } catch (error) {
@@ -14691,33 +14555,6 @@ export default function App() {
   };
 
 
-
-
-  const notificaStatoContratto = async ({ contratto, eventType }) => {
-    try {
-      if (!contratto?.condominio_id || !eventType) return null;
-
-      const { data, error } = await supabase.functions.invoke('notify-contratto-stato', {
-        body: {
-          eventType,
-          condominioId: Number(contratto.condominio_id),
-          piano: normalizzaPianoAbbonamento(contratto.piano),
-          contrattoId: contratto.id || null,
-        },
-      });
-
-      if (error) {
-        console.warn('Notifica stato contratto non completata:', error);
-        return null;
-      }
-
-      console.log('Notifica stato contratto inviata:', data);
-      return data;
-    } catch (error) {
-      console.warn('Errore notifica stato contratto:', error);
-      return null;
-    }
-  };
 
   const sospendiContratto = async (contratto) => {
     try {
@@ -14743,12 +14580,6 @@ export default function App() {
       }
 
       if (error) throw error;
-
-      await notificaStatoContratto({
-        contratto,
-        eventType: 'sospeso_mancato_pagamento',
-      });
-
       setStatusMessage('Contratto sospeso per mancato pagamento.');
       await carica();
     } catch (error) {
@@ -14783,12 +14614,6 @@ export default function App() {
       }
 
       if (error) throw error;
-
-      await notificaStatoContratto({
-        contratto,
-        eventType: 'riattivato',
-      });
-
       setStatusMessage('Contratto riattivato con successo.');
       await carica();
     } catch (error) {
@@ -15611,13 +15436,11 @@ export default function App() {
               text="Il contratto CSP del condominio risulta sospeso. I report torneranno disponibili alla riattivazione del servizio."
             />
           ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
-            <CspSafeBoundary label="Archivio report condòmino" onReset={() => setCondominoSection('segnalazioni')}>
-              <ArchivioReportPremium
-                reports={reportVisibili}
-                ruolo={ruoloNormalizzato}
-                canSend={false}
-              />
-            </CspSafeBoundary>
+            <ArchivioReportPremium
+              reports={reportVisibili}
+              ruolo={ruoloNormalizzato}
+              canSend={false}
+            />
           ) : (
             <SubscriptionLockedCard
               required="plus"
@@ -15635,27 +15458,13 @@ export default function App() {
               text="Il contratto CSP del condominio risulta sospeso. La rivista tornerà disponibile alla riattivazione del servizio."
             />
           ) : (
-            <CspSafeBoundary label="Rivista condòmino" onReset={() => setCondominoSection('segnalazioni')}>
-              <LaTuaRivistaSuite
-                riviste={rivisteCondominio}
-                ruolo={ruoloNormalizzato}
-                canPublish={false}
-              />
-            </CspSafeBoundary>
+            <LaTuaRivistaSuite
+              riviste={rivisteCondominio}
+              ruolo={ruoloNormalizzato}
+              canPublish={false}
+            />
           )
         )}
-        {['condominio', 'condomino'].includes(ruoloNormalizzato) && !['segnalazioni', 'lavori-privati', 'report', 'rivista'].includes(condominoSection) && (
-          <section className="space-y-3 pb-36 md:pb-6">
-            <EmptyState
-              icon="🏠"
-              title="Area condòmino"
-              text="Ti ho riportato alla tua area operativa perché il collegamento ricevuto puntava a una sezione non disponibile per il profilo condòmino."
-              action="Apri segnalazioni"
-              tone="emerald"
-            />
-          </section>
-        )}
-
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
           contrattoCorrenteSospeso ? (
             <SubscriptionLockedCard
@@ -15664,25 +15473,23 @@ export default function App() {
               text="Il contratto CSP del condominio risulta sospeso. LSP tornerà disponibile alla riattivazione del servizio."
             />
           ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
-            <CspSafeBoundary label="La tua casa Senza Pensieri" onReset={() => setCondominoSection('segnalazioni')}>
-              <LavoriPrivatiSuite
-                ruolo={ruoloNormalizzato}
-                userProfile={userProfile}
-                condomini={condominiVisibili}
-                lavoriPrivati={lavoriPrivati}
-                fattureLavoriPrivati={fattureLavoriPrivati}
-                aziendePartner={aziendePartner}
-                lavoroApertoId={lavoroPrivatoApertoId}
-                onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
-                onCreateLavoro={creaLavoroPrivato}
-                onUpdateLavoro={aggiornaLavoroPrivato}
-                onCreateFattura={creaFatturaLavoroPrivato}
-                onUpdateFattura={aggiornaFatturaLavoroPrivato}
-                onUploadFile={uploadLavoroPrivatoFile}
-                onRefresh={carica}
-                subscriptionFlags={subscriptionFlagsCorrenti}
-              />
-            </CspSafeBoundary>
+            <LavoriPrivatiSuite
+              ruolo={ruoloNormalizzato}
+              userProfile={userProfile}
+              condomini={condominiVisibili}
+              lavoriPrivati={lavoriPrivati}
+              fattureLavoriPrivati={fattureLavoriPrivati}
+              aziendePartner={aziendePartner}
+              lavoroApertoId={lavoroPrivatoApertoId}
+              onClearDeepLink={() => setLavoroPrivatoApertoId(null)}
+              onCreateLavoro={creaLavoroPrivato}
+              onUpdateLavoro={aggiornaLavoroPrivato}
+              onCreateFattura={creaFatturaLavoroPrivato}
+              onUpdateFattura={aggiornaFatturaLavoroPrivato}
+              onUploadFile={uploadLavoroPrivatoFile}
+              onRefresh={carica}
+              subscriptionFlags={subscriptionFlagsCorrenti}
+            />
           ) : (
             <SubscriptionLockedCard
               required="plus"
