@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.69';
-const APP_VERSION_LABEL = 'CSP v1.0.69';
+const APP_VERSION = '1.0.70';
+const APP_VERSION_LABEL = 'CSP v1.0.70';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -2380,6 +2380,7 @@ function LiveTopBar({
                     <div className="space-y-2">
                       {notifiche.slice(0, 12).map((notifica, index) => {
                         const letta = isNotificaLetta(notifica);
+                        const evidenziata = !letta || notifica.appena_letta;
                         return (
                           <button
                             key={notifica.id || `${getNotificaTitolo(notifica)}-${index}`}
@@ -2388,18 +2389,18 @@ function LiveTopBar({
                               if (onOpenNotifica) onOpenNotifica(notifica);
                               setShowNotifiche(false);
                             }}
-                            className={`w-full rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 ${letta ? 'border-slate-100 bg-white text-slate-700' : 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 text-slate-900 ring-1 ring-emerald-100'}`}
+                            className={`w-full rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 ${evidenziata ? 'border-rose-200 bg-gradient-to-br from-rose-50 via-white to-emerald-50 text-slate-900 ring-1 ring-rose-100' : 'border-slate-100 bg-white text-slate-700'}`}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  {!letta && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-600 shadow-sm shadow-red-900/30" />}
-                                  <p className={`truncate text-sm ${letta ? 'font-bold text-slate-700' : 'font-black text-slate-950'}`}>{getNotificaTitolo(notifica)}</p>
+                                  {evidenziata && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-600 shadow-sm shadow-red-900/30" />}
+                                  <p className={`truncate text-sm ${evidenziata ? 'font-black text-slate-950' : 'font-bold text-slate-700'}`}>{getNotificaTitolo(notifica)}</p>
                                 </div>
-                                <p className={`mt-1 line-clamp-2 text-xs font-semibold leading-5 ${letta ? 'text-slate-500' : 'text-slate-700'}`}>{getNotificaMessaggio(notifica)}</p>
+                                <p className={`mt-1 line-clamp-2 text-xs font-semibold leading-5 ${evidenziata ? 'text-slate-700' : 'text-slate-500'}`}>{getNotificaMessaggio(notifica)}</p>
                               </div>
-                              <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${letta ? 'bg-slate-100 text-slate-400' : 'bg-emerald-100 text-emerald-800'}`}>
-                                {letta ? 'Letta' : 'Nuova'}
+                              <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${evidenziata ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-400'}`}>
+                                {evidenziata ? 'Nuova' : 'Letta'}
                               </span>
                             </div>
                             <div className="mt-2 flex items-center justify-between gap-3">
@@ -12981,7 +12982,22 @@ export default function App() {
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
   const notificheCentroOrdinate = useMemo(() => {
-    return [...(notificheCentro || [])].sort((a, b) => new Date(getNotificaData(b) || 0) - new Date(getNotificaData(a) || 0));
+    const viste = new Set();
+    return [...(notificheCentro || [])]
+      .sort((a, b) => new Date(getNotificaData(b) || 0) - new Date(getNotificaData(a) || 0))
+      .filter((notifica) => {
+        const firma = [
+          String(notifica.email || '').toLowerCase().trim(),
+          String(notifica.tipo || '').toLowerCase().trim(),
+          String(notifica.riferimento_id || '').trim(),
+          String(getNotificaTitolo(notifica) || '').toLowerCase().trim(),
+          String(getNotificaMessaggio(notifica) || '').toLowerCase().trim(),
+        ].join('|');
+
+        if (viste.has(firma)) return false;
+        viste.add(firma);
+        return true;
+      });
   }, [notificheCentro]);
 
   const notificheNonLette = useMemo(() => {
