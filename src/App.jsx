@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -434,6 +434,8 @@ function isPushLaunchContext() {
     params.has('segnalazione') ||
     params.has('segnalazioneId') ||
     params.has('capitolato') ||
+    params.has('casep') ||
+    params.has('capitolatoId') ||
     params.has('rivista') ||
     params.has('magazine') ||
     params.has('report') ||
@@ -5744,6 +5746,8 @@ function CapitolatoSenzaPensieriSuite({
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
   onDeleteCapitolato,
+  deeplinkCapitolatoId = null,
+  onClearDeeplinkCapitolato = null,
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
@@ -6226,31 +6230,36 @@ function CapitolatoSenzaPensieriSuite({
     });
   }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
 
-  // Release 141: deep link push CaSeP.
-  // Le push CaSeP aprono direttamente la scheda capitolato con ?fromPush=1&capitolato=ID.
+  // Deeplink CaSeP: push e campanella aprono direttamente la scheda popup della pratica.
   useEffect(() => {
     if (!capitolatiVisibili.length) return;
     if (typeof window === 'undefined') return;
 
     const params = new URLSearchParams(window.location.search || '');
-    const capitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
-    if (!capitolatoId) return;
+    const urlCapitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
+    const targetCapitolatoId = deeplinkCapitolatoId || urlCapitolatoId;
+    if (!targetCapitolatoId) return;
 
-    const capitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoId));
+    const capitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(targetCapitolatoId));
     if (!capitolato) return;
 
     setCapitolatoApertoId(Number(capitolato.id));
-    params.delete('capitolato');
-    params.delete('casep');
-    params.delete('capitolatoId');
-    params.delete('fromPush');
-    params.delete('source');
-    params.delete('utm_source');
+    if (typeof onClearDeeplinkCapitolato === 'function' && deeplinkCapitolatoId) onClearDeeplinkCapitolato();
 
-    const query = params.toString();
-    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [capitolatiVisibili, setCapitolatoApertoId]);
+    if (urlCapitolatoId) {
+      params.delete('section');
+      params.delete('capitolato');
+      params.delete('casep');
+      params.delete('capitolatoId');
+      params.delete('fromPush');
+      params.delete('source');
+      params.delete('utm_source');
+
+      const query = params.toString();
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
+    }
+  }, [capitolatiVisibili, deeplinkCapitolatoId, onClearDeeplinkCapitolato]);
 
   const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
   const valoreOfferteGestore = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
@@ -12495,6 +12504,7 @@ export default function App() {
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
+  const [capitolatoDeeplinkId, setCapitolatoDeeplinkId] = useState(null);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
   const [votiAssembleaCasep, setVotiAssembleaCasep] = useState([]);
   const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
@@ -13133,6 +13143,24 @@ export default function App() {
 
   useEffect(() => {
     if (!utente) return;
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('section');
+    const capitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
+
+    if (section !== 'capitolato' && section !== 'casep' && !capitolatoId) return;
+
+    if (ruoloNormalizzato === 'gestore') setGestoreSection('capitolato');
+    else if (isAmministratoreOperativo) setAmministratoreSection('capitolato');
+    else setCondominoSection('segnalazioni');
+
+    if (capitolatoId) setCapitolatoDeeplinkId(Number(capitolatoId));
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
+
+
+  useEffect(() => {
+    if (!utente) return;
 
     const params = new URLSearchParams(window.location.search);
     const section = params.get('section');
@@ -13374,8 +13402,9 @@ export default function App() {
       else setCondominoSection('segnalazioni');
 
       if (riferimentoId) {
-        const capitolato = (capitolati || []).find((item) => Number(item.id) === riferimentoId);
-        if (capitolato) setCapitolatoApertoId(Number(capitolato.id));
+        const capitolato = (capitolatiSenzaPensieri || []).find((item) => Number(item.id) === riferimentoId);
+        if (capitolato) setCapitolatoDeeplinkId(Number(capitolato.id));
+        else setCapitolatoDeeplinkId(Number(riferimentoId));
       }
       return;
     }
@@ -16151,6 +16180,8 @@ export default function App() {
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
               onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
+              deeplinkCapitolatoId={capitolatoDeeplinkId}
+              onClearDeeplinkCapitolato={() => setCapitolatoDeeplinkId(null)}
             />
           </>
         )}
@@ -16257,6 +16288,8 @@ export default function App() {
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
             onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
+            deeplinkCapitolatoId={capitolatoDeeplinkId}
+            onClearDeeplinkCapitolato={() => setCapitolatoDeeplinkId(null)}
           />
         )}
 
