@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12500,6 +12500,7 @@ export default function App() {
   const [lavoriPrivati, setLavoriPrivati] = useState([]);
   const [fattureLavoriPrivati, setFattureLavoriPrivati] = useState([]);
   const [lavoroPrivatoApertoId, setLavoroPrivatoApertoId] = useState(null);
+  const [pushDeepLinkTick, setPushDeepLinkTick] = useState(0);
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
@@ -12624,6 +12625,45 @@ export default function App() {
     });
   }, [utentiSistema, condomini]);
 
+
+
+  const applicaDeeplinkPushInApp = (urlString) => {
+    if (typeof window === 'undefined' || !urlString) return;
+    try {
+      const url = new URL(urlString, window.location.origin);
+      if (url.origin !== window.location.origin) return;
+
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState(
+        { ...(window.history.state || {}), cspRoute: getCspHistoryRoute(), fromPushInApp: true },
+        document.title,
+        nextUrl
+      );
+
+      if (typeof window.focus === 'function') window.focus();
+      setPushDeepLinkTick((value) => value + 1);
+    } catch (error) {
+      console.warn('Deeplink push in-app non applicato:', error);
+    }
+  };
+
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event) => {
+      const data = event?.data || {};
+      if (data?.type !== 'CSP_PUSH_DEEPLINK') return;
+      applicaDeeplinkPushInApp(data.url || data.deeplink || data.launchUrl || '');
+    };
+
+    if (navigator?.serviceWorker?.addEventListener) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
+    return () => {
+      if (navigator?.serviceWorker?.removeEventListener) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
+    };
+  }, [ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection]);
 
   useEffect(() => {
     const ids = (userProfile?.condominiIds || []).map((id) => String(id));
@@ -13115,7 +13155,7 @@ export default function App() {
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
       window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
     }
-  }, [utente, segnalazioni]);
+  }, [utente, segnalazioni, pushDeepLinkTick]);
 
   useEffect(() => {
     if (!utente || !lavoriPrivati.length) return;
@@ -13139,7 +13179,7 @@ export default function App() {
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
       window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
     }
-  }, [utente, lavoriPrivati, ruoloNormalizzato]);
+  }, [utente, lavoriPrivati, ruoloNormalizzato, pushDeepLinkTick]);
 
   useEffect(() => {
     if (!utente) return;
@@ -13156,7 +13196,7 @@ export default function App() {
     else setCondominoSection('segnalazioni');
 
     if (capitolatoId) setCapitolatoDeeplinkId(Number(capitolatoId));
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, pushDeepLinkTick]);
 
 
   useEffect(() => {
@@ -13182,7 +13222,7 @@ export default function App() {
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, pushDeepLinkTick]);
 
 
   useEffect(() => {
@@ -13232,7 +13272,7 @@ export default function App() {
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, reportCondominio]);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, reportCondominio, pushDeepLinkTick]);
 
 
   const registraNotificaCentro = async ({ destinatari = [], condominioId = null, titolo = '', messaggio = '', tipo = 'notifica', riferimentoId = null }) => {
