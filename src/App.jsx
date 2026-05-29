@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.68';
-const APP_VERSION_LABEL = 'CSP v1.0.68';
+const APP_VERSION = '1.0.69';
+const APP_VERSION_LABEL = 'CSP v1.0.69';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -303,6 +303,32 @@ function isNotificaLetta(notifica = {}) {
     notifica.read_at ||
     notifica.letto_at ||
     notifica.vista_at
+  );
+}
+
+function BellIconCsp({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path
+        d="M18 9.8c0-3.35-2.15-5.9-6-5.9s-6 2.55-6 5.9v2.72c0 .78-.24 1.54-.68 2.18L4.4 16.05c-.42.61.02 1.45.76 1.45h13.68c.74 0 1.18-.84.76-1.45l-.92-1.35A3.85 3.85 0 0 1 18 12.52V9.8Z"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.55 19.15c.35.9 1.25 1.55 2.45 1.55s2.1-.65 2.45-1.55"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 3.9V2.7"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
@@ -2236,6 +2262,8 @@ function LiveTopBar({
   notifiche = [],
   notificheNonLette = 0,
   onApriNotifiche,
+  onOpenNotifica,
+  onRefreshNotifiche,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [showNotifiche, setShowNotifiche] = useState(false);
@@ -2244,6 +2272,14 @@ function LiveTopBar({
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!onRefreshNotifiche) return undefined;
+    const timer = setInterval(() => {
+      onRefreshNotifiche();
+    }, 25000);
+    return () => clearInterval(timer);
+  }, [onRefreshNotifiche]);
 
   const formattedDate = now.toLocaleDateString('it-IT', {
     weekday: 'short',
@@ -2305,7 +2341,7 @@ function LiveTopBar({
               aria-label="Apri notifiche"
               title="Notifiche CSP"
             >
-              <span aria-hidden="true">🔔</span>
+              <BellIconCsp className="h-5 w-5" />
               {notificheNonLette > 0 && (
                 <span className="absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black leading-none text-white shadow-lg shadow-red-950/30 ring-2 ring-emerald-700">
                   {badgeLabel}
@@ -2320,6 +2356,9 @@ function LiveTopBar({
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Notification Center</p>
                       <h3 className="mt-1 text-sm font-black text-slate-900">Notifiche CSP</h3>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        {notifiche.length} totali · {notificheNonLette} da leggere
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -2342,21 +2381,34 @@ function LiveTopBar({
                       {notifiche.slice(0, 12).map((notifica, index) => {
                         const letta = isNotificaLetta(notifica);
                         return (
-                          <div
+                          <button
                             key={notifica.id || `${getNotificaTitolo(notifica)}-${index}`}
-                            className={`rounded-2xl border p-3 ${letta ? 'border-slate-100 bg-white' : 'border-emerald-100 bg-emerald-50'}`}
+                            type="button"
+                            onClick={() => {
+                              if (onOpenNotifica) onOpenNotifica(notifica);
+                              setShowNotifiche(false);
+                            }}
+                            className={`w-full rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 ${letta ? 'border-slate-100 bg-white text-slate-700' : 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 text-slate-900 ring-1 ring-emerald-100'}`}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-black text-slate-900">{getNotificaTitolo(notifica)}</p>
-                                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{getNotificaMessaggio(notifica)}</p>
+                                <div className="flex items-center gap-2">
+                                  {!letta && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-600 shadow-sm shadow-red-900/30" />}
+                                  <p className={`truncate text-sm ${letta ? 'font-bold text-slate-700' : 'font-black text-slate-950'}`}>{getNotificaTitolo(notifica)}</p>
+                                </div>
+                                <p className={`mt-1 line-clamp-2 text-xs font-semibold leading-5 ${letta ? 'text-slate-500' : 'text-slate-700'}`}>{getNotificaMessaggio(notifica)}</p>
                               </div>
-                              {!letta && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-red-600" />}
+                              <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${letta ? 'bg-slate-100 text-slate-400' : 'bg-emerald-100 text-emerald-800'}`}>
+                                {letta ? 'Letta' : 'Nuova'}
+                              </span>
                             </div>
-                            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
-                              {formatNotificaTempo(getNotificaData(notifica))}
-                            </p>
-                          </div>
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                                {formatNotificaTempo(getNotificaData(notifica))}
+                              </p>
+                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Apri</p>
+                            </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -13065,6 +13117,73 @@ export default function App() {
   }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
 
 
+  const aggiornaNotificheCentro = async () => {
+    if (!utente) return;
+    try {
+      const { data: notificheResponse, error: notificheInvokeError } = await supabase.functions.invoke('get-notifiche-utente', {
+        body: { limit: 80 },
+      });
+
+      if (notificheInvokeError || notificheResponse?.ok === false) {
+        console.warn('Notification Center non disponibile:', notificheInvokeError || notificheResponse);
+        return;
+      }
+
+      setNotificheCentro(notificheResponse?.notifiche || []);
+    } catch (notificheError) {
+      console.warn('Errore aggiornamento Notification Center:', notificheError);
+    }
+  };
+
+  const apriNotificaCentro = (notifica) => {
+    const tipo = String(notifica?.tipo || '').toLowerCase().trim();
+    const riferimentoId = Number(notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || 0);
+
+    if (tipo.includes('rivista')) {
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
+      else if (isAmministratoreOperativo) setAmministratoreSection('rivista');
+      else setCondominoSection('rivista');
+      return;
+    }
+
+    if (tipo.includes('report')) {
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('report');
+      else if (isAmministratoreOperativo) setAmministratoreSection('report');
+      else setCondominoSection('report');
+      return;
+    }
+
+    if (tipo.includes('contratto') || tipo.includes('abbonamento')) {
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('condominio');
+      else if (isAmministratoreOperativo) setAmministratoreSection('condomini');
+      else setCondominoSection('segnalazioni');
+      return;
+    }
+
+    if (tipo.includes('casp') || tipo.includes('casep') || tipo.includes('capitolato')) {
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('capitolato');
+      else if (isAmministratoreOperativo) setAmministratoreSection('capitolato');
+      else setCondominoSection('segnalazioni');
+      return;
+    }
+
+    if (tipo.includes('lsp') || tipo.includes('lavori_privati') || tipo.includes('lavoro_privato')) {
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('lavori-privati');
+      else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+      else setCondominoSection('lavori-privati');
+      return;
+    }
+
+    if (riferimentoId) {
+      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
+      if (pratica) setDettaglioAperto(pratica);
+    }
+
+    if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+    else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+    else setCondominoSection('segnalazioni');
+  };
+
   const carica = async () => {
     setLoading(true);
     try {
@@ -13371,6 +13490,7 @@ export default function App() {
     setNotificheCentro((prev) => (prev || []).map((notifica) => ({
       ...notifica,
       letto: true,
+      appena_letta: !isNotificaLetta(notifica),
     })));
 
     try {
@@ -13419,6 +13539,27 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, [utente]);
+
+
+  useEffect(() => {
+    if (!utente?.email) return undefined;
+
+    const channel = supabase
+      .channel(`notifiche-utente-live-${String(utente.email).toLowerCase()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifiche_utenti' },
+        () => {
+          aggiornaNotificheCentro();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [utente?.email, notificheCentro.length]);
+
 
 
   const uploadFile = async (file, prefix) => {
@@ -15375,6 +15516,8 @@ export default function App() {
             notifiche={notificheCentroOrdinate}
             notificheNonLette={notificheNonLette}
             onApriNotifiche={segnaNotificheComeLette}
+            onOpenNotifica={apriNotificaCentro}
+            onRefreshNotifiche={aggiornaNotificheCentro}
           />
         )}
 
