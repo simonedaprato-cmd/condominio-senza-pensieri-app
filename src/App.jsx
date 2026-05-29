@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.62';
-const APP_VERSION_LABEL = 'CSP v1.0.62';
+const APP_VERSION = '1.0.63';
+const APP_VERSION_LABEL = 'CSP v1.0.63';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -2836,38 +2836,32 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
   const [contrattoSelezionato, setContrattoSelezionato] = useState(null);
 
   const nomeCondominio = (condominio) => condominio?.nome || condominio?.name || (condominio?.id ? `Condominio #${condominio.id}` : 'Condominio');
-  const testoAmministratoreCondominio = (condominio = {}) => [
-    condominio.amministratore_nome,
-    condominio.amministratore_cognome,
-    condominio.amministratore,
-    condominio.studio_amministratore,
-    condominio.amministratore_email,
-    condominio.email_amministratore,
-  ].filter(Boolean).join(' ').trim();
+  const testoRicercaAmministratoreContratto = (condominio = {}) => String([
+    condominio?.amministratore_nome,
+    condominio?.amministratore_cognome,
+    condominio?.amministratore,
+    condominio?.studio_amministratore,
+    condominio?.amministratore_email,
+    condominio?.email_amministratore,
+  ].filter(Boolean).join(' ')).toLowerCase();
 
-  const amministratoriContrattiOptions = [...new Map((condomini || [])
-    .map((condominio) => {
-      const label = testoAmministratoreCondominio(condominio);
-      const key = label.toLowerCase().trim();
-      return key ? [key, label] : null;
-    })
-    .filter(Boolean)
-  ).values()].sort((a, b) => a.localeCompare(b, 'it'));
+  const testoRicercaCondominioContratto = (condominio = {}) => String([
+    condominio?.nome,
+    condominio?.name,
+    condominio?.denominazione,
+    condominio?.indirizzo,
+    condominio?.citta,
+    condominio?.provincia,
+    condominio?.id,
+  ].filter(Boolean).join(' ')).toLowerCase();
 
-  const condominiFiltratiContratti = (condomini || []).filter((condominio) => {
-    const filtroAdmin = filtroAmministratoreContratto.toLowerCase().trim();
-    const filtroCondominio = filtroCondominioContratto.toLowerCase().trim();
-    const adminText = testoAmministratoreCondominio(condominio).toLowerCase();
-    const condominioText = [
-      nomeCondominio(condominio),
-      condominio.indirizzo,
-      condominio.citta,
-      condominio.provincia,
-      condominio.amministratore_email,
-    ].filter(Boolean).join(' ').toLowerCase();
+  const condominiNuovoContratto = (Array.isArray(condomini) ? condomini : []).filter((condominio) => {
+    const filtroAdmin = String(filtroAmministratoreNuovoContratto || '').toLowerCase().trim();
+    const filtroCondominio = String(filtroCondominioNuovoContratto || '').toLowerCase().trim();
 
-    const matchAdmin = !filtroAdmin || adminText.includes(filtroAdmin);
-    const matchCondominio = !filtroCondominio || condominioText.includes(filtroCondominio);
+    const matchAdmin = !filtroAdmin || testoRicercaAmministratoreContratto(condominio).includes(filtroAdmin);
+    const matchCondominio = !filtroCondominio || testoRicercaCondominioContratto(condominio).includes(filtroCondominio);
+
     return matchAdmin && matchCondominio;
   });
 
@@ -3071,8 +3065,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
   const [piano, setPiano] = useState('plus');
   const [famiglie, setFamiglie] = useState('');
   const [famiglieAutocompilate, setFamiglieAutocompilate] = useState(false);
-  const [filtroAmministratoreContratto, setFiltroAmministratoreContratto] = useState('');
-  const [filtroCondominioContratto, setFiltroCondominioContratto] = useState('');
+  const [filtroAmministratoreNuovoContratto, setFiltroAmministratoreNuovoContratto] = useState('');
+  const [filtroCondominioNuovoContratto, setFiltroCondominioNuovoContratto] = useState('');
   const [ricercaContratti, setRicercaContratti] = useState('');
   const [filtroPianoContratti, setFiltroPianoContratti] = useState('');
   const [contrattoSelezionato, setContrattoSelezionato] = useState(null);
@@ -3256,33 +3250,27 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
             <label className="block">
               <span className="text-xs font-black uppercase tracking-wide text-slate-500">Filtro amministratore</span>
               <input
-                value={filtroAmministratoreContratto}
-                onChange={(e) => setFiltroAmministratoreContratto(e.target.value)}
-                list="amministratori-contratti-options"
+                value={filtroAmministratoreNuovoContratto}
+                onChange={(e) => setFiltroAmministratoreNuovoContratto(e.target.value)}
                 placeholder="Scrivi nome, studio o email..."
                 className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
-              <datalist id="amministratori-contratti-options">
-                {amministratoriContrattiOptions.map((label) => (
-                  <option key={label} value={label} />
-                ))}
-              </datalist>
             </label>
 
             <label className="block">
               <span className="text-xs font-black uppercase tracking-wide text-slate-500">Filtro condominio</span>
               <input
-                value={filtroCondominioContratto}
-                onChange={(e) => setFiltroCondominioContratto(e.target.value)}
-                placeholder="Scrivi il nome del condominio..."
+                value={filtroCondominioNuovoContratto}
+                onChange={(e) => setFiltroCondominioNuovoContratto(e.target.value)}
+                placeholder="Scrivi nome condominio, città o indirizzo..."
                 className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
             </label>
           </div>
 
           <select value={condominioId} onChange={(e) => selezionaCondominio(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
-            <option value="">{condominiFiltratiContratti.length ? 'Seleziona condominio' : 'Nessun condominio trovato con questi filtri'}</option>
-            {condominiFiltratiContratti.map((c) => (
+            <option value="">{condominiNuovoContratto.length ? 'Seleziona condominio' : 'Nessun condominio trovato con questi filtri'}</option>
+            {condominiNuovoContratto.map((c) => (
               <option key={c.id} value={c.id}>{c.nome || c.name || `Condominio #${c.id}`}</option>
             ))}
           </select>
