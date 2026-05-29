@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12828,6 +12828,8 @@ export default function App() {
     numero = '',
     periodo = '',
     titoloRivista = '',
+    fileUrl = '',
+    requiredPlan = 'premium',
   }) => {
     try {
       const { data, error } = await supabase.functions.invoke('notify-rivista', {
@@ -12844,6 +12846,8 @@ export default function App() {
           numero,
           periodo,
           titoloRivista,
+          fileUrl,
+          requiredPlan,
         },
       });
 
@@ -12928,7 +12932,7 @@ export default function App() {
       if (emailError) throw emailError;
       if (emailData && emailData.success === false) throw new Error(emailData.error || 'Invio email non completato.');
 
-      mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
+      mostraToast('Report inviato', 'Email e notifica push inviate ai destinatari Premium previsti.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
     } catch (error) {
@@ -13004,6 +13008,8 @@ export default function App() {
         numero: numero?.trim() || '',
         periodo: periodo?.trim() || '',
         titoloRivista: titolo.trim(),
+        fileUrl,
+        requiredPlan: 'premium',
       });
 
       if (notifyRivista?.success === false) {
@@ -13212,6 +13218,22 @@ export default function App() {
     if (isAmministratoreOperativo) setAmministratoreSection('rivista');
     if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('rivista');
 
+    const rivisteOrdinate = [...(rivisteCondominio || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const rivistaDiretta = rivistaId && rivistaId !== 'ultima'
+      ? rivisteOrdinate.find((rivista) => Number(rivista.id) === Number(rivistaId))
+      : rivisteOrdinate[0];
+
+    // Se il deeplink arriva prima del caricamento archivio, non puliamo la query:
+    // il prossimo giro dell'effect risolverà il PDF appena rivisteCondominio è pronto.
+    if (rivistaId && !rivistaDiretta && rivisteOrdinate.length === 0) return;
+
+    const fileUrl = rivistaDiretta?.file_url || buildPublicUrl(rivistaDiretta?.file_nome);
+    if (fileUrl) {
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+    } else if (rivistaId) {
+      mostraToast('Rivista non trovata', 'La rivista collegata alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
+    }
+
     params.delete('section');
     params.delete('rivista');
     params.delete('magazine');
@@ -13222,7 +13244,7 @@ export default function App() {
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, pushDeepLinkTick]);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, rivisteCondominio, pushDeepLinkTick]);
 
 
   useEffect(() => {
@@ -13460,6 +13482,17 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
       else if (isAmministratoreOperativo) setAmministratoreSection('rivista');
       else setCondominoSection('rivista');
+
+      const rivisteOrdinate = [...(rivisteCondominio || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      const rivistaDiretta = riferimentoId
+        ? rivisteOrdinate.find((rivista) => Number(rivista.id) === Number(riferimentoId))
+        : rivisteOrdinate[0];
+      const fileUrl = rivistaDiretta?.file_url || buildPublicUrl(rivistaDiretta?.file_nome);
+      if (fileUrl) {
+        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      } else if (riferimentoId) {
+        mostraToast('Rivista non trovata', 'La rivista collegata alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
+      }
       return;
     }
 
@@ -16427,11 +16460,17 @@ export default function App() {
               title="Servizio temporaneamente non attivo"
               text="Il contratto CSP del condominio risulta sospeso. La rivista tornerà disponibile alla riattivazione del servizio."
             />
-          ) : (
+          ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
             <LaTuaRivistaSuite
               riviste={rivisteCondominio}
               ruolo={ruoloNormalizzato}
               canPublish={false}
+            />
+          ) : (
+            <SubscriptionLockedCard
+              required="plus"
+              title="La tua rivista è disponibile con CSP Plus"
+              text="Il piano Base mantiene le funzioni operative essenziali. Con Plus e Premium il condominio accede anche all’archivio digitale della rivista Condominio Senza Pensieri."
             />
           )
         )}
