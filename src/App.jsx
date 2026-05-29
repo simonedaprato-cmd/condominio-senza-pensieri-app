@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.70';
-const APP_VERSION_LABEL = 'CSP v1.0.70';
+const APP_VERSION = '1.0.71';
+const APP_VERSION_LABEL = 'CSP v1.0.71';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -2264,6 +2264,7 @@ function LiveTopBar({
   onApriNotifiche,
   onOpenNotifica,
   onRefreshNotifiche,
+  onClearEvidenzaNotifiche,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [showNotifiche, setShowNotifiche] = useState(false);
@@ -2305,7 +2306,13 @@ function LiveTopBar({
 
   const apriCentroNotifiche = async () => {
     const next = !showNotifiche;
+
+    if (!next && onClearEvidenzaNotifiche) {
+      onClearEvidenzaNotifiche();
+    }
+
     setShowNotifiche(next);
+
     if (next && onApriNotifiche) {
       await onApriNotifiche();
     }
@@ -2362,7 +2369,10 @@ function LiveTopBar({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setShowNotifiche(false)}
+                      onClick={() => {
+                        if (onClearEvidenzaNotifiche) onClearEvidenzaNotifiche();
+                        setShowNotifiche(false);
+                      }}
                       className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-black text-slate-500 shadow-sm"
                     >
                       ✕
@@ -2386,6 +2396,7 @@ function LiveTopBar({
                             key={notifica.id || `${getNotificaTitolo(notifica)}-${index}`}
                             type="button"
                             onClick={() => {
+                              if (onClearEvidenzaNotifiche) onClearEvidenzaNotifiche(notifica?.id);
                               if (onOpenNotifica) onOpenNotifica(notifica);
                               setShowNotifiche(false);
                             }}
@@ -12982,22 +12993,34 @@ export default function App() {
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
   const notificheCentroOrdinate = useMemo(() => {
-    const viste = new Set();
-    return [...(notificheCentro || [])]
+    const map = new Map();
+
+    [...(notificheCentro || [])]
       .sort((a, b) => new Date(getNotificaData(b) || 0) - new Date(getNotificaData(a) || 0))
-      .filter((notifica) => {
+      .forEach((notifica) => {
         const firma = [
           String(notifica.email || '').toLowerCase().trim(),
           String(notifica.tipo || '').toLowerCase().trim(),
-          String(notifica.riferimento_id || '').trim(),
+          String(notifica.riferimento_id || notifica.segnalazione_id || notifica.pratica_id || '').trim(),
           String(getNotificaTitolo(notifica) || '').toLowerCase().trim(),
           String(getNotificaMessaggio(notifica) || '').toLowerCase().trim(),
         ].join('|');
 
-        if (viste.has(firma)) return false;
-        viste.add(firma);
-        return true;
+        const precedente = map.get(firma);
+        if (!precedente) {
+          map.set(firma, notifica);
+          return;
+        }
+
+        const notificaHaLink = Boolean(notifica.riferimento_id || notifica.segnalazione_id || notifica.pratica_id);
+        const precedenteHaLink = Boolean(precedente.riferimento_id || precedente.segnalazione_id || precedente.pratica_id);
+
+        if (notificaHaLink && !precedenteHaLink) {
+          map.set(firma, notifica);
+        }
       });
+
+    return [...map.values()];
   }, [notificheCentro]);
 
   const notificheNonLette = useMemo(() => {
@@ -13155,6 +13178,18 @@ export default function App() {
     const tipo = String(notifica?.tipo || '').toLowerCase().trim();
     const riferimentoId = Number(notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || 0);
 
+    if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
+      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
+      if (pratica) {
+        if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+        else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+        else setCondominoSection('segnalazioni');
+
+        setDettaglioAperto(pratica);
+        return;
+      }
+    }
+
     if (tipo.includes('rivista')) {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
       else if (isAmministratoreOperativo) setAmministratoreSection('rivista');
@@ -13192,7 +13227,14 @@ export default function App() {
 
     if (riferimentoId) {
       const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
-      if (pratica) setDettaglioAperto(pratica);
+      if (pratica) {
+        if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+        else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+        else setCondominoSection('segnalazioni');
+
+        setDettaglioAperto(pratica);
+        return;
+      }
     }
 
     if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
@@ -13494,6 +13536,15 @@ export default function App() {
     };
   }, []);
 
+  const pulisciEvidenzaNotifiche = (id = null) => {
+    setNotificheCentro((prev) => (prev || []).map((notifica) => {
+      if (id && Number(notifica.id) !== Number(id)) return notifica;
+      if (!notifica.appena_letta) return notifica;
+      const { appena_letta, ...rest } = notifica;
+      return rest;
+    }));
+  };
+
   const segnaNotificheComeLette = async () => {
     const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
     const daLeggere = (notificheCentro || []).filter((notifica) => !isNotificaLetta(notifica));
@@ -13574,7 +13625,7 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [utente?.email, notificheCentro.length]);
+  }, [utente?.email]);
 
 
 
@@ -15534,6 +15585,7 @@ export default function App() {
             onApriNotifiche={segnaNotificheComeLette}
             onOpenNotifica={apriNotificaCentro}
             onRefreshNotifiche={aggiornaNotificheCentro}
+            onClearEvidenzaNotifiche={pulisciEvidenzaNotifiche}
           />
         )}
 
