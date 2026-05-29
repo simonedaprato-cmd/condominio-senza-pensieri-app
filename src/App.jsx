@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.14';
-const APP_VERSION_LABEL = 'CSP v1.0.14';
+const APP_VERSION = '1.0.15';
+const APP_VERSION_LABEL = 'CSP v1.0.15';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,7 +10404,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, promoEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
@@ -10478,6 +10478,12 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
   const archivio = isGestore
     ? archivioBase.filter((item) => (filtroGestore === 'tutte' || statoPromo(item) === filtroGestore) && matchRicerca(item))
     : archivioBase.filter(matchRicerca).slice(0, 5);
+
+  const prenotazioniPromo = (item) => (promoInteressi || []).filter((r) =>
+    String(r?.promo_id) === String(item?.id) &&
+    String(r?.azione || '').toLowerCase() === 'prenotazione' &&
+    String(r?.stato || 'richiesto').toLowerCase() === 'richiesto'
+  );
 
   const ctaLabelFor = (item) => {
     const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
@@ -10572,6 +10578,15 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
             >
               {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item))}
             </button>
+            {isGestore && prenotazioniPromo(item).length > 0 && typeof onConfermaPrenotazione === 'function' && (
+              <button
+                type="button"
+                onClick={() => onConfermaPrenotazione(item, prenotazioniPromo(item)[0])}
+                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm"
+              >
+                Conferma prenotazione ({prenotazioniPromo(item).length})
+              </button>
+            )}
             {item.cta_url && stato === 'attiva' && (
               <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
                 {item.cta_texto || item.cta_testo || 'Scopri di più'}
@@ -11233,7 +11248,12 @@ function SegnalazioneCard({ segnalazione, onOpen, pianoAbbonamento = 'base', sho
           <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
           <p className="break-words text-sm text-slate-500">{segnalazione.condominio}</p>
         </div>
-        <span className={'shrink-0 rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {String(segnalazione.origine || '').toLowerCase() === 'promo' && (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>
+          )}
+          <span className={'rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
+        </div>
       </div>
     </button>
   );
@@ -12901,6 +12921,7 @@ export default function App() {
   const [showRivistaModal, setShowRivistaModal] = useState(false);
   const [sendingRivista, setSendingRivista] = useState(false);
   const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
+  const [promoInteressi, setPromoInteressi] = useState([]);
   const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [savingPromo, setSavingPromo] = useState(false);
@@ -14207,6 +14228,52 @@ export default function App() {
     }
   };
 
+
+  const confermaPrenotazionePromo = async (promoRecord = {}, interesseRecord = {}) => {
+    if (!promoRecord?.id || !interesseRecord?.id) {
+      mostraToast('Prenotazione non selezionata', 'Non riesco a individuare la prenotazione da confermare.', 'warning');
+      return null;
+    }
+
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        evento: 'promo_confermata',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
+        body: {
+          promoId: promoRecord.id,
+          interesseId: interesseRecord.id,
+          condominioId: interesseRecord.condominio_id,
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Conferma promo non completata:', error || data);
+        mostraToast('Conferma non completata', data?.error || error?.message || 'Non è stato possibile confermare la prenotazione promo.', 'error');
+        return null;
+      }
+
+      mostraToast('Prenotazione confermata', 'È stata aperta una pratica CSP collegata alla promo.', 'success');
+      await carica();
+      if (data?.segnalazione?.id) {
+        const pratica = segnalazioni.find((s) => Number(s.id) === Number(data.segnalazione.id));
+        if (pratica) setDettaglioAperto(pratica);
+      }
+      return data;
+    } catch (error) {
+      console.error('Errore conferma prenotazione promo:', error);
+      mostraToast('Errore conferma', error?.message || 'Non è stato possibile confermare la prenotazione promo.', 'error');
+      return null;
+    }
+  };
+
+
   const carica = async () => {
     setLoading(true);
     try {
@@ -14282,6 +14349,13 @@ export default function App() {
 
       if (promoError && promoError.code !== 'PGRST116' && promoError.code !== '42P01') throw promoError;
       setPromoSenzaPensieri(promoData || []);
+
+      const { data: promoInteressiData, error: promoInteressiError } = await supabase
+        .from('promo_interessi')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (promoInteressiError && promoInteressiError.code !== 'PGRST116' && promoInteressiError.code !== '42P01') throw promoInteressiError;
+      setPromoInteressi(promoInteressiData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -17043,10 +17117,12 @@ export default function App() {
             {renderGestoreSectionTitle('Promo Senza Pensieri', 'Vetrina commerciale CSP, promozioni stagionali e opportunità dedicate.')}
             <PromoSenzaPensieriSuite
               promo={promoSenzaPensieri}
+              promoInteressi={promoInteressi}
               ruolo={ruoloNormalizzato}
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
               onRiproponi={riproponiPromoSenzaPensieri}
+              onConfermaPrenotazione={confermaPrenotazionePromo}
               promoEvidenzaId={promoDeeplinkId}
             />
           </>
