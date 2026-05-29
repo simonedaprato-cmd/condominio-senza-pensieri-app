@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.72';
-const APP_VERSION_LABEL = 'CSP v1.0.72';
+const APP_VERSION = '1.0.1';
+const APP_VERSION_LABEL = 'CSP v1.0.1';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13212,6 +13212,47 @@ export default function App() {
     return [...new Set(emails.filter(Boolean))];
   };
 
+  const destinatariCentroCasep = (capitolato = {}, eventType = 'aggiornamento', extraEmails = []) => {
+    const condominioId = Number(capitolato?.condominio_id || 0);
+    const emails = [];
+    const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
+    const ruoloAzione = ruoloNormalizzato === 'collaboratore' ? 'collaboratore' : ruoloNormalizzato;
+
+    const addEmail = (email) => {
+      const cleanEmail = String(email || '').toLowerCase().trim();
+      if (cleanEmail && cleanEmail !== emailCorrente) emails.push(cleanEmail);
+    };
+
+    const addGestori = () => {
+      (utentiSistema || []).forEach((row) => {
+        if (String(row.ruolo || '').toLowerCase().trim() === 'gestore') addEmail(row.email);
+      });
+    };
+
+    const addAmministrazioneOperativa = () => {
+      const condominio = (condomini || []).find((item) => Number(item.id) === condominioId);
+      addEmail(condominio?.amministratore_email);
+      addEmail(capitolato?.amministratore_email);
+      addEmail(capitolato?.collaboratore_email);
+      addEmail(capitolato?.richiedente_email);
+
+      (utentiCondomini || []).forEach((row) => {
+        if (Number(row.condominio_id) !== condominioId) return;
+        const ruolo = String(row.ruolo || '').toLowerCase().trim();
+        if (ruolo === 'amministratore' || ruolo === 'collaboratore') addEmail(row.email);
+      });
+    };
+
+    // Regola CaSeP: azioni amministratore/collaboratore verso gestore; azioni gestore verso amministratore/collaboratori.
+    // I condòmini non ricevono notifiche CaSeP in campanella.
+    if (ruoloAzione === 'gestore') addAmministrazioneOperativa();
+    else if (ruoloAzione === 'amministratore' || ruoloAzione === 'collaboratore') addGestori();
+    else addGestori();
+
+    (extraEmails || []).forEach(addEmail);
+    return [...new Set(emails.filter(Boolean))];
+  };
+
   const aggiornaNotificheCentro = async () => {
     if (!utente) return;
     try {
@@ -13271,6 +13312,11 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('capitolato');
       else if (isAmministratoreOperativo) setAmministratoreSection('capitolato');
       else setCondominoSection('segnalazioni');
+
+      if (riferimentoId) {
+        const capitolato = (capitolati || []).find((item) => Number(item.id) === riferimentoId);
+        if (capitolato) setCapitolatoApertoId(Number(capitolato.id));
+      }
       return;
     }
 
@@ -13278,6 +13324,11 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('lavori-privati');
       else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
       else setCondominoSection('lavori-privati');
+
+      if (riferimentoId) {
+        const lavoro = (lavoriPrivati || []).find((item) => Number(item.id) === riferimentoId);
+        if (lavoro) setLavoroPrivatoApertoId(Number(lavoro.id));
+      }
       return;
     }
 
@@ -14648,6 +14699,8 @@ export default function App() {
           source: 'App.jsx',
           release: APP_VERSION,
           function_name: functionName,
+          actor_role: ruoloNormalizzato,
+          actor_email: userProfile?.email || utente?.email || '',
         },
       };
 
@@ -14779,6 +14832,14 @@ export default function App() {
           created_from_app: true,
         });
         console.log('[CaSeP notify] nuovo_capitolato result', notifyResult);
+        await registraNotificaCentro({
+          destinatari: destinatariCentroCasep(data, 'nuovo_capitolato'),
+          condominioId: data?.condominio_id,
+          titolo: 'CaSeP · Nuova pratica aperta',
+          messaggio: `Nuova pratica Capitolato Senza Pensieri per ${data?.condominio_nome || 'il condominio'}.`,
+          tipo: 'casep_nuovo_capitolato',
+          riferimentoId: data?.id,
+        });
       }
 
       setStatusMessage('Pratica Capitolato Senza Pensieri aperta correttamente.');
@@ -14864,12 +14925,7 @@ export default function App() {
         const messaggioCasep = `${titoloCasep} per ${data?.condominio_nome || 'il condominio'}.`;
 
         await registraNotificaCentro({
-          destinatari: destinatariCentroPerCondominio(data?.condominio_id, [
-            data?.amministratore_email,
-            data?.collaboratore_email,
-            data?.richiedente_email,
-            userProfile?.email,
-          ]),
+          destinatari: destinatariCentroCasep(data, eventType),
           condominioId: data?.condominio_id,
           titolo: titoloCasep,
           messaggio: messaggioCasep,
