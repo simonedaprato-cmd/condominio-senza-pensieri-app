@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10400,6 +10400,225 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
   );
 }
 
+
+function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate }) {
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+
+  const dataFine = (item) => item?.validita_al ? new Date(item.validita_al) : null;
+  const isAttiva = (item) => {
+    if (!item) return false;
+    const flagAttiva = item.attiva !== false;
+    const fine = dataFine(item);
+    return flagAttiva && (!fine || fine >= oggi);
+  };
+
+  const promoOrdinate = [...(promo || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const promoAttiva = promoOrdinate.find(isAttiva);
+  const archivio = promoOrdinate.filter((item) => !promoAttiva || item.id !== promoAttiva.id).slice(0, 5);
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isCondomino = ['condominio', 'condomino'].includes(ruoloNorm);
+  const isOperativo = ['amministratore', 'collaboratore'].includes(ruoloNorm);
+
+  const ctaLabel = isCondomino
+    ? 'Chiedila al tuo amministratore'
+    : isOperativo
+      ? 'Prenota intervento'
+      : (promoAttiva?.cta_testo || 'Apri promozione');
+
+  const formatDate = (value) => value ? new Date(value).toLocaleDateString('it-IT') : 'n.d.';
+
+  const PromoHero = ({ item }) => (
+    <article className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-xl shadow-emerald-950/10">
+      {item.immagine_url ? (
+        <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
+          <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
+        </div>
+      ) : (
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-teal-700 to-slate-950 p-6 text-white md:p-8">
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-emerald-300/20 blur-3xl" />
+          <p className="relative text-xs font-black uppercase tracking-[0.28em] text-emerald-100">Promo Senza Pensieri</p>
+          <h3 className="relative mt-3 max-w-2xl text-3xl font-black leading-tight md:text-4xl">{item.titolo}</h3>
+        </div>
+      )}
+      <div className="p-5 md:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Attiva</span>
+          {item.validita_al && <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Fino al {formatDate(item.validita_al)}</span>}
+          {item.limite && <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">{item.limite}</span>}
+        </div>
+        {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
+        {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Offerta</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{item.prezzo || 'Su richiesta'}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validità</p>
+            <p className="mt-1 text-sm font-black text-slate-800">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Disponibilità</p>
+            <p className="mt-1 text-sm font-black text-slate-800">{item.limite || 'Fino a scadenza promo'}</p>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => alert('Azione promo predisposta. Nella prossima release collegheremo interessi, prenotazioni e notifiche dedicate.')}
+            className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+          >
+            {ctaLabel}
+          </button>
+          {item.cta_url && (
+            <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
+              {item.cta_testo || 'Scopri di più'}
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+
+  return (
+    <section className="space-y-4 pb-8">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-50 shadow-sm">
+        <div className="p-5 md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Vetrina CSP</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Promo Senza Pensieri</h2>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+                Opportunità periodiche, servizi stagionali e iniziative dedicate agli utenti CSP. Una vetrina interna, elegante e sempre aggiornata.
+              </p>
+            </div>
+            {canCreate && (
+              <button
+                type="button"
+                onClick={onOpenCreate}
+                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+              >
+                + Nuova Promo
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {promoAttiva ? (
+        <PromoHero item={promoAttiva} />
+      ) : (
+        <EmptyState
+          icon="💚"
+          title="Nessuna promo attiva"
+          text={canCreate ? 'Crea la prima promozione periodica per trasformare CSP in una vetrina commerciale proprietaria.' : 'Quando sarà disponibile una nuova opportunità, la troverai qui in evidenza.'}
+          action="Vetrina pronta"
+          tone="emerald"
+        />
+      )}
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Archivio ultime promo</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Le ultime 5 promozioni pubblicate, con stato e periodo di validità.</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{archivio.length}/5</span>
+        </div>
+        {archivio.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">Archivio ancora vuoto.</div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {archivio.map((item) => {
+              const attiva = isAttiva(item);
+              return (
+                <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${attiva ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{attiva ? 'Attiva' : 'Scaduta'}</span>
+                      <h4 className="mt-3 text-base font-black text-slate-900">{item.titolo}</h4>
+                      <p className="mt-1 text-xs font-bold text-slate-500">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+                    </div>
+                    <p className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{item.prezzo || 'Promo'}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function NuovaPromoModal({ onClose, onCreate, saving }) {
+  const [form, setForm] = useState({
+    titolo: '',
+    descrizione: '',
+    prezzo: '',
+    immagine_url: '',
+    validita_dal: new Date().toISOString().slice(0, 10),
+    validita_al: '',
+    cta_testo: 'Richiedi informazioni',
+    cta_url: '',
+    limite: '',
+    attiva: true,
+  });
+  const [errore, setErrore] = useState('');
+
+  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+    if (!form.titolo.trim()) {
+      setErrore('Inserisci il titolo della promozione.');
+      return;
+    }
+    await onCreate(form);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <form onSubmit={submit} className="mx-auto my-6 w-full max-w-2xl rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Promo Senza Pensieri</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Nuova promozione</h3>
+            <p className="mt-1 text-sm text-slate-500">Crea una promo stagionale da mostrare nella vetrina interna CSP.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Titolo promo" value={form.titolo} onChange={(e) => update('titolo', e.target.value)} />
+          <textarea className="min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Descrizione" value={form.descrizione} onChange={(e) => update('descrizione', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Prezzo / offerta" value={form.prezzo} onChange={(e) => update('prezzo', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Limite disponibilità" value={form.limite} onChange={(e) => update('limite', e.target.value)} />
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida dal<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_dal} onChange={(e) => update('validita_dal', e.target.value)} /></label>
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida fino al<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_al} onChange={(e) => update('validita_al', e.target.value)} /></label>
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA testo" value={form.cta_testo} onChange={(e) => update('cta_testo', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA URL opzionale" value={form.cta_url} onChange={(e) => update('cta_url', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Immagine URL opzionale" value={form.immagine_url} onChange={(e) => update('immagine_url', e.target.value)} />
+          <label className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800 md:col-span-2">
+            <input type="checkbox" checked={form.attiva} onChange={(e) => update('attiva', e.target.checked)} />
+            Pubblica come promo attiva
+          </label>
+        </div>
+
+        {errore && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{errore}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600">Annulla</button>
+          <button type="submit" disabled={saving} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Salvataggio...' : 'Crea promo'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function PubblicaRivistaModal({ onClose, onPubblica, saving }) {
   const [numero, setNumero] = useState('Numero 0');
   const [periodo, setPeriodo] = useState('');
@@ -12520,6 +12739,9 @@ export default function App() {
   const [rivisteCondominio, setRivisteCondominio] = useState([]);
   const [showRivistaModal, setShowRivistaModal] = useState(false);
   const [sendingRivista, setSendingRivista] = useState(false);
+  const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [savingPromo, setSavingPromo] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const isCollaboratore = ruoloNormalizzato === 'collaboratore';
@@ -12569,6 +12791,7 @@ export default function App() {
     setShowNuovaSegnalazione(false);
     setShowReportSemestrale(false);
     setShowRivistaModal(false);
+    setShowPromoModal(false);
     setLavoroPrivatoApertoId(null);
     chiudiMenuLaterale();
     window.setTimeout(() => {
@@ -12720,6 +12943,10 @@ export default function App() {
         setShowRivistaModal(false);
         return;
       }
+      if (showPromoModal) {
+        setShowPromoModal(false);
+        return;
+      }
       const route = event.state?.cspRoute;
       if (route?.section) {
         applicaCspHistoryRoute(route);
@@ -12732,7 +12959,7 @@ export default function App() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal]);
+  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal, showPromoModal]);
 
 
   useEffect(() => {
@@ -13571,6 +13798,38 @@ export default function App() {
     else setCondominoSection('segnalazioni');
   };
 
+
+  const creaPromoSenzaPensieri = async (promo) => {
+    setSavingPromo(true);
+    try {
+      const payload = {
+        titolo: promo.titolo?.trim(),
+        descrizione: promo.descrizione?.trim() || null,
+        prezzo: promo.prezzo?.trim() || null,
+        immagine_url: promo.immagine_url?.trim() || null,
+        validita_dal: promo.validita_dal || null,
+        validita_al: promo.validita_al || null,
+        cta_testo: promo.cta_testo?.trim() || null,
+        cta_url: promo.cta_url?.trim() || null,
+        limite: promo.limite?.trim() || null,
+        attiva: promo.attiva !== false,
+        created_by: utente?.email || userProfile?.email || null,
+      };
+
+      const { error } = await supabase.from('promo_senza_pensieri').insert(payload);
+      if (error) throw error;
+
+      setShowPromoModal(false);
+      setToastInterno({ tipo: 'success', titolo: 'Promo creata', messaggio: 'La promozione è stata salvata nella vetrina Promo Senza Pensieri.' });
+      await carica();
+    } catch (error) {
+      console.error('Errore creazione promo:', error);
+      alert(error?.message || 'Impossibile creare la promozione.');
+    } finally {
+      setSavingPromo(false);
+    }
+  };
+
   const carica = async () => {
     setLoading(true);
     try {
@@ -13638,6 +13897,14 @@ export default function App() {
 
       if (rivisteError && rivisteError.code !== 'PGRST116' && rivisteError.code !== '42P01') throw rivisteError;
       setRivisteCondominio(rivisteData || []);
+
+      const { data: promoData, error: promoError } = await supabase
+        .from('promo_senza_pensieri')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (promoError && promoError.code !== 'PGRST116' && promoError.code !== '42P01') throw promoError;
+      setPromoSenzaPensieri(promoData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -15862,6 +16129,7 @@ export default function App() {
     { id: 'guadagni', label: '💰 Guadagni', subtitle: 'Control Room economica' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
+    { id: 'promo', label: '💚 Promo Senza Pensieri', subtitle: 'Vetrina commerciale CSP' },
   ];
 
   const amministratoreSections = [
@@ -15872,6 +16140,7 @@ export default function App() {
     ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
+    { id: 'promo', label: '💚 Promo Senza Pensieri', subtitle: 'Vetrina commerciale CSP' },
   ];
 
   const condominoSections = [
@@ -15879,6 +16148,7 @@ export default function App() {
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
+    { id: 'promo', label: '💚 Promo Senza Pensieri', subtitle: 'Vetrina commerciale CSP' },
   ];
 
   const sezioniMenuLaterale = ruoloNormalizzato === 'gestore'
@@ -15964,6 +16234,13 @@ export default function App() {
           onClose={() => setShowRivistaModal(false)}
           onPubblica={pubblicaRivistaCondominio}
           saving={sendingRivista}
+        />
+      )}
+      {showPromoModal && (
+        <NuovaPromoModal
+          onClose={() => setShowPromoModal(false)}
+          onCreate={creaPromoSenzaPensieri}
+          saving={savingPromo}
         />
       )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
@@ -16384,6 +16661,18 @@ export default function App() {
           </>
         )}
 
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'promo' && (
+          <>
+            {renderGestoreSectionTitle('Promo Senza Pensieri', 'Vetrina commerciale CSP, promozioni stagionali e opportunità dedicate.')}
+            <PromoSenzaPensieriSuite
+              promo={promoSenzaPensieri}
+              ruolo={ruoloNormalizzato}
+              canCreate={true}
+              onOpenCreate={() => setShowPromoModal(true)}
+            />
+          </>
+        )}
+
         {isAmministratoreOperativo && amministratoreSection === 'report' && (
           <ArchivioReportPremium
             reports={reportVisibili}
@@ -16397,6 +16686,14 @@ export default function App() {
             riviste={rivisteCondominio}
             ruolo={ruoloNormalizzato}
             canPublish={false}
+          />
+        )}
+
+        {isAmministratoreOperativo && amministratoreSection === 'promo' && (
+          <PromoSenzaPensieriSuite
+            promo={promoSenzaPensieri}
+            ruolo={ruoloNormalizzato}
+            canCreate={false}
           />
         )}
 
@@ -16482,6 +16779,13 @@ export default function App() {
               text="Il piano Base mantiene le funzioni operative essenziali. Con Plus e Premium il condominio accede anche all’archivio digitale della rivista Condominio Senza Pensieri."
             />
           )
+        )}
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'promo' && (
+          <PromoSenzaPensieriSuite
+            promo={promoSenzaPensieri}
+            ruolo={ruoloNormalizzato}
+            canCreate={false}
+          />
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
           contrattoCorrenteSospeso ? (
