@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.10';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.11';
+const APP_VERSION_LABEL = 'CSP v1.0.11';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10401,24 +10401,70 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate }) {
+function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi }) {
+  const [filtroGestore, setFiltroGestore] = useState('tutte');
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
-  const dataFine = (item) => item?.validita_al ? new Date(item.validita_al) : null;
-  const isAttiva = (item) => {
-    if (!item) return false;
-    const flagAttiva = item.attiva !== false;
-    const fine = dataFine(item);
-    return flagAttiva && (!fine || fine >= oggi);
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isGestore = ruoloNorm === 'gestore';
+  const isCondomino = ['condominio', 'condomino'].includes(ruoloNorm);
+  const isOperativo = ['amministratore', 'collaboratore'].includes(ruoloNorm);
+
+  const asNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
   };
+
+  const dataFine = (item) => item?.validita_al ? new Date(item.validita_al) : null;
+  const disponibilitaResidua = (item) => {
+    const limite = asNumber(item?.limite_quantita);
+    if (!limite) return null;
+    return Math.max(limite - asNumber(item?.prenotazioni_attuali), 0);
+  };
+
+  const statoPromo = (item) => {
+    if (!item) return 'bozza';
+    const statoManuale = String(item.stato || '').toLowerCase().trim();
+    if (['bozza', 'chiusa'].includes(statoManuale)) return statoManuale;
+
+    const limite = asNumber(item.limite_quantita);
+    const prenotate = asNumber(item.prenotazioni_attuali);
+    if (limite > 0 && prenotate >= limite) return 'esaurita';
+
+    const fine = dataFine(item);
+    if (fine && fine < oggi) return 'scaduta';
+
+    if (statoManuale === 'esaurita' || statoManuale === 'scaduta') return statoManuale;
+    if (statoManuale === 'attiva' || item.attiva !== false) return 'attiva';
+    return 'bozza';
+  };
+
+  const isAttiva = (item) => statoPromo(item) === 'attiva';
+  const formatDate = (value) => value ? new Date(value).toLocaleDateString('it-IT') : 'n.d.';
+
+  const badgeClass = (stato) => ({
+    bozza: 'bg-amber-100 text-amber-700',
+    attiva: 'bg-emerald-100 text-emerald-700',
+    esaurita: 'bg-red-100 text-red-700',
+    scaduta: 'bg-slate-200 text-slate-500',
+    chiusa: 'bg-blue-100 text-blue-700',
+  }[stato] || 'bg-slate-100 text-slate-500');
+
+  const badgeLabel = (stato) => ({
+    bozza: 'Bozza',
+    attiva: 'Attiva',
+    esaurita: 'Esaurita',
+    scaduta: 'Scaduta',
+    chiusa: 'Chiusa',
+  }[stato] || stato || 'Promo');
 
   const promoOrdinate = [...(promo || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   const promoAttiva = promoOrdinate.find(isAttiva);
-  const archivio = promoOrdinate.filter((item) => !promoAttiva || item.id !== promoAttiva.id).slice(0, 5);
-  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
-  const isCondomino = ['condominio', 'condomino'].includes(ruoloNorm);
-  const isOperativo = ['amministratore', 'collaboratore'].includes(ruoloNorm);
+  const archivioBase = promoOrdinate.filter((item) => !promoAttiva || item.id !== promoAttiva.id);
+  const archivio = isGestore
+    ? archivioBase.filter((item) => filtroGestore === 'tutte' || statoPromo(item) === filtroGestore)
+    : archivioBase.slice(0, 5);
 
   const ctaLabel = isCondomino
     ? 'Chiedila al tuo amministratore'
@@ -10426,61 +10472,71 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
       ? 'Prenota intervento'
       : (promoAttiva?.cta_testo || 'Apri promozione');
 
-  const formatDate = (value) => value ? new Date(value).toLocaleDateString('it-IT') : 'n.d.';
+  const PromoHero = ({ item }) => {
+    const stato = statoPromo(item);
+    const residua = disponibilitaResidua(item);
+    const ultime = residua !== null && residua > 0 && residua <= 3;
+    const esaurita = stato === 'esaurita';
 
-  const PromoHero = ({ item }) => (
-    <article className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-xl shadow-emerald-950/10">
-      {item.immagine_url ? (
-        <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
-          <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
-        </div>
-      ) : (
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-teal-700 to-slate-950 p-6 text-white md:p-8">
-          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-emerald-300/20 blur-3xl" />
-          <p className="relative text-xs font-black uppercase tracking-[0.28em] text-emerald-100">Promo Senza Pensieri</p>
-          <h3 className="relative mt-3 max-w-2xl text-3xl font-black leading-tight md:text-4xl">{item.titolo}</h3>
-        </div>
-      )}
-      <div className="p-5 md:p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Attiva</span>
-          {item.validita_al && <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Fino al {formatDate(item.validita_al)}</span>}
-          {item.limite && <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">{item.limite}</span>}
-        </div>
-        {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
-        {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Offerta</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{item.prezzo || 'Su richiesta'}</p>
+    return (
+      <article className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-xl shadow-emerald-950/10">
+        {item.immagine_url ? (
+          <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
+            <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validità</p>
-            <p className="mt-1 text-sm font-black text-slate-800">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+        ) : (
+          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-teal-700 to-slate-950 p-6 text-white md:p-8">
+            <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-emerald-300/20 blur-3xl" />
+            <p className="relative text-xs font-black uppercase tracking-[0.28em] text-emerald-100">Promo Senza Pensieri</p>
+            <h3 className="relative mt-3 max-w-2xl text-3xl font-black leading-tight md:text-4xl">{item.titolo}</h3>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Disponibilità</p>
-            <p className="mt-1 text-sm font-black text-slate-800">{item.limite || 'Fino a scadenza promo'}</p>
+        )}
+        <div className="p-5 md:p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
+            {item.validita_al && <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Fino al {formatDate(item.validita_al)}</span>}
+            {ultime && <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-orange-700">Ultime {residua} disponibilità</span>}
+            {item.limite && <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">{item.limite}</span>}
+          </div>
+          {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
+          {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
+          {esaurita && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">Tutte le disponibilità previste per questa iniziativa sono state assegnate.</p>}
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Offerta</p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{item.prezzo || 'Su richiesta'}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validità</p>
+              <p className="mt-1 text-sm font-black text-slate-800">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Disponibilità</p>
+              <p className="mt-1 text-sm font-black text-slate-800">{residua !== null ? `${residua} residue su ${item.limite_quantita}` : (item.limite || 'Fino a scadenza promo')}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={stato !== 'attiva'}
+              onClick={() => alert('Azione promo predisposta. Nella prossima release collegheremo interessi, prenotazioni e notifiche dedicate.')}
+              className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+            >
+              {stato === 'esaurita' ? 'Promo esaurita' : ctaLabel}
+            </button>
+            {item.cta_url && stato === 'attiva' && (
+              <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
+                {item.cta_texto || item.cta_testo || 'Scopri di più'}
+              </a>
+            )}
           </div>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => alert('Azione promo predisposta. Nella prossima release collegheremo interessi, prenotazioni e notifiche dedicate.')}
-            className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
-          >
-            {ctaLabel}
-          </button>
-          {item.cta_url && (
-            <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
-              {item.cta_testo || 'Scopri di più'}
-            </a>
-          )}
-        </div>
-      </div>
-    </article>
-  );
+      </article>
+    );
+  };
+
+  const filtri = ['tutte', 'attiva', 'bozza', 'esaurita', 'scaduta', 'chiusa'];
 
   return (
     <section className="space-y-4 pb-8">
@@ -10491,7 +10547,7 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
               <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Vetrina CSP</p>
               <h2 className="mt-1 text-2xl font-black text-slate-900">Promo Senza Pensieri</h2>
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-                Opportunità periodiche, servizi stagionali e iniziative dedicate agli utenti CSP. Una vetrina interna, elegante e sempre aggiornata.
+                Opportunità riservate agli utenti CSP per proteggere, valorizzare e migliorare il proprio immobile. Proposte selezionate, vantaggi dedicati e disponibilità limitate.
               </p>
             </div>
             {canCreate && (
@@ -10520,28 +10576,55 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
       )}
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-black text-slate-900">Archivio ultime promo</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-500">Le ultime 5 promozioni pubblicate, con stato e periodo di validità.</p>
+            <h3 className="text-lg font-black text-slate-900">{isGestore ? 'Archivio Promo' : 'Archivio ultime promo'}</h3>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{archivio.length}/5</span>
+          {isGestore ? (
+            <div className="flex flex-wrap gap-2">
+              {filtri.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFiltroGestore(f)}
+                  className={`rounded-full px-3 py-1 text-xs font-black capitalize ${filtroGestore === f ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                >
+                  {f === 'tutte' ? 'Tutte' : badgeLabel(f)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{archivio.length}/5</span>
+          )}
         </div>
         {archivio.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">Archivio ancora vuoto.</div>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             {archivio.map((item) => {
-              const attiva = isAttiva(item);
+              const stato = statoPromo(item);
+              const residua = disponibilitaResidua(item);
               return (
                 <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${attiva ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{attiva ? 'Attiva' : 'Scaduta'}</span>
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
                       <h4 className="mt-3 text-base font-black text-slate-900">{item.titolo}</h4>
                       <p className="mt-1 text-xs font-bold text-slate-500">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+                      {residua !== null && <p className="mt-2 text-xs font-black text-slate-500">Disponibilità residue: {residua}</p>}
                     </div>
-                    <p className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{item.prezzo || 'Promo'}</p>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <p className="rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{item.prezzo || 'Promo'}</p>
+                      {isGestore && ['scaduta', 'esaurita', 'chiusa'].includes(stato) && (
+                        <button
+                          type="button"
+                          onClick={() => onRiproponi?.(item)}
+                          className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
+                        >
+                          Riproponi Promo
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </article>
               );
@@ -10564,6 +10647,8 @@ function NuovaPromoModal({ onClose, onCreate, saving }) {
     cta_testo: 'Richiedi informazioni',
     cta_url: '',
     limite: '',
+    limite_quantita: '',
+    stato: 'attiva',
     attiva: true,
   });
   const [errore, setErrore] = useState('');
@@ -10596,15 +10681,18 @@ function NuovaPromoModal({ onClose, onCreate, saving }) {
           <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Titolo promo" value={form.titolo} onChange={(e) => update('titolo', e.target.value)} />
           <textarea className="min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Descrizione" value={form.descrizione} onChange={(e) => update('descrizione', e.target.value)} />
           <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Prezzo / offerta" value={form.prezzo} onChange={(e) => update('prezzo', e.target.value)} />
-          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Limite disponibilità" value={form.limite} onChange={(e) => update('limite', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Testo limite es. Disponibilità limitata" value={form.limite} onChange={(e) => update('limite', e.target.value)} />
+          <input type="number" min="0" className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Quantità massima es. 20" value={form.limite_quantita} onChange={(e) => update('limite_quantita', e.target.value)} />
           <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida dal<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_dal} onChange={(e) => update('validita_dal', e.target.value)} /></label>
           <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida fino al<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_al} onChange={(e) => update('validita_al', e.target.value)} /></label>
           <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA testo" value={form.cta_testo} onChange={(e) => update('cta_testo', e.target.value)} />
           <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA URL opzionale" value={form.cta_url} onChange={(e) => update('cta_url', e.target.value)} />
           <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Immagine URL opzionale" value={form.immagine_url} onChange={(e) => update('immagine_url', e.target.value)} />
-          <label className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800 md:col-span-2">
-            <input type="checkbox" checked={form.attiva} onChange={(e) => update('attiva', e.target.checked)} />
-            Pubblica come promo attiva
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:col-span-2">Stato promo
+            <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.stato} onChange={(e) => { update('stato', e.target.value); update('attiva', e.target.value === 'attiva'); }}>
+              <option value="bozza">Bozza</option>
+              <option value="attiva">Attiva</option>
+            </select>
           </label>
         </div>
 
@@ -10612,7 +10700,7 @@ function NuovaPromoModal({ onClose, onCreate, saving }) {
 
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600">Annulla</button>
-          <button type="submit" disabled={saving} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Salvataggio...' : 'Crea promo'}</button>
+          <button type="submit" disabled={saving} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Salvataggio...' : (form.stato === 'attiva' ? 'Crea promo attiva' : 'Salva bozza')}</button>
         </div>
       </form>
     </div>
@@ -13812,7 +13900,10 @@ export default function App() {
         cta_testo: promo.cta_testo?.trim() || null,
         cta_url: promo.cta_url?.trim() || null,
         limite: promo.limite?.trim() || null,
-        attiva: promo.attiva !== false,
+        limite_quantita: promo.limite_quantita ? Number(promo.limite_quantita) : null,
+        prenotazioni_attuali: 0,
+        stato: promo.stato || (promo.attiva !== false ? 'attiva' : 'bozza'),
+        attiva: (promo.stato || '').toLowerCase() === 'attiva' || promo.attiva === true,
         created_by: utente?.email || userProfile?.email || null,
       };
 
@@ -13825,6 +13916,44 @@ export default function App() {
     } catch (error) {
       console.error('Errore creazione promo:', error);
       alert(error?.message || 'Impossibile creare la promozione.');
+    } finally {
+      setSavingPromo(false);
+    }
+  };
+
+
+  const riproponiPromoSenzaPensieri = async (promo) => {
+    if (!promo?.id) return;
+    setSavingPromo(true);
+    try {
+      const payload = {
+        titolo: promo.titolo || 'Nuova promo',
+        descrizione: promo.descrizione || null,
+        prezzo: promo.prezzo || null,
+        immagine_url: promo.immagine_url || null,
+        validita_dal: new Date().toISOString().slice(0, 10),
+        validita_al: null,
+        cta_testo: promo.cta_testo || 'Richiedi informazioni',
+        cta_url: promo.cta_url || null,
+        limite: promo.limite || null,
+        limite_quantita: promo.limite_quantita || null,
+        prenotazioni_attuali: 0,
+        stato: 'bozza',
+        attiva: false,
+        inviata: false,
+        inviata_at: null,
+        riproposta_da: promo.id,
+        created_by: utente?.email || userProfile?.email || null,
+      };
+
+      const { error } = await supabase.from('promo_senza_pensieri').insert(payload);
+      if (error) throw error;
+
+      setToastInterno({ tipo: 'success', titolo: 'Promo riproposta', messaggio: 'È stata creata una nuova bozza partendo dalla promozione selezionata.' });
+      await carica();
+    } catch (error) {
+      console.error('Errore riproposizione promo:', error);
+      alert(error?.message || 'Impossibile riproporre la promozione.');
     } finally {
       setSavingPromo(false);
     }
@@ -16669,6 +16798,7 @@ export default function App() {
               ruolo={ruoloNormalizzato}
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
+              onRiproponi={riproponiPromoSenzaPensieri}
             />
           </>
         )}
