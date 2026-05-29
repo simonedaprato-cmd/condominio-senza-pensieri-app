@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.1';
-const APP_VERSION_LABEL = 'CSP v1.0.1';
+const APP_VERSION = '1.0.2';
+const APP_VERSION_LABEL = 'CSP v1.0.2';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -436,7 +436,10 @@ function isPushLaunchContext() {
     params.has('capitolato') ||
     params.has('rivista') ||
     params.has('magazine') ||
-    params.get('section') === 'rivista'
+    params.has('report') ||
+    params.has('reportId') ||
+    params.get('section') === 'rivista' ||
+    params.get('section') === 'report'
   );
 }
 
@@ -12855,14 +12858,10 @@ export default function App() {
         console.warn('Report caricato ma non salvato in report_condominio:', reportError);
       }
 
-      await inviaNotificaCondominio({
-        condominioId,
-        destinatari: 'tutti',
-        title: 'Report semestrale disponibile',
-        message: `È disponibile il report semestrale Premium: ${periodo}. Puoi consultarlo nell’app nella sezione Report condominio oppure dalla mail.`,
-        tipo: 'report_semestrale',
-        riferimentoId: reportId,
-      });
+      // Report semestrale: la function send-report-condominio gestisce mail + push + una sola campanella
+      // tramite notification-router. Non chiamiamo anche notify-condominio, altrimenti la notifica
+      // interna viene salvata due volte in notifiche_utenti.
+      const reportDeepLink = buildAppDeepLink({ fromPush: '1', section: 'report', report: reportId || '', evento: 'report_semestrale', segnalazione: '0' });
 
       const { data: emailData, error: emailError } = await supabase.functions.invoke('send-report-condominio', {
         body: {
@@ -12871,6 +12870,8 @@ export default function App() {
           periodo,
           reportUrl,
           fileName,
+          reportId,
+          appUrl: reportDeepLink,
         },
       });
 
@@ -13147,6 +13148,36 @@ export default function App() {
     params.delete('rivista');
     params.delete('magazine');
     params.delete('fromPush');
+    params.delete('source');
+    params.delete('utm_source');
+
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
+
+
+  useEffect(() => {
+    if (!utente) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('section');
+    const reportId = params.get('report') || params.get('reportId');
+
+    if (section !== 'report' && !reportId) return;
+
+    if (ruoloNormalizzato === 'gestore') setGestoreSection('report');
+    else if (isAmministratoreOperativo) setAmministratoreSection('report');
+    else setCondominoSection('report');
+
+    params.delete('section');
+    params.delete('report');
+    params.delete('reportId');
+    params.delete('pratica');
+    params.delete('segnalazione');
+    params.delete('segnalazioneId');
+    params.delete('fromPush');
+    params.delete('evento');
     params.delete('source');
     params.delete('utm_source');
 
