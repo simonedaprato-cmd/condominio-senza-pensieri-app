@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.11';
-const APP_VERSION_LABEL = 'CSP v1.0.11';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -440,8 +440,11 @@ function isPushLaunchContext() {
     params.has('magazine') ||
     params.has('report') ||
     params.has('reportId') ||
+    params.has('promo') ||
+    params.has('promoId') ||
     params.get('section') === 'rivista' ||
-    params.get('section') === 'report'
+    params.get('section') === 'report' ||
+    params.get('section') === 'promo'
   );
 }
 
@@ -10401,8 +10404,9 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi }) {
+function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi, promoEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
+  const [ricercaPromo, setRicercaPromo] = useState('');
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
@@ -10460,11 +10464,19 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
   }[stato] || stato || 'Promo');
 
   const promoOrdinate = [...(promo || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-  const promoAttiva = promoOrdinate.find(isAttiva);
+  const promoDeeplink = promoEvidenzaId
+    ? promoOrdinate.find((item) => Number(item.id) === Number(promoEvidenzaId))
+    : null;
+  const promoAttivaDefault = promoOrdinate.find(isAttiva);
+  const promoAttiva = promoDeeplink || promoAttivaDefault;
   const archivioBase = promoOrdinate.filter((item) => !promoAttiva || item.id !== promoAttiva.id);
+  const queryPromo = ricercaPromo.toLowerCase().trim();
+  const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(queryPromo));
   const archivio = isGestore
-    ? archivioBase.filter((item) => filtroGestore === 'tutte' || statoPromo(item) === filtroGestore)
-    : archivioBase.slice(0, 5);
+    ? archivioBase.filter((item) => (filtroGestore === 'tutte' || statoPromo(item) === filtroGestore) && matchRicerca(item))
+    : archivioBase.filter(matchRicerca).slice(0, 5);
 
   const ctaLabel = isCondomino
     ? 'Chiedila al tuo amministratore'
@@ -10597,6 +10609,14 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{archivio.length}/5</span>
           )}
         </div>
+        {isGestore && (
+          <input
+            className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            placeholder="🔍 Cerca promo per titolo o descrizione..."
+            value={ricercaPromo}
+            onChange={(e) => setRicercaPromo(e.target.value)}
+          />
+        )}
         {archivio.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">Archivio ancora vuoto.</div>
         ) : (
@@ -12828,6 +12848,7 @@ export default function App() {
   const [showRivistaModal, setShowRivistaModal] = useState(false);
   const [sendingRivista, setSendingRivista] = useState(false);
   const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
+  const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [savingPromo, setSavingPromo] = useState(false);
 
@@ -13522,6 +13543,36 @@ export default function App() {
 
   useEffect(() => {
     if (!utente) return;
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('section');
+    const promoId = params.get('promo') || params.get('promoId');
+
+    if (section !== 'promo' && !promoId) return;
+
+    if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
+    else if (isAmministratoreOperativo) setAmministratoreSection('promo');
+    else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('promo');
+
+    if (promoId) setPromoDeeplinkId(Number(promoId));
+
+    params.delete('section');
+    params.delete('promo');
+    params.delete('promoId');
+    params.delete('fromPush');
+    params.delete('evento');
+    params.delete('source');
+    params.delete('utm_source');
+
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, pushDeepLinkTick]);
+
+
+  useEffect(() => {
+    if (!utente) return;
 
     const params = new URLSearchParams(window.location.search);
     const section = params.get('section');
@@ -13802,6 +13853,15 @@ export default function App() {
       }
     }
 
+    if (tipo.includes('promo')) {
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
+      else if (isAmministratoreOperativo) setAmministratoreSection('promo');
+      else setCondominoSection('promo');
+
+      if (riferimentoId) setPromoDeeplinkId(Number(riferimentoId));
+      return;
+    }
+
     if (tipo.includes('rivista')) {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
       else if (isAmministratoreOperativo) setAmministratoreSection('rivista');
@@ -13887,6 +13947,42 @@ export default function App() {
   };
 
 
+  const inviaNotificaPromoSenzaPensieri = async (promoRecord = {}) => {
+    if (!promoRecord?.id) return null;
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        evento: 'promo_senza_pensieri',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-senza-pensieri', {
+        body: {
+          promoId: promoRecord.id,
+          title: 'Nuova Promo Senza Pensieri',
+          message: `È disponibile una nuova opportunità CSP: ${promoRecord.titolo || 'scoprila in app'}. Apri l’app per visualizzarla.`,
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Promo creata, ma notifica promo non completata:', error || data);
+        mostraToast('Promo salvata', 'La promo è visibile in app, ma l’invio notifiche non è stato completato.', 'warning');
+        return null;
+      }
+
+      mostraToast('Promo pubblicata', `Invio completato: ${data?.emails_found || 0} destinatari unici raggiunti.`, 'success');
+      return data;
+    } catch (error) {
+      console.warn('Errore invio notifica promo:', error);
+      mostraToast('Promo salvata', 'La promo è visibile in app, ma l’invio notifiche non è stato completato.', 'warning');
+      return null;
+    }
+  };
+
+
   const creaPromoSenzaPensieri = async (promo) => {
     setSavingPromo(true);
     try {
@@ -13907,11 +14003,18 @@ export default function App() {
         created_by: utente?.email || userProfile?.email || null,
       };
 
-      const { error } = await supabase.from('promo_senza_pensieri').insert(payload);
+      const { data: insertedPromo, error } = await supabase
+        .from('promo_senza_pensieri')
+        .insert(payload)
+        .select('*')
+        .single();
       if (error) throw error;
 
       setShowPromoModal(false);
       setToastInterno({ tipo: 'success', titolo: 'Promo creata', messaggio: 'La promozione è stata salvata nella vetrina Promo Senza Pensieri.' });
+      if ((insertedPromo?.stato || '').toLowerCase() === 'attiva' || insertedPromo?.attiva === true) {
+        await inviaNotificaPromoSenzaPensieri(insertedPromo);
+      }
       await carica();
     } catch (error) {
       console.error('Errore creazione promo:', error);
@@ -16799,6 +16902,7 @@ export default function App() {
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
               onRiproponi={riproponiPromoSenzaPensieri}
+              promoEvidenzaId={promoDeeplinkId}
             />
           </>
         )}
@@ -16824,6 +16928,7 @@ export default function App() {
             promo={promoSenzaPensieri}
             ruolo={ruoloNormalizzato}
             canCreate={false}
+            promoEvidenzaId={promoDeeplinkId}
           />
         )}
 
@@ -16915,6 +17020,7 @@ export default function App() {
             promo={promoSenzaPensieri}
             ruolo={ruoloNormalizzato}
             canCreate={false}
+            promoEvidenzaId={promoDeeplinkId}
           />
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
