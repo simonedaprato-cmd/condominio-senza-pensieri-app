@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13332,6 +13332,43 @@ export default function App() {
     return [...new Set(emails.filter(Boolean))];
   };
 
+  const destinatariCentroLsp = (lavoro = {}, eventType = 'aggiornamento', extraEmails = []) => {
+    const emails = [];
+    const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
+    const ruoloAzione = ruoloNormalizzato === 'condominio' ? 'condomino' : String(ruoloNormalizzato || '').toLowerCase().trim();
+
+    const addEmail = (email) => {
+      const cleanEmail = String(email || '').toLowerCase().trim();
+      if (cleanEmail && cleanEmail !== emailCorrente) emails.push(cleanEmail);
+    };
+
+    const addGestori = () => {
+      (utentiSistema || []).forEach((row) => {
+        if (String(row.ruolo || '').toLowerCase().trim() === 'gestore') addEmail(row.email);
+      });
+    };
+
+    const addCondominoRichiedente = () => {
+      addEmail(lavoro?.condomino_email);
+      addEmail(lavoro?.email);
+      addEmail(lavoro?.richiedente_email);
+      addEmail(lavoro?.utente_email);
+    };
+
+    // Regola LSP: dialogo privato solo tra condòmino richiedente e gestore.
+    // Mai amministratore e mai collaboratore.
+    if (String(eventType || '').toLowerCase().trim() === 'nuova_richiesta') {
+      addGestori();
+    } else if (ruoloAzione === 'gestore') {
+      addCondominoRichiedente();
+    } else {
+      addGestori();
+    }
+
+    (extraEmails || []).forEach(addEmail);
+    return [...new Set(emails.filter(Boolean))];
+  };
+
   const aggiornaNotificheCentro = async () => {
     if (!utente) return;
     try {
@@ -13417,6 +13454,7 @@ export default function App() {
       if (riferimentoId) {
         const lavoro = (lavoriPrivati || []).find((item) => Number(item.id) === riferimentoId);
         if (lavoro) setLavoroPrivatoApertoId(Number(lavoro.id));
+        else setLavoroPrivatoApertoId(Number(riferimentoId));
       }
       return;
     }
@@ -15479,6 +15517,8 @@ export default function App() {
           lavoroId: lavoro.id,
           lavoro,
           extra,
+          actorRole: ruoloNormalizzato,
+          actorEmail: utente?.email || userProfile?.email || '',
           deepLink: `${AUTH_REDIRECT_URL}/?fromPush=1&lavoroPrivato=${lavoro.id}`,
         },
       });
@@ -15503,13 +15543,7 @@ export default function App() {
             ? 'Lo stato della fattura del lavoro privato è stato aggiornato.'
             : `Aggiornamento sulla richiesta privata${lavoro?.titolo ? `: ${lavoro.titolo}` : ''}.`;
 
-      const destinatariLsp = destinatariCentroPerCondominio(lavoro?.condominio_id, [
-        lavoro?.email,
-        lavoro?.richiedente_email,
-        lavoro?.utente_email,
-        userProfile?.email,
-        utente?.email,
-      ]);
+      const destinatariLsp = destinatariCentroLsp(lavoro, eventType);
 
       await registraNotificaCentro({
         destinatari: destinatariLsp,
