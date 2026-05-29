@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.71';
-const APP_VERSION_LABEL = 'CSP v1.0.71';
+const APP_VERSION = '1.0.72';
+const APP_VERSION_LABEL = 'CSP v1.0.72';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13156,6 +13156,62 @@ export default function App() {
   }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
 
 
+  const registraNotificaCentro = async ({ destinatari = [], condominioId = null, titolo = '', messaggio = '', tipo = 'notifica', riferimentoId = null }) => {
+    try {
+      const emails = [...new Set((destinatari || [])
+        .map((email) => String(email || '').toLowerCase().trim())
+        .filter(Boolean)
+      )];
+
+      if (emails.length === 0 || !titolo) return null;
+
+      const { data, error } = await supabase.functions.invoke('registro-notifica-centro', {
+        body: {
+          emails,
+          condominioId: condominioId ? Number(condominioId) : null,
+          titolo,
+          messaggio,
+          tipo,
+          riferimentoId: riferimentoId ? Number(riferimentoId) : null,
+        },
+      });
+
+      if (error || data?.ok === false) {
+        console.warn('[CSP notification registry] registrazione non completata:', error || data);
+        return null;
+      }
+
+      aggiornaNotificheCentro();
+      return data;
+    } catch (error) {
+      console.warn('[CSP notification registry] errore:', error);
+      return null;
+    }
+  };
+
+  const destinatariCentroPerCondominio = (condominioId, extraEmails = []) => {
+    const id = Number(condominioId || 0);
+    const emails = [];
+
+    (utentiCondomini || []).forEach((row) => {
+      if (Number(row.condominio_id) === id) {
+        const email = String(row.email || '').toLowerCase().trim();
+        const ruolo = String(row.ruolo || '').toLowerCase().trim();
+        if (email && ruolo !== 'gestore') emails.push(email);
+      }
+    });
+
+    const condominio = (condomini || []).find((item) => Number(item.id) === id);
+    if (condominio?.amministratore_email) emails.push(String(condominio.amministratore_email).toLowerCase().trim());
+
+    (extraEmails || []).forEach((email) => {
+      const clean = String(email || '').toLowerCase().trim();
+      if (clean) emails.push(clean);
+    });
+
+    return [...new Set(emails.filter(Boolean))];
+  };
+
   const aggiornaNotificheCentro = async () => {
     if (!utente) return;
     try {
@@ -14790,6 +14846,36 @@ export default function App() {
           updated_from_app: true,
         });
         console.log('[CaSeP notify] update result', eventType, notifyResult);
+
+        const titoloCasep = eventType === 'relazione_inviata'
+          ? 'CaSeP · Relazione disponibile'
+          : eventType === 'offerta_inviata'
+            ? 'CaSeP · Offerta disponibile'
+            : eventType === 'assemblea_programmata'
+              ? 'CaSeP · Assemblea programmata'
+              : eventType === 'offerta_accettata'
+                ? 'CaSeP · Offerta accettata'
+                : eventType === 'offerta_rifiutata'
+                  ? 'CaSeP · Offerta rifiutata'
+                  : eventType === 'conversione_casp'
+                    ? 'CaSeP · Convertita in cantiere'
+                    : 'CaSeP · Aggiornamento pratica';
+
+        const messaggioCasep = `${titoloCasep} per ${data?.condominio_nome || 'il condominio'}.`;
+
+        await registraNotificaCentro({
+          destinatari: destinatariCentroPerCondominio(data?.condominio_id, [
+            data?.amministratore_email,
+            data?.collaboratore_email,
+            data?.richiedente_email,
+            userProfile?.email,
+          ]),
+          condominioId: data?.condominio_id,
+          titolo: titoloCasep,
+          messaggio: messaggioCasep,
+          tipo: `casep_${eventType}`,
+          riferimentoId: data?.id,
+        });
       } else if (data?.id) {
         console.log('[CaSeP notify] update capitolato salvato senza notifica', updatePayload);
       }
@@ -15255,6 +15341,40 @@ export default function App() {
         console.warn('Notifica lavoro privato non inviata:', error.message || error);
         return null;
       }
+
+      const titoloLsp = eventType === 'nuova_richiesta'
+        ? 'La tua casa Senza Pensieri'
+        : eventType === 'fattura_inserita'
+          ? 'Fattura LSP disponibile'
+          : eventType === 'fattura_aggiornata'
+            ? 'Fattura LSP aggiornata'
+            : 'Aggiornamento LSP';
+
+      const messaggioLsp = eventType === 'nuova_richiesta'
+        ? `Nuova richiesta privata${lavoro?.titolo ? `: ${lavoro.titolo}` : ''}.`
+        : eventType === 'fattura_inserita'
+          ? 'È stata inserita una nuova fattura per un lavoro privato.'
+          : eventType === 'fattura_aggiornata'
+            ? 'Lo stato della fattura del lavoro privato è stato aggiornato.'
+            : `Aggiornamento sulla richiesta privata${lavoro?.titolo ? `: ${lavoro.titolo}` : ''}.`;
+
+      const destinatariLsp = destinatariCentroPerCondominio(lavoro?.condominio_id, [
+        lavoro?.email,
+        lavoro?.richiedente_email,
+        lavoro?.utente_email,
+        userProfile?.email,
+        utente?.email,
+      ]);
+
+      await registraNotificaCentro({
+        destinatari: destinatariLsp,
+        condominioId: lavoro?.condominio_id,
+        titolo: titoloLsp,
+        messaggio: messaggioLsp,
+        tipo: `lsp_${eventType}`,
+        riferimentoId: lavoro?.id,
+      });
+
       return data;
     } catch (error) {
       console.warn('Errore notifica lavoro privato:', error);
