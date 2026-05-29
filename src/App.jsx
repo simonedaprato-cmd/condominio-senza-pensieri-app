@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.16';
+const APP_VERSION_LABEL = 'CSP v1.0.16';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,10 +10404,11 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
+  const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
@@ -10415,6 +10416,17 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate 
   const isGestore = ruoloNorm === 'gestore';
   const isCondomino = ['condominio', 'condomino'].includes(ruoloNorm);
   const isOperativo = ['amministratore', 'collaboratore'].includes(ruoloNorm);
+
+  const condominiDisponibili = Array.isArray(condomini) ? condomini : [];
+  const nomeCondominioPromo = (id) => condominiDisponibili.find((c) => String(c.id) === String(id))?.nome || `Condominio ${id}`;
+  const condominioSceltoPerPromo = (item) => {
+    const idSalvato = condominiSceltiPromo?.[item?.id];
+    if (idSalvato) return idSalvato;
+    return condominiDisponibili?.[0]?.id || '';
+  };
+  const setCondominioSceltoPerPromo = (promoId, condominioId) => {
+    setCondominiSceltiPromo((prev) => ({ ...prev, [promoId]: condominioId }));
+  };
 
   const asNumber = (value) => {
     const n = Number(value);
@@ -10485,6 +10497,30 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate 
     String(r?.stato || 'richiesto').toLowerCase() === 'richiesto'
   );
 
+  const interessiCondominiPromo = (item) => {
+    const idsVisibili = new Set(condominiDisponibili.map((c) => String(c.id)));
+    const righe = (promoInteressi || []).filter((r) =>
+      String(r?.promo_id) === String(item?.id) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
+      (!idsVisibili.size || idsVisibili.has(String(r?.condominio_id)))
+    );
+
+    const mappa = new Map();
+    righe.forEach((r) => {
+      const key = String(r?.condominio_id || '');
+      if (!key) return;
+      if (!mappa.has(key)) mappa.set(key, { condominio_id: r.condominio_id, nome: nomeCondominioPromo(r.condominio_id), interessati: [] });
+      const gruppo = mappa.get(key);
+      const email = String(r?.email || '').toLowerCase();
+      if (!email || !gruppo.interessati.some((i) => String(i.email || '').toLowerCase() === email)) {
+        gruppo.interessati.push({ nome: r?.nome || r?.email || 'Condòmino', email: r?.email || '' });
+      }
+    });
+
+    return Array.from(mappa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+  };
+
   const ctaLabelFor = (item) => {
     const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
     if (isCondomino) return 'Chiedila al tuo amministratore';
@@ -10500,7 +10536,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate 
     if (isCondomino && typeof onRichiediAmministratore === 'function') {
       try {
         setPromoActionLoading(item.id);
-        await onRichiediAmministratore(item);
+        await onRichiediAmministratore(item, condominioSceltoPerPromo(item));
       } finally {
         setPromoActionLoading(null);
       }
@@ -10510,7 +10546,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate 
     if (isOperativo && typeof onPrenotaIntervento === 'function') {
       try {
         setPromoActionLoading(item.id);
-        await onPrenotaIntervento(item);
+        await onPrenotaIntervento(item, condominioSceltoPerPromo(item));
       } finally {
         setPromoActionLoading(null);
       }
@@ -10554,6 +10590,19 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate 
           </div>
           {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
           {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
+          {isCondomino && condominiDisponibili.length > 1 && (
+            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <label className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Per quale condominio vuoi richiederla?</label>
+              <select
+                value={condominioSceltoPerPromo(item)}
+                onChange={(e) => setCondominioSceltoPerPromo(item.id, e.target.value)}
+                className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+              >
+                {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
+              </select>
+              <p className="mt-2 text-xs font-semibold text-emerald-800">La richiesta arriverà all’amministrazione del condominio selezionato.</p>
+            </div>
+          )}
           {esaurita && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">Tutte le disponibilità previste per questa iniziativa sono state assegnate.</p>}
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
@@ -10569,6 +10618,37 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], ruolo, canCreate 
               <p className="mt-1 text-sm font-black text-slate-800">{residua !== null ? `${residua} residue su ${item.limite_quantita}` : (item.limite || 'Fino a scadenza promo')}</p>
             </div>
           </div>
+          {isOperativo && interessiCondominiPromo(item).length > 0 && (
+            <div className="mt-5 rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Condomini interessati</p>
+                  <h4 className="text-lg font-black text-slate-900">Richieste ricevute per questa promo</h4>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{interessiCondominiPromo(item).reduce((sum, g) => sum + g.interessati.length, 0)} interessati</span>
+              </div>
+              <div className="mt-3 grid gap-3">
+                {interessiCondominiPromo(item).map((gruppo) => (
+                  <div key={gruppo.condominio_id} className="rounded-2xl border border-emerald-100 bg-white p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-slate-900">{gruppo.nome}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-500">{gruppo.interessati.length} condòmin{gruppo.interessati.length === 1 ? 'o interessato' : 'i interessati'}</p>
+                        <p className="mt-2 text-xs font-semibold text-slate-500">{gruppo.interessati.map((i) => i.nome || i.email).join(', ')}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onPrenotaIntervento?.(item, gruppo.condominio_id)}
+                        className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
+                      >
+                        Prenota per questo condominio
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mt-5 flex flex-wrap gap-2">
             <button
               type="button"
@@ -13629,7 +13709,7 @@ export default function App() {
     else if (isAmministratoreOperativo) setAmministratoreSection('promo');
     else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('promo');
 
-    if (promoId) setPromoDeeplinkId(Number(promoId));
+    if (promoId) setPromoDeeplinkId(promoId);
 
     params.delete('section');
     params.delete('promo');
@@ -14139,9 +14219,9 @@ export default function App() {
     }
   };
 
-  const richiediPromoAlTuoAmministratore = async (promoRecord = {}) => {
+  const richiediPromoAlTuoAmministratore = async (promoRecord = {}, condominioIdRichiesto = null) => {
     if (!promoRecord?.id) return null;
-    const condominioId = Number(condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
+    const condominioId = Number(condominioIdRichiesto || condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
     if (!condominioId) {
       mostraToast('Condominio non trovato', 'Non riesco a collegare la richiesta a un condominio. Verifica il profilo utente.', 'warning');
       return null;
@@ -14183,10 +14263,10 @@ export default function App() {
   };
 
 
-  const prenotaInterventoPromo = async (promoRecord = {}) => {
+  const prenotaInterventoPromo = async (promoRecord = {}, condominioIdRichiesto = null) => {
     if (!promoRecord?.id) return null;
 
-    const condominioId = Number(filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || condominiVisibili?.[0]?.id || 0);
+    const condominioId = Number(condominioIdRichiesto || filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || condominiVisibili?.[0]?.id || 0);
     if (!condominioId) {
       mostraToast('Condominio non selezionato', 'Seleziona un condominio prima di prenotare l’intervento promo.', 'warning');
       return null;
@@ -17118,6 +17198,7 @@ export default function App() {
             <PromoSenzaPensieriSuite
               promo={promoSenzaPensieri}
               promoInteressi={promoInteressi}
+              condomini={condominiVisibili}
               ruolo={ruoloNormalizzato}
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
@@ -17147,6 +17228,8 @@ export default function App() {
         {isAmministratoreOperativo && amministratoreSection === 'promo' && (
           <PromoSenzaPensieriSuite
             promo={promoSenzaPensieri}
+            promoInteressi={promoInteressi}
+            condomini={condominiVisibili}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
@@ -17240,6 +17323,8 @@ export default function App() {
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'promo' && (
           <PromoSenzaPensieriSuite
             promo={promoSenzaPensieri}
+            promoInteressi={promoInteressi}
+            condomini={condominiVisibili}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
