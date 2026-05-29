@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,7 +10404,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, promoEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, promoEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
@@ -10479,11 +10479,14 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
     ? archivioBase.filter((item) => (filtroGestore === 'tutte' || statoPromo(item) === filtroGestore) && matchRicerca(item))
     : archivioBase.filter(matchRicerca).slice(0, 5);
 
-  const ctaLabel = isCondomino
-    ? 'Chiedila al tuo amministratore'
-    : isOperativo
-      ? 'Prenota intervento'
-      : (promoAttiva?.cta_testo || 'Apri promozione');
+  const ctaLabelFor = (item) => {
+    const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
+    if (isCondomino) return 'Chiedila al tuo amministratore';
+    if (isOperativo) return 'Prenota intervento';
+    if (tipo === 'scopri_promo') return 'Scopri la promozione';
+    if (tipo === 'richiedi_info') return 'Richiedi informazioni';
+    return item?.cta_testo || 'Apri promozione';
+  };
 
   const handlePromoCta = async (item) => {
     if (!item?.id) return;
@@ -10498,8 +10501,18 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
       return;
     }
 
+    if (isOperativo && typeof onPrenotaIntervento === 'function') {
+      try {
+        setPromoActionLoading(item.id);
+        await onPrenotaIntervento(item);
+      } finally {
+        setPromoActionLoading(null);
+      }
+      return;
+    }
+
     if (isOperativo) {
-      alert('Prenotazione promo predisposta. Nella prossima release collegheremo la richiesta al gestore e alla pratica CSP.');
+      alert('Prenotazione promo predisposta, ma il collegamento al gestore non è disponibile in questo profilo.');
       return;
     }
 
@@ -10557,7 +10570,7 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
               onClick={() => handlePromoCta(item)}
               className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
             >
-              {promoActionLoading === item.id ? 'Invio richiesta...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabel)}
+              {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item))}
             </button>
             {item.cta_url && stato === 'attiva' && (
               <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
@@ -10686,7 +10699,8 @@ function NuovaPromoModal({ onClose, onCreate, saving }) {
     immagine_url: '',
     validita_dal: new Date().toISOString().slice(0, 10),
     validita_al: '',
-    cta_testo: 'Richiedi informazioni',
+    cta_tipo: 'chiedi_amministratore',
+    cta_testo: 'Chiedila al tuo amministratore',
     cta_url: '',
     limite: '',
     limite_quantita: '',
@@ -10695,7 +10709,20 @@ function NuovaPromoModal({ onClose, onCreate, saving }) {
   });
   const [errore, setErrore] = useState('');
 
+  const ctaOptions = [
+    { tipo: 'chiedi_amministratore', label: 'Chiedila al tuo amministratore' },
+    { tipo: 'prenota_intervento', label: 'Prenota intervento' },
+    { tipo: 'richiedi_info', label: 'Richiedi informazioni' },
+    { tipo: 'scopri_promo', label: 'Scopri la promozione' },
+    { tipo: 'richiedi_votazione', label: 'Richiedi votazione' },
+  ];
+
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const aggiornaCtaTipo = (tipo) => {
+    const selected = ctaOptions.find((item) => item.tipo === tipo) || ctaOptions[0];
+    setForm((prev) => ({ ...prev, cta_tipo: selected.tipo, cta_testo: selected.label }));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -10727,7 +10754,11 @@ function NuovaPromoModal({ onClose, onCreate, saving }) {
           <input type="number" min="0" className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Quantità massima es. 20" value={form.limite_quantita} onChange={(e) => update('limite_quantita', e.target.value)} />
           <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida dal<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_dal} onChange={(e) => update('validita_dal', e.target.value)} /></label>
           <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida fino al<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_al} onChange={(e) => update('validita_al', e.target.value)} /></label>
-          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA testo" value={form.cta_testo} onChange={(e) => update('cta_testo', e.target.value)} />
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">CTA tracciabile
+            <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.cta_tipo} onChange={(e) => aggiornaCtaTipo(e.target.value)}>
+              {ctaOptions.map((option) => <option key={option.tipo} value={option.tipo}>{option.label}</option>)}
+            </select>
+          </label>
           <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA URL opzionale" value={form.cta_url} onChange={(e) => update('cta_url', e.target.value)} />
           <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Immagine URL opzionale" value={form.immagine_url} onChange={(e) => update('immagine_url', e.target.value)} />
           <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:col-span-2">Stato promo
@@ -14016,6 +14047,7 @@ export default function App() {
         immagine_url: promo.immagine_url?.trim() || null,
         validita_dal: promo.validita_dal || null,
         validita_al: promo.validita_al || null,
+        cta_tipo: promo.cta_tipo || 'chiedi_amministratore',
         cta_testo: promo.cta_testo?.trim() || null,
         cta_url: promo.cta_url?.trim() || null,
         limite: promo.limite?.trim() || null,
@@ -14059,7 +14091,8 @@ export default function App() {
         immagine_url: promo.immagine_url || null,
         validita_dal: new Date().toISOString().slice(0, 10),
         validita_al: null,
-        cta_testo: promo.cta_testo || 'Richiedi informazioni',
+        cta_tipo: promo.cta_tipo || 'chiedi_amministratore',
+        cta_testo: promo.cta_testo || 'Chiedila al tuo amministratore',
         cta_url: promo.cta_url || null,
         limite: promo.limite || null,
         limite_quantita: promo.limite_quantita || null,
@@ -14124,6 +14157,52 @@ export default function App() {
     } catch (error) {
       console.error('Errore richiesta promo:', error);
       mostraToast('Errore richiesta', error?.message || 'Non è stato possibile inviare la richiesta promo.', 'error');
+      return null;
+    }
+  };
+
+
+  const prenotaInterventoPromo = async (promoRecord = {}) => {
+    if (!promoRecord?.id) return null;
+
+    const condominioId = Number(filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || condominiVisibili?.[0]?.id || 0);
+    if (!condominioId) {
+      mostraToast('Condominio non selezionato', 'Seleziona un condominio prima di prenotare l’intervento promo.', 'warning');
+      return null;
+    }
+
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        evento: 'promo_prenotazione_amministratore',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-prenotazione-amministratore', {
+        body: {
+          promoId: promoRecord.id,
+          condominioId,
+          richiedenteEmail: utente?.email || userProfile?.email || '',
+          richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
+          ruolo: ruoloNormalizzato,
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Prenotazione promo non completata:', error || data);
+        mostraToast('Prenotazione non completata', data?.error || error?.message || 'Non è stato possibile avvisare il gestore.', 'error');
+        return null;
+      }
+
+      mostraToast('Prenotazione inviata', 'Il gestore è stato avvisato della richiesta di intervento.', 'success');
+      await carica();
+      return data;
+    } catch (error) {
+      console.error('Errore prenotazione promo:', error);
+      mostraToast('Errore prenotazione', error?.message || 'Non è stato possibile inviare la prenotazione promo.', 'error');
       return null;
     }
   };
@@ -16995,6 +17074,7 @@ export default function App() {
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
+            onPrenotaIntervento={prenotaInterventoPromo}
           />
         )}
 
