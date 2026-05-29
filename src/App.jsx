@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13336,6 +13336,7 @@ export default function App() {
     const emails = [];
     const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
     const ruoloAzione = ruoloNormalizzato === 'condominio' ? 'condomino' : String(ruoloNormalizzato || '').toLowerCase().trim();
+    const tipoEvento = String(eventType || '').toLowerCase().trim();
 
     const addEmail = (email) => {
       const cleanEmail = String(email || '').toLowerCase().trim();
@@ -13348,24 +13349,36 @@ export default function App() {
       });
     };
 
-    const addCondominoRichiedente = () => {
+    const addSoloCondominoRichiedente = () => {
+      // LSP è una conversazione privata: la campanella lato condòmino deve arrivare
+      // esclusivamente all'email proprietaria della pratica, mai agli altri condòmini
+      // dello stesso condominio e mai ad amministratori/collaboratori.
       addEmail(lavoro?.condomino_email);
-      addEmail(lavoro?.email);
-      addEmail(lavoro?.richiedente_email);
-      addEmail(lavoro?.utente_email);
     };
 
-    // Regola LSP: dialogo privato solo tra condòmino richiedente e gestore.
-    // Mai amministratore e mai collaboratore.
-    if (String(eventType || '').toLowerCase().trim() === 'nuova_richiesta') {
+    if (tipoEvento === 'nuova_richiesta') {
       addGestori();
     } else if (ruoloAzione === 'gestore') {
-      addCondominoRichiedente();
+      addSoloCondominoRichiedente();
+    } else if (ruoloAzione === 'condomino') {
+      addGestori();
     } else {
+      // Fallback prudente: se il ruolo non è chiaro, non allarghiamo mai ai condòmini.
       addGestori();
     }
 
-    (extraEmails || []).forEach(addEmail);
+    // Per LSP gli extra sono ammessi solo se corrispondono al condòmino proprietario
+    // oppure a un gestore già censito. Evita aperture accidentali verso tutto il condominio.
+    const gestoriSet = new Set((utentiSistema || [])
+      .filter((row) => String(row.ruolo || '').toLowerCase().trim() === 'gestore')
+      .map((row) => String(row.email || '').toLowerCase().trim())
+      .filter(Boolean));
+    const proprietario = String(lavoro?.condomino_email || '').toLowerCase().trim();
+    (extraEmails || []).forEach((email) => {
+      const cleanEmail = String(email || '').toLowerCase().trim();
+      if (cleanEmail && (cleanEmail === proprietario || gestoriSet.has(cleanEmail))) addEmail(cleanEmail);
+    });
+
     return [...new Set(emails.filter(Boolean))];
   };
 
