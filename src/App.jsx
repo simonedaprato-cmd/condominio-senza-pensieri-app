@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.65';
-const APP_VERSION_LABEL = 'CSP v1.0.65';
+const APP_VERSION = '1.0.66';
+const APP_VERSION_LABEL = 'CSP v1.0.66';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -260,6 +260,50 @@ function formatEuro(value) {
 
 function formatCurrency(value) {
   return formatEuro(value);
+}
+
+function formatNotificaTempo(value) {
+  if (!value) return '';
+  const data = new Date(value);
+  if (Number.isNaN(data.getTime())) return '';
+  const diffMs = Date.now() - data.getTime();
+  const minuti = Math.max(0, Math.round(diffMs / 60000));
+
+  if (minuti < 1) return 'ora';
+  if (minuti < 60) return `${minuti} min fa`;
+
+  const ore = Math.round(minuti / 60);
+  if (ore < 24) return `${ore} h fa`;
+
+  const giorni = Math.round(ore / 24);
+  if (giorni < 7) return `${giorni} gg fa`;
+
+  return data.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }).replace('.', '');
+}
+
+function getNotificaTitolo(notifica = {}) {
+  return notifica.titolo || notifica.title || notifica.oggetto || notifica.tipo || 'Notifica CSP';
+}
+
+function getNotificaMessaggio(notifica = {}) {
+  return notifica.messaggio || notifica.message || notifica.testo || notifica.body || notifica.descrizione || '';
+}
+
+function getNotificaData(notifica = {}) {
+  return notifica.created_at || notifica.data || notifica.inserted_at || notifica.updated_at || notifica.letto_at || null;
+}
+
+function isNotificaLetta(notifica = {}) {
+  return Boolean(
+    notifica.letta ||
+    notifica.letto ||
+    notifica.vista ||
+    notifica.visto ||
+    notifica.read ||
+    notifica.read_at ||
+    notifica.letto_at ||
+    notifica.vista_at
+  );
 }
 
 function badgeClass(stato) {
@@ -2183,8 +2227,18 @@ function MultiCondominioSwitcher({ ruolo, condomini = [], filtroCondominioId, on
 }
 
 
-function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbbonamento = 'base' }) {
+function LiveTopBar({
+  onOpenMenu,
+  onRefresh,
+  loading,
+  userProfile,
+  pianoAbbonamento = 'base',
+  notifiche = [],
+  notificheNonLette = 0,
+  onApriNotifiche,
+}) {
   const [now, setNow] = useState(() => new Date());
+  const [showNotifiche, setShowNotifiche] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -2209,6 +2263,17 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbboname
   else saluto = 'BUONANOTTE';
 
   const nomeUtente = String(userProfile?.nome || 'BENVENUTO').toUpperCase();
+  const ruoloTopbar = String(userProfile?.ruolo || '').toLowerCase().trim();
+  const isCondominoTopbar = ['condominio', 'condomino'].includes(ruoloTopbar);
+  const badgeLabel = notificheNonLette > 99 ? '99+' : String(notificheNonLette || '');
+
+  const apriCentroNotifiche = async () => {
+    const next = !showNotifiche;
+    setShowNotifiche(next);
+    if (next && onApriNotifiche) {
+      await onApriNotifiche();
+    }
+  };
 
   return (
     <>
@@ -2222,15 +2287,82 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbboname
           >
             ☰
           </button>
-          <div className="text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
-            {['condominio', 'condomino'].includes(String(userProfile?.ruolo || '').toLowerCase().trim()) ? (
+          <div className="relative flex items-center justify-end gap-2 text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
+            {isCondominoTopbar ? (
               <TopbarPlanTextLabel piano={pianoAbbonamento} />
             ) : (
               <>
                 <span>{formattedDate}</span>
-                <span className="mx-2 text-white/45">•</span>
+                <span className="mx-1 text-white/45">•</span>
                 <span className="text-white">{formattedTime}</span>
               </>
+            )}
+
+            <button
+              type="button"
+              onClick={apriCentroNotifiche}
+              className="relative ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-lg text-white/95 transition hover:bg-white/10 hover:text-white active:scale-95"
+              aria-label="Apri notifiche"
+              title="Notifiche CSP"
+            >
+              <span aria-hidden="true">🔔</span>
+              {notificheNonLette > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black leading-none text-white shadow-lg shadow-red-950/30 ring-2 ring-emerald-700">
+                  {badgeLabel}
+                </span>
+              )}
+            </button>
+
+            {showNotifiche && (
+              <div className="absolute right-0 top-10 z-[95] w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-[1.75rem] border border-white/70 bg-white text-left text-slate-900 shadow-2xl shadow-emerald-950/30 csp-enter">
+                <div className="border-b border-slate-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Notification Center</p>
+                      <h3 className="mt-1 text-sm font-black text-slate-900">Notifiche CSP</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNotifiche(false)}
+                      className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-black text-slate-500 shadow-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-[360px] overflow-y-auto p-3 csp-scroll">
+                  {notifiche.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center">
+                      <p className="text-sm font-black text-slate-700">Nessuna notifica</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Quando arriveranno aggiornamenti importanti, li troverai qui.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {notifiche.slice(0, 12).map((notifica, index) => {
+                        const letta = isNotificaLetta(notifica);
+                        return (
+                          <div
+                            key={notifica.id || `${getNotificaTitolo(notifica)}-${index}`}
+                            className={`rounded-2xl border p-3 ${letta ? 'border-slate-100 bg-white' : 'border-emerald-100 bg-emerald-50'}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-slate-900">{getNotificaTitolo(notifica)}</p>
+                                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{getNotificaMessaggio(notifica)}</p>
+                              </div>
+                              {!letta && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-red-600" />}
+                            </div>
+                            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                              {formatNotificaTempo(getNotificaData(notifica))}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -2253,6 +2385,7 @@ function LiveTopBar({ onOpenMenu, onRefresh, loading, userProfile, pianoAbboname
     </>
   );
 }
+
 
 function Header() {
   return null;
@@ -12263,6 +12396,7 @@ export default function App() {
   const [segnalazioni, setSegnalazioni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toastInterno, setToastInterno] = useState(null);
+  const [notificheCentro, setNotificheCentro] = useState([]);
   const [showSplash, setShowSplash] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -12794,6 +12928,14 @@ export default function App() {
   const contrattoCorrenteSospeso = ruoloNormalizzato !== 'gestore'
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
 
+  const notificheCentroOrdinate = useMemo(() => {
+    return [...(notificheCentro || [])].sort((a, b) => new Date(getNotificaData(b) || 0) - new Date(getNotificaData(a) || 0));
+  }, [notificheCentro]);
+
+  const notificheNonLette = useMemo(() => {
+    return notificheCentroOrdinate.filter((notifica) => !isNotificaLetta(notifica)).length;
+  }, [notificheCentroOrdinate]);
+
   const segnalazioniFiltrate = useMemo(() => {
     if (ruoloNormalizzato === 'gestore') return segnalazioni;
     const ids = userProfile?.condominiIds || [];
@@ -13134,6 +13276,37 @@ export default function App() {
 
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
+
+      const emailCorrente = String(currentUser.email || '').toLowerCase().trim();
+      try {
+        const { data: notificheData, error: notificheError } = await supabase
+          .from('notifiche_utenti')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(80);
+
+        if (notificheError && notificheError.code !== 'PGRST116' && notificheError.code !== '42P01') {
+          console.warn('Notification Center non disponibile:', notificheError);
+          setNotificheCentro([]);
+        } else {
+          const filtrate = (notificheData || []).filter((notifica) => {
+            const destinatario = String(
+              notifica.email ||
+              notifica.utente_email ||
+              notifica.user_email ||
+              notifica.destinatario_email ||
+              ''
+            ).toLowerCase().trim();
+
+            return !destinatario || destinatario === emailCorrente;
+          });
+
+          setNotificheCentro(filtrate);
+        }
+      } catch (notificheError) {
+        console.warn('Errore caricamento Notification Center:', notificheError);
+        setNotificheCentro([]);
+      }
     } catch (error) {
       console.error(error);
       setStatusMessage('Errore caricamento: ' + (error.message || 'sconosciuto'));
@@ -13196,6 +13369,42 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  const segnaNotificheComeLette = async () => {
+    const daLeggere = (notificheCentro || []).filter((notifica) => !isNotificaLetta(notifica));
+    if (daLeggere.length === 0) return;
+
+    const ids = daLeggere.map((notifica) => notifica.id).filter(Boolean);
+
+    setNotificheCentro((prev) => (prev || []).map((notifica) => ({
+      ...notifica,
+      letta: true,
+      letto: true,
+      vista_at: notifica.vista_at || new Date().toISOString(),
+    })));
+
+    if (ids.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifiche_utenti')
+        .update({ letta: true, letto: true, vista_at: new Date().toISOString() })
+        .in('id', ids);
+
+      if (error) {
+        const fallback = await supabase
+          .from('notifiche_utenti')
+          .update({ letta: true })
+          .in('id', ids);
+
+        if (fallback.error) {
+          console.warn('Lettura notifiche non persistita:', fallback.error);
+        }
+      }
+    } catch (error) {
+      console.warn('Errore aggiornamento lettura notifiche:', error);
+    }
+  };
 
   useEffect(() => {
     if (!utente) return undefined;
@@ -15175,6 +15384,9 @@ export default function App() {
             loading={loading}
             userProfile={userProfile}
             pianoAbbonamento={pianoAbbonamentoCorrente}
+            notifiche={notificheCentroOrdinate}
+            notificheNonLette={notificheNonLette}
+            onApriNotifiche={segnaNotificheComeLette}
           />
         )}
 
