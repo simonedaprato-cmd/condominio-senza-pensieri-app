@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.2';
-const APP_VERSION_LABEL = 'CSP v1.0.2';
+const APP_VERSION = '1.0.3';
+const APP_VERSION_LABEL = 'CSP v1.0.3';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13170,6 +13170,26 @@ export default function App() {
     else if (isAmministratoreOperativo) setAmministratoreSection('report');
     else setCondominoSection('report');
 
+    if (reportId) {
+      const reportDiretto = (reportCondominio || []).find((report) => Number(report.id) === Number(reportId));
+
+      // Se i report non sono ancora caricati, aspetta il caricamento dati prima di pulire la query.
+      if (!reportDiretto && (!Array.isArray(reportCondominio) || reportCondominio.length === 0)) return;
+
+      if (reportDiretto?.file_url) {
+        const reportUrl = reportDiretto.file_url;
+        setTimeout(() => {
+          try {
+            window.location.assign(reportUrl);
+          } catch {
+            window.open(reportUrl, '_blank', 'noopener,noreferrer');
+          }
+        }, 350);
+      } else {
+        mostraToast('Report non trovato', 'Il report collegato alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
+      }
+    }
+
     params.delete('section');
     params.delete('report');
     params.delete('reportId');
@@ -13184,7 +13204,7 @@ export default function App() {
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, reportCondominio]);
 
 
   const registraNotificaCentro = async ({ destinatari = [], condominioId = null, titolo = '', messaggio = '', tipo = 'notifica', riferimentoId = null }) => {
@@ -13329,6 +13349,15 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('report');
       else if (isAmministratoreOperativo) setAmministratoreSection('report');
       else setCondominoSection('report');
+
+      if (riferimentoId) {
+        const reportDiretto = (reportCondominio || []).find((report) => Number(report.id) === Number(riferimentoId));
+        if (reportDiretto?.file_url) {
+          window.open(reportDiretto.file_url, '_blank', 'noopener,noreferrer');
+        } else {
+          mostraToast('Report non trovato', 'Il report collegato alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
+        }
+      }
       return;
     }
 
