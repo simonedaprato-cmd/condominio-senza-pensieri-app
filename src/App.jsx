@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,9 +10404,10 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi, promoEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, promoEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
+  const [promoActionLoading, setPromoActionLoading] = useState(null);
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
@@ -10465,7 +10466,7 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
 
   const promoOrdinate = [...(promo || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   const promoDeeplink = promoEvidenzaId
-    ? promoOrdinate.find((item) => Number(item.id) === Number(promoEvidenzaId))
+    ? promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId))
     : null;
   const promoAttivaDefault = promoOrdinate.find(isAttiva);
   const promoAttiva = promoDeeplink || promoAttivaDefault;
@@ -10483,6 +10484,27 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
     : isOperativo
       ? 'Prenota intervento'
       : (promoAttiva?.cta_testo || 'Apri promozione');
+
+  const handlePromoCta = async (item) => {
+    if (!item?.id) return;
+
+    if (isCondomino && typeof onRichiediAmministratore === 'function') {
+      try {
+        setPromoActionLoading(item.id);
+        await onRichiediAmministratore(item);
+      } finally {
+        setPromoActionLoading(null);
+      }
+      return;
+    }
+
+    if (isOperativo) {
+      alert('Prenotazione promo predisposta. Nella prossima release collegheremo la richiesta al gestore e alla pratica CSP.');
+      return;
+    }
+
+    alert('Azione promo predisposta.');
+  };
 
   const PromoHero = ({ item }) => {
     const stato = statoPromo(item);
@@ -10532,10 +10554,10 @@ function PromoSenzaPensieriSuite({ promo, ruolo, canCreate = false, onOpenCreate
             <button
               type="button"
               disabled={stato !== 'attiva'}
-              onClick={() => alert('Azione promo predisposta. Nella prossima release collegheremo interessi, prenotazioni e notifiche dedicate.')}
+              onClick={() => handlePromoCta(item)}
               className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
             >
-              {stato === 'esaurita' ? 'Promo esaurita' : ctaLabel}
+              {promoActionLoading === item.id ? 'Invio richiesta...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabel)}
             </button>
             {item.cta_url && stato === 'attiva' && (
               <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
@@ -13839,7 +13861,8 @@ export default function App() {
 
   const apriNotificaCentro = (notifica) => {
     const tipo = String(notifica?.tipo || '').toLowerCase().trim();
-    const riferimentoId = Number(notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || 0);
+    const riferimentoIdRaw = notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || '';
+    const riferimentoId = Number(riferimentoIdRaw || 0);
 
     if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
       const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
@@ -13858,7 +13881,7 @@ export default function App() {
       else if (isAmministratoreOperativo) setAmministratoreSection('promo');
       else setCondominoSection('promo');
 
-      if (riferimentoId) setPromoDeeplinkId(Number(riferimentoId));
+      if (riferimentoIdRaw) setPromoDeeplinkId(String(riferimentoIdRaw));
       return;
     }
 
@@ -14059,6 +14082,49 @@ export default function App() {
       alert(error?.message || 'Impossibile riproporre la promozione.');
     } finally {
       setSavingPromo(false);
+    }
+  };
+
+  const richiediPromoAlTuoAmministratore = async (promoRecord = {}) => {
+    if (!promoRecord?.id) return null;
+    const condominioId = Number(condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
+    if (!condominioId) {
+      mostraToast('Condominio non trovato', 'Non riesco a collegare la richiesta a un condominio. Verifica il profilo utente.', 'warning');
+      return null;
+    }
+
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        evento: 'promo_interesse_condomino',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-interesse-condomino', {
+        body: {
+          promoId: promoRecord.id,
+          condominioId,
+          condominoEmail: utente?.email || userProfile?.email || '',
+          condominoNome: userProfile?.nome || utente?.user_metadata?.name || '',
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Richiesta promo non completata:', error || data);
+        mostraToast('Richiesta non completata', data?.error || error?.message || 'Non è stato possibile inviare la richiesta all’amministratore.', 'error');
+        return null;
+      }
+
+      mostraToast('Richiesta inviata', 'Il tuo amministratore è stato avvisato della promozione che ti interessa.', 'success');
+      await carica();
+      return data;
+    } catch (error) {
+      console.error('Errore richiesta promo:', error);
+      mostraToast('Errore richiesta', error?.message || 'Non è stato possibile inviare la richiesta promo.', 'error');
+      return null;
     }
   };
 
@@ -17021,6 +17087,7 @@ export default function App() {
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
+            onRichiediAmministratore={richiediPromoAlTuoAmministratore}
           />
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
