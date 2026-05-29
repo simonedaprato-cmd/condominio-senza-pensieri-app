@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.64';
-const APP_VERSION_LABEL = 'CSP v1.0.64';
+const APP_VERSION = '1.0.65';
+const APP_VERSION_LABEL = 'CSP v1.0.65';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -2836,33 +2836,6 @@ function ArchivioContrattiAttiviCards({ condomini = [], contratti = [], onRinnov
   const [contrattoSelezionato, setContrattoSelezionato] = useState(null);
 
   const nomeCondominio = (condominio) => condominio?.nome || condominio?.name || (condominio?.id ? `Condominio #${condominio.id}` : 'Condominio');
-  const testoFiltroAmministratoreNuovoContratto = (condominio = {}) => [
-    condominio?.amministratore_nome,
-    condominio?.amministratore_cognome,
-    condominio?.amministratore,
-    condominio?.studio_amministratore,
-    condominio?.amministratore_email,
-    condominio?.email_amministratore,
-  ].filter(Boolean).join(' ').toLowerCase();
-
-  const testoFiltroCondominioNuovoContratto = (condominio = {}) => [
-    condominio?.nome,
-    condominio?.name,
-    condominio?.denominazione,
-    condominio?.indirizzo,
-    condominio?.citta,
-    condominio?.provincia,
-    condominio?.id,
-  ].filter(Boolean).join(' ').toLowerCase();
-
-  const condominiNuovoContrattoFiltrati = (Array.isArray(condomini) ? condomini : []).filter((condominio) => {
-    const filtroAdmin = String(filtroAmministratoreNuovoContratto || '').toLowerCase().trim();
-    const filtroCondominio = String(filtroCondominioNuovoContratto || '').toLowerCase().trim();
-    const matchAdmin = !filtroAdmin || testoFiltroAmministratoreNuovoContratto(condominio).includes(filtroAdmin);
-    const matchCondominio = !filtroCondominio || testoFiltroCondominioNuovoContratto(condominio).includes(filtroCondominio);
-    return matchAdmin && matchCondominio;
-  });
-
   const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
   const getContrattoCondominio = (contratto) => condominioById(contratto?.condominio_id);
   const getPianoContratto = (contratto) => normalizzaPianoAbbonamento(contratto?.piano);
@@ -3063,8 +3036,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
   const [piano, setPiano] = useState('plus');
   const [famiglie, setFamiglie] = useState('');
   const [famiglieAutocompilate, setFamiglieAutocompilate] = useState(false);
-  const [filtroAmministratoreNuovoContratto, setFiltroAmministratoreNuovoContratto] = useState('');
-  const [filtroCondominioNuovoContratto, setFiltroCondominioNuovoContratto] = useState('');
+  const [filtroAdminContrattoForm, setFiltroAdminContrattoForm] = useState('');
+  const [filtroNomeCondominioContrattoForm, setFiltroNomeCondominioContrattoForm] = useState('');
   const [ricercaContratti, setRicercaContratti] = useState('');
   const [filtroPianoContratti, setFiltroPianoContratti] = useState('');
   const [contrattoSelezionato, setContrattoSelezionato] = useState(null);
@@ -3248,8 +3221,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
             <label className="block">
               <span className="text-xs font-black uppercase tracking-wide text-slate-500">Filtro amministratore</span>
               <input
-                value={filtroAmministratoreNuovoContratto}
-                onChange={(e) => setFiltroAmministratoreNuovoContratto(e.target.value)}
+                value={filtroAdminContrattoForm}
+                onChange={(e) => setFiltroAdminContrattoForm(e.target.value)}
                 placeholder="Scrivi nome, studio o email..."
                 className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
@@ -3257,8 +3230,8 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
             <label className="block">
               <span className="text-xs font-black uppercase tracking-wide text-slate-500">Filtro condominio</span>
               <input
-                value={filtroCondominioNuovoContratto}
-                onChange={(e) => setFiltroCondominioNuovoContratto(e.target.value)}
+                value={filtroNomeCondominioContrattoForm}
+                onChange={(e) => setFiltroNomeCondominioContrattoForm(e.target.value)}
                 placeholder="Scrivi nome condominio, città o indirizzo..."
                 className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
               />
@@ -3266,10 +3239,33 @@ function GestioneContratti({ condomini, contratti, onCreateContratto, onRinnovaC
           </div>
 
           <select value={condominioId} onChange={(e) => selezionaCondominio(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-3 py-3">
-            <option value="">{condominiNuovoContrattoFiltrati.length ? 'Seleziona condominio' : 'Nessun condominio trovato con questi filtri'}</option>
-            {condominiNuovoContrattoFiltrati.map((c) => (
-              <option key={c.id} value={c.id}>{c.nome || c.name || `Condominio #${c.id}`}</option>
-            ))}
+            <option value="">Seleziona condominio</option>
+            {(condomini || [])
+              .filter((c) => {
+                const filtroAdmin = String(filtroAdminContrattoForm || '').toLowerCase().trim();
+                const filtroCondominio = String(filtroNomeCondominioContrattoForm || '').toLowerCase().trim();
+                const adminText = [
+                  c?.amministratore_nome,
+                  c?.amministratore_cognome,
+                  c?.amministratore,
+                  c?.studio_amministratore,
+                  c?.amministratore_email,
+                  c?.email_amministratore,
+                ].filter(Boolean).join(' ').toLowerCase();
+                const condominioText = [
+                  c?.nome,
+                  c?.name,
+                  c?.denominazione,
+                  c?.indirizzo,
+                  c?.citta,
+                  c?.provincia,
+                  c?.id,
+                ].filter(Boolean).join(' ').toLowerCase();
+                return (!filtroAdmin || adminText.includes(filtroAdmin)) && (!filtroCondominio || condominioText.includes(filtroCondominio));
+              })
+              .map((c) => (
+                <option key={c.id} value={c.id}>{c.nome || c.name || `Condominio #${c.id}`}</option>
+              ))}
           </select>
 
           {condominioId && (
