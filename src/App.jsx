@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.67';
-const APP_VERSION_LABEL = 'CSP v1.0.67';
+const APP_VERSION = '1.0.68';
+const APP_VERSION_LABEL = 'CSP v1.0.68';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -295,11 +295,11 @@ function getNotificaData(notifica = {}) {
 
 function isNotificaLetta(notifica = {}) {
   return Boolean(
-    notifica.letta ||
-    notifica.letto ||
-    notifica.vista ||
-    notifica.visto ||
-    notifica.read ||
+    notifica.letto === true ||
+    notifica.letta === true ||
+    notifica.vista === true ||
+    notifica.visto === true ||
+    notifica.read === true ||
     notifica.read_at ||
     notifica.letto_at ||
     notifica.vista_at
@@ -13277,31 +13277,20 @@ export default function App() {
       if (utentiSistemaError && utentiSistemaError.code !== 'PGRST116') throw utentiSistemaError;
       setUtentiSistema(utentiSistemaData || []);
 
-      const emailCorrente = String(currentUser.email || '').toLowerCase().trim();
       try {
-        const { data: notificheData, error: notificheError } = await supabase
-          .from('notifiche_utenti')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(80);
+        const { data: notificheResponse, error: notificheInvokeError } = await supabase.functions.invoke('get-notifiche-utente', {
+          body: {
+            limit: 80,
+          },
+        });
 
-        if (notificheError && notificheError.code !== 'PGRST116' && notificheError.code !== '42P01') {
-          console.warn('Notification Center non disponibile:', notificheError);
+        console.log('[CSP notifiche] get-notifiche-utente response', { notificheResponse, notificheInvokeError });
+
+        if (notificheInvokeError || notificheResponse?.ok === false) {
+          console.warn('Notification Center non disponibile:', notificheInvokeError || notificheResponse);
           setNotificheCentro([]);
         } else {
-          const filtrate = (notificheData || []).filter((notifica) => {
-            const destinatario = String(
-              notifica.email ||
-              notifica.utente_email ||
-              notifica.user_email ||
-              notifica.destinatario_email ||
-              ''
-            ).toLowerCase().trim();
-
-            return !destinatario || destinatario === emailCorrente;
-          });
-
-          setNotificheCentro(filtrate);
+          setNotificheCentro(notificheResponse?.notifiche || []);
         }
       } catch (notificheError) {
         console.warn('Errore caricamento Notification Center:', notificheError);
@@ -13371,40 +13360,39 @@ export default function App() {
   }, []);
 
   const segnaNotificheComeLette = async () => {
+    const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
     const daLeggere = (notificheCentro || []).filter((notifica) => !isNotificaLetta(notifica));
+
     if (daLeggere.length === 0) return;
 
     const ids = daLeggere.map((notifica) => notifica.id).filter(Boolean);
 
+    // Aggiornamento immediato UI: il badge rosso sparisce appena apro il pannello.
     setNotificheCentro((prev) => (prev || []).map((notifica) => ({
       ...notifica,
-      letta: true,
       letto: true,
-      vista_at: notifica.vista_at || new Date().toISOString(),
     })));
 
-    if (ids.length === 0) return;
-
     try {
-      const { error } = await supabase
-        .from('notifiche_utenti')
-        .update({ letta: true, letto: true, vista_at: new Date().toISOString() })
-        .in('id', ids);
+      const { data, error } = await supabase.functions.invoke('mark-notifiche-lette', {
+        body: {
+          ids,
+          email: emailCorrente,
+        },
+      });
 
-      if (error) {
-        const fallback = await supabase
-          .from('notifiche_utenti')
-          .update({ letta: true })
-          .in('id', ids);
+      console.log('[CSP notifiche] mark-notifiche-lette response', { data, error });
 
-        if (fallback.error) {
-          console.warn('Lettura notifiche non persistita:', fallback.error);
-        }
+      if (error || data?.ok === false) {
+        console.warn('Lettura notifiche non persistita tramite edge:', error || data);
+      } else {
+        console.log('[CSP notifiche] notifiche segnate come lette:', data);
       }
     } catch (error) {
-      console.warn('Errore aggiornamento lettura notifiche:', error);
+      console.warn('Errore edge mark-notifiche-lette:', error);
     }
   };
+
 
   useEffect(() => {
     if (!utente) return undefined;
