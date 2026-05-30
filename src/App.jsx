@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.4';
-const APP_VERSION_LABEL = 'CSP v1.0.4';
+const APP_VERSION = '1.0.5';
+const APP_VERSION_LABEL = 'CSP v1.0.5';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,7 +10404,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], contratti = [], utentiSistema = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null, promoCondominioEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
@@ -10420,10 +10420,18 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
 
   const condominiDisponibili = Array.isArray(condomini) ? condomini : [];
   const nomeCondominioPromo = (id) => condominiDisponibili.find((c) => String(c.id) === String(id))?.nome || `Condominio ${id}`;
-  const nomeCompletoUtentePromo = (email, fallback = '') => {
+  const nomeCompletoUtentePromo = (email, fallback = '', condominioId = null) => {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const utenteMatch = (utentiSistema || []).find((u) => String(u?.email || '').toLowerCase().trim() === cleanEmail);
-    const nomeCognome = [utenteMatch?.nome, utenteMatch?.cognome].filter(Boolean).join(' ').trim();
+    const collegamentoMatch = (utentiCondomini || []).find((row) => {
+      const sameEmail = String(row?.email || '').toLowerCase().trim() === cleanEmail;
+      if (!sameEmail) return false;
+      if (condominioId === null || condominioId === undefined || condominioId === '') return true;
+      return String(row?.condominio_id) === String(condominioId);
+    });
+    const nome = String(utenteMatch?.nome || fallback || '').trim();
+    const cognome = String(collegamentoMatch?.cognome || utenteMatch?.cognome || '').trim();
+    const nomeCognome = [nome, cognome].filter(Boolean).join(' ').trim();
     const fallbackPulito = String(fallback || '').trim();
     return nomeCognome || fallbackPulito || cleanEmail || 'Condòmino';
   };
@@ -10523,7 +10531,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
       const gruppo = mappa.get(key);
       const email = String(r?.email || '').toLowerCase();
       if (!email || !gruppo.interessati.some((i) => String(i.email || '').toLowerCase() === email)) {
-        gruppo.interessati.push({ nome: nomeCompletoUtentePromo(r?.email, r?.nome), email: r?.email || '' });
+        gruppo.interessati.push({ nome: nomeCompletoUtentePromo(r?.email, r?.nome, r?.condominio_id), email: r?.email || '' });
       }
     });
 
@@ -10556,25 +10564,26 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
   const gruppoPromoPopup = (() => {
     if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
     const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
-    const gruppo = promoItem
-      ? interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioPopup.condominioId))
-      : null;
-    return promoItem && gruppo ? { promo: promoItem, gruppo } : null;
+    if (!promoItem) return null;
+    const gruppo = interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioPopup.condominioId));
+    if (gruppo) return { promo: promoItem, gruppo };
+    return {
+      promo: promoItem,
+      gruppo: {
+        condominio_id: promoCondominioPopup.condominioId,
+        nome: nomeCondominioPromo(promoCondominioPopup.condominioId),
+        interessati: [],
+      },
+    };
   })();
 
   useEffect(() => {
     if (!isOperativo || !promoEvidenzaId || !promoCondominioEvidenzaId) return;
     const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId));
     if (!promoItem) return;
-    const gruppo = interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioEvidenzaId));
-    if (!gruppo) {
-      // Se il deeplink arriva prima del refresh completo degli interessi, manteniamo il condominio selezionato
-      // e ritentiamo automaticamente al successivo aggiornamento di promo_interessi.
-      setCondominioSceltoPerPromo(promoItem.id, promoCondominioEvidenzaId);
-      return;
-    }
-    setPromoCondominioPopup({ promoId: promoItem.id, condominioId: gruppo.condominio_id });
-  }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoInteressi, promo?.length, condominiDisponibili?.length]);
+    setCondominioSceltoPerPromo(promoItem.id, promoCondominioEvidenzaId);
+    setPromoCondominioPopup({ promoId: promoItem.id, condominioId: promoCondominioEvidenzaId });
+  }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoDeeplinkTick, promoInteressi, promo?.length, condominiDisponibili?.length]);
 
   const ctaLabelFor = (item) => {
     const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
@@ -13175,6 +13184,7 @@ export default function App() {
   const [promoInteressi, setPromoInteressi] = useState([]);
   const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
   const [promoCondominioDeeplinkId, setPromoCondominioDeeplinkId] = useState(null);
+  const [promoDeeplinkTick, setPromoDeeplinkTick] = useState(0);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [savingPromo, setSavingPromo] = useState(false);
 
@@ -13901,6 +13911,7 @@ export default function App() {
 
     if (promoId) setPromoDeeplinkId(promoId);
     if (promoCondominioId) setPromoCondominioDeeplinkId(String(promoCondominioId));
+    if (promoId || promoCondominioId) setPromoDeeplinkTick((value) => value + 1);
 
     params.delete('section');
     params.delete('promo');
@@ -14225,6 +14236,7 @@ export default function App() {
 
       const condominioPromoNotifica = notifica?.promo_condominio_id || notifica?.promoCondominio || notifica?.metadata?.promo_condominio_id || notifica?.metadata?.promoCondominio || notifica?.condominio_id || '';
       if (condominioPromoNotifica) setPromoCondominioDeeplinkId(String(condominioPromoNotifica));
+      setPromoDeeplinkTick((value) => value + 1);
       return;
     }
 
@@ -17453,6 +17465,7 @@ export default function App() {
               condomini={condominiVisibili}
               contratti={contratti}
               utentiSistema={utentiSistema}
+              utentiCondomini={utentiCondomini}
               ruolo={ruoloNormalizzato}
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
@@ -17460,6 +17473,7 @@ export default function App() {
               onConfermaPrenotazione={confermaPrenotazionePromo}
               promoEvidenzaId={promoDeeplinkId}
               promoCondominioEvidenzaId={promoCondominioDeeplinkId}
+              promoDeeplinkTick={promoDeeplinkTick}
             />
           </>
         )}
@@ -17487,10 +17501,12 @@ export default function App() {
             condomini={condominiVisibili}
             contratti={contratti}
             utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
             promoCondominioEvidenzaId={promoCondominioDeeplinkId}
+            promoDeeplinkTick={promoDeeplinkTick}
             onPrenotaIntervento={prenotaInterventoPromo}
           />
         )}
@@ -17585,10 +17601,12 @@ export default function App() {
             condomini={condominiVisibili}
             contratti={contratti}
             utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
             promoCondominioEvidenzaId={promoCondominioDeeplinkId}
+            promoDeeplinkTick={promoDeeplinkTick}
             onRichiediAmministratore={richiediPromoAlTuoAmministratore}
           />
         )}
