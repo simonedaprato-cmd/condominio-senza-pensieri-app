@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.1';
-const APP_VERSION_LABEL = 'CSP v1.0.1';
+const APP_VERSION = '1.0.2';
+const APP_VERSION_LABEL = 'CSP v1.0.2';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -14187,10 +14187,15 @@ export default function App() {
       else if (isAmministratoreOperativo) setAmministratoreSection('promo');
       else setCondominoSection('promo');
 
-      if (riferimentoIdRaw) setPromoDeeplinkId(String(riferimentoIdRaw));
-      if (notifica?.condominio_id) setPromoCondominioDeeplinkId(String(notifica.condominio_id));
+      const promoIdNotifica = notifica?.promo_id || notifica?.promoId || notifica?.promo || notifica?.metadata?.promo_id || notifica?.metadata?.promoId || '';
+      if (promoIdNotifica) setPromoDeeplinkId(String(promoIdNotifica));
+      else if (riferimentoIdRaw && String(riferimentoIdRaw).includes('-')) setPromoDeeplinkId(String(riferimentoIdRaw));
+
+      const condominioPromoNotifica = notifica?.promo_condominio_id || notifica?.promoCondominio || notifica?.metadata?.promo_condominio_id || notifica?.metadata?.promoCondominio || notifica?.condominio_id || '';
+      if (condominioPromoNotifica) setPromoCondominioDeeplinkId(String(condominioPromoNotifica));
       return;
     }
+
 
     if (tipo.includes('rivista')) {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
