@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.2';
-const APP_VERSION_LABEL = 'CSP v1.0.2';
+const APP_VERSION = '1.0.3';
+const APP_VERSION_LABEL = 'CSP v1.0.3';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13874,6 +13874,8 @@ export default function App() {
 
     if (section !== 'promo' && !promoId) return;
 
+    aggiornaPromoSenzaPensieriDati();
+
     if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
     else if (isAmministratoreOperativo) setAmministratoreSection('promo');
     else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('promo');
@@ -14165,24 +14167,35 @@ export default function App() {
     }
   };
 
-  const apriNotificaCentro = (notifica) => {
+  const aggiornaPromoSenzaPensieriDati = async () => {
+    try {
+      const { data: promoData, error: promoError } = await supabase
+        .from('promo_senza_pensieri')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!promoError) setPromoSenzaPensieri(promoData || []);
+      else if (promoError.code !== 'PGRST116' && promoError.code !== '42P01') console.warn('Errore refresh promo:', promoError);
+
+      const { data: interessiData, error: interessiError } = await supabase
+        .from('promo_interessi')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!interessiError) setPromoInteressi(interessiData || []);
+      else if (interessiError.code !== 'PGRST116' && interessiError.code !== '42P01') console.warn('Errore refresh interessi promo:', interessiError);
+    } catch (error) {
+      console.warn('Errore aggiornamento Promo Senza Pensieri:', error);
+    }
+  };
+
+  const apriNotificaCentro = async (notifica) => {
     const tipo = String(notifica?.tipo || '').toLowerCase().trim();
     const riferimentoIdRaw = notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || '';
     const riferimentoId = Number(riferimentoIdRaw || 0);
 
-    if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
-      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
-      if (pratica) {
-        if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
-        else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
-        else setCondominoSection('segnalazioni');
-
-        setDettaglioAperto(pratica);
-        return;
-      }
-    }
-
     if (tipo.includes('promo')) {
+      await aggiornaPromoSenzaPensieriDati();
       if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
       else if (isAmministratoreOperativo) setAmministratoreSection('promo');
       else setCondominoSection('promo');
@@ -14196,6 +14209,17 @@ export default function App() {
       return;
     }
 
+    if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('promo') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
+      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
+      if (pratica) {
+        if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+        else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+        else setCondominoSection('segnalazioni');
+
+        setDettaglioAperto(pratica);
+        return;
+      }
+    }
 
     if (tipo.includes('rivista')) {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
@@ -14936,6 +14960,32 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, [utente?.email]);
+
+  useEffect(() => {
+    if (!utente) return undefined;
+
+    const channel = supabase
+      .channel('promo-senza-pensieri-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promo_interessi' },
+        () => {
+          aggiornaPromoSenzaPensieriDati();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promo_senza_pensieri' },
+        () => {
+          aggiornaPromoSenzaPensieriDati();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [utente]);
 
 
 
