@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -11696,6 +11696,11 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   const condominioPratica = (condomini || []).find((c) => Number(c.id) === Number(segnalazione.condominio_id));
   const isPromoPratica = String(segnalazione.origine || '').toLowerCase().trim() === 'promo';
   const statiDisponibiliPratica = isPromoPratica ? STATI_PRATICA_PROMO : STATI_PRATICA;
+  const statiBottoniPratica = isPromoPratica
+    ? STATI_PRATICA_PROMO.filter((stato) => stato !== 'Pianificata')
+    : statiDisponibiliPratica;
+  const isPromoDaPianificare = isPromoPratica && segnalazione.stato === 'Presa in carico';
+  const isPraticaStandardDaPianificare = !isPromoPratica && segnalazione.stato === 'Accettata';
   const mapsCspParts = [
     segnalazione.indirizzo,
     segnalazione.luogo,
@@ -12157,11 +12162,11 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             </div>
             {isPromoPratica && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-                Pratica generata da Promo Senza Pensieri: flusso semplificato senza fase preventivo. Stati previsti: Nuova, Presa in carico, Pianificata, Chiusa.
+                Pratica generata da Promo Senza Pensieri: flusso semplificato senza fase preventivo. Stati previsti: Nuova, Presa in carico, Pianificata tramite calendario e Chiusa.
               </div>
             )}
             <div className="flex flex-wrap gap-2">
-              {ruolo === 'gestore' && statiDisponibiliPratica.map((stato) => (
+              {ruolo === 'gestore' && statiBottoniPratica.map((stato) => (
                 <button
                   key={stato}
                   onClick={() => onChangeStatus(segnalazione.id, stato)}
@@ -12183,23 +12188,27 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruolo === 'gestore' && segnalazione.stato === 'Accettata' && (
-              <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50 p-4">
-                <p className="font-semibold text-sky-800">Pianificazione lavori</p>
-                <p className="text-sm text-sky-700">Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.</p>
+            {ruolo === 'gestore' && (isPraticaStandardDaPianificare || isPromoDaPianificare) && (
+              <div className={`space-y-3 rounded-2xl border p-4 ${isPromoPratica ? 'border-amber-200 bg-amber-50' : 'border-sky-100 bg-sky-50'}`}>
+                <p className={`font-semibold ${isPromoPratica ? 'text-amber-900' : 'text-sky-800'}`}>{isPromoPratica ? 'Pianificazione intervento promo' : 'Pianificazione lavori'}</p>
+                <p className={`text-sm ${isPromoPratica ? 'text-amber-800' : 'text-sky-700'}`}>
+                  {isPromoPratica
+                    ? 'Inserisci la data dell’intervento: la pratica passerà automaticamente a Pianificata e i condòmini riceveranno la comunicazione.'
+                    : 'Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.'}
+                </p>
                 <input
                   type="date"
                   value={dataInizioPresunta}
                   onChange={(e) => setDataInizioPresunta(e.target.value)}
-                  className="w-full rounded-xl border border-sky-200 px-3 py-2 text-sm"
+                  className={`w-full rounded-xl border px-3 py-2 text-sm ${isPromoPratica ? 'border-amber-200' : 'border-sky-200'}`}
                 />
                 <button
                   type="button"
                   disabled={!dataInizioPresunta}
                   onClick={() => onPianificaLavori(segnalazione.id, dataInizioPresunta)}
-                  className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                  className={`rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-60 ${isPromoPratica ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'}`}
                 >
-                  Pianifica lavori
+                  {isPromoPratica ? 'Pianifica intervento promo' : 'Pianifica lavori'}
                 </button>
               </div>
             )}
