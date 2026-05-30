@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10592,8 +10592,15 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
   const prenotazioniPromo = (item) => (promoInteressi || []).filter((r) =>
     String(r?.promo_id) === String(item?.id) &&
     String(r?.azione || '').toLowerCase() === 'prenotazione' &&
-    String(r?.stato || 'richiesto').toLowerCase() === 'richiesto'
+    String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
   );
+
+  const prenotazionePromoPerCondominio = (item, condominioId) => (promoInteressi || []).find((r) =>
+    String(r?.promo_id) === String(item?.id) &&
+    String(r?.condominio_id) === String(condominioId) &&
+    String(r?.azione || '').toLowerCase() === 'prenotazione' &&
+    String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+  ) || null;
 
   const interessiCondominiPromo = (item) => {
     const idsVisibili = new Set(condominiDisponibili.map((c) => String(c.id)));
@@ -11137,18 +11144,31 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
             )}
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <button
-                type="button"
-                disabled={statoPromo(gruppoPromoPopup.promo) !== 'attiva'}
-                onClick={async () => {
-                  if (statoPromo(gruppoPromoPopup.promo) !== 'attiva') return;
-                  await onPrenotaIntervento?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                  setPromoCondominioPopup(null);
-                }}
-                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
-              >
-                {statoPromo(gruppoPromoPopup.promo) === 'attiva' ? 'Prenota intervento' : 'Promo non più prenotabile'}
-              </button>
+              {(() => {
+                const prenotazioneEsistente = prenotazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                const giaPrenotata = Boolean(prenotazioneEsistente);
+                const prenotazioneLoadingKey = `prenota-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
+                const disabledPrenota = statoPromo(gruppoPromoPopup.promo) !== 'attiva' || giaPrenotata || promoActionLoading === prenotazioneLoadingKey;
+                return (
+                  <button
+                    type="button"
+                    disabled={disabledPrenota}
+                    onClick={async () => {
+                      if (disabledPrenota) return;
+                      try {
+                        setPromoActionLoading(prenotazioneLoadingKey);
+                        const result = await onPrenotaIntervento?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                        if (result?.segnalazione?.id || result?.segnalazione_id) setPromoCondominioPopup(null);
+                      } finally {
+                        setPromoActionLoading(null);
+                      }
+                    }}
+                    className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+                  >
+                    {giaPrenotata ? 'Prenotata' : promoActionLoading === prenotazioneLoadingKey ? 'Prenotazione…' : statoPromo(gruppoPromoPopup.promo) === 'attiva' ? 'Prenota intervento' : 'Promo non più prenotabile'}
+                  </button>
+                );
+              })()}
               <button
                 type="button"
                 disabled={!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) || promoActionLoading === `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`}
@@ -14784,16 +14804,28 @@ export default function App() {
         },
       });
 
-      if (error || data?.success === false) {
+      if (error || data?.success === false || (data?.skipped && !data?.segnalazione?.id && !data?.segnalazione_id)) {
         console.warn('Prenotazione promo non completata:', error || data);
-        mostraToast('Prenotazione non completata', data?.error || error?.message || 'Non è stato possibile avvisare il gestore.', 'error');
+        mostraToast('Prenotazione non completata', data?.error || data?.reason || error?.message || 'Non è stato possibile generare la pratica CSP.', 'error');
         return null;
       }
 
-      mostraToast('Pratica CSP aperta', 'La prenotazione promo è stata trasformata automaticamente in una nuova pratica CSP.', 'success');
+      const segnalazioneId = data?.segnalazione?.id || data?.segnalazione_id || data?.booking?.data?.segnalazione_id || null;
+      mostraToast(data?.alreadyBooked ? 'Promo già prenotata' : 'Pratica CSP aperta', data?.alreadyBooked ? 'La promo risultava già prenotata: apro la pratica collegata.' : 'La prenotazione promo è stata trasformata automaticamente in una nuova pratica CSP.', 'success');
       await carica();
-      if (data?.segnalazione?.id) {
-        setDettaglioAperto(data.segnalazione);
+      if (segnalazioneId) {
+        const { data: praticaDb, error: praticaError } = await supabase
+          .from('segnalazioni')
+          .select('*, condomini(id, nome, indirizzo)')
+          .eq('id', segnalazioneId)
+          .maybeSingle();
+        if (praticaError) console.warn('Pratica promo creata ma non riletta:', praticaError);
+        const praticaDaAprire = praticaDb ? normalizzaSegnalazioni([praticaDb])[0] : data?.segnalazione;
+        if (praticaDaAprire) {
+          setDettaglioAperto(praticaDaAprire);
+          if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+          else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+        }
       }
       return data;
     } catch (error) {
