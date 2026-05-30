@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.17';
+const APP_VERSION_LABEL = 'CSP v1.0.17';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10507,6 +10507,16 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
     );
 
     const mappa = new Map();
+
+    // Precarico i condomini visibili così amministratore/collaboratore vedono sempre
+    // il contesto corretto e possono prenotare per un condominio preciso anche se
+    // non ci sono ancora richieste registrate.
+    condominiDisponibili.forEach((c) => {
+      const key = String(c?.id || '');
+      if (!key) return;
+      mappa.set(key, { condominio_id: c.id, nome: c.nome || `Condominio ${c.id}`, interessati: [] });
+    });
+
     righe.forEach((r) => {
       const key = String(r?.condominio_id || '');
       if (!key) return;
@@ -10518,7 +10528,16 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
       }
     });
 
-    return Array.from(mappa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+    return Array.from(mappa.values()).sort((a, b) => {
+      if (b.interessati.length !== a.interessati.length) return b.interessati.length - a.interessati.length;
+      return a.nome.localeCompare(b.nome);
+    });
+  };
+
+  const condominioOperativoSelezionato = (item) => {
+    const id = condominioSceltoPerPromo(item);
+    const gruppi = interessiCondominiPromo(item);
+    return gruppi.find((g) => String(g.condominio_id) === String(id)) || gruppi[0] || null;
   };
 
   const ctaLabelFor = (item) => {
@@ -10623,25 +10642,44 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
               <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Condomini interessati</p>
-                  <h4 className="text-lg font-black text-slate-900">Richieste ricevute per questa promo</h4>
+                  <h4 className="text-lg font-black text-slate-900">Richieste e prenotazioni per questa promo</h4>
                 </div>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{interessiCondominiPromo(item).reduce((sum, g) => sum + g.interessati.length, 0)} interessati</span>
               </div>
+
+              {condominiDisponibili.length > 1 && (
+                <div className="mt-4 rounded-2xl border border-emerald-100 bg-white p-4">
+                  <label className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Prenota per un condominio specifico</label>
+                  <select
+                    value={condominioSceltoPerPromo(item)}
+                    onChange={(e) => setCondominioSceltoPerPromo(item.id, e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                  >
+                    {condominiDisponibili.map((c) => {
+                      const gruppo = interessiCondominiPromo(item).find((g) => String(g.condominio_id) === String(c.id));
+                      const count = gruppo?.interessati?.length || 0;
+                      return <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`} {count ? `• ${count} interessat${count === 1 ? 'o' : 'i'}` : ''}</option>;
+                    })}
+                  </select>
+                  <p className="mt-2 text-xs font-semibold text-emerald-800">La prenotazione verrà collegata al condominio selezionato.</p>
+                </div>
+              )}
+
               <div className="mt-3 grid gap-3">
                 {interessiCondominiPromo(item).map((gruppo) => (
-                  <div key={gruppo.condominio_id} className="rounded-2xl border border-emerald-100 bg-white p-4">
+                  <div key={gruppo.condominio_id} className={`rounded-2xl border p-4 ${String(condominioSceltoPerPromo(item)) === String(gruppo.condominio_id) ? 'border-emerald-300 bg-white shadow-sm' : 'border-emerald-100 bg-white/80'}`}>
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="text-sm font-black text-slate-900">{gruppo.nome}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">{gruppo.interessati.length} condòmin{gruppo.interessati.length === 1 ? 'o interessato' : 'i interessati'}</p>
-                        <p className="mt-2 text-xs font-semibold text-slate-500">{gruppo.interessati.map((i) => i.nome || i.email).join(', ')}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-500">{gruppo.interessati.length ? `${gruppo.interessati.length} condòmin${gruppo.interessati.length === 1 ? 'o interessato' : 'i interessati'}` : 'Nessun interesse registrato'}</p>
+                        {gruppo.interessati.length > 0 && <p className="mt-2 text-xs font-semibold text-slate-500">{gruppo.interessati.map((i) => i.nome || i.email).join(', ')}</p>}
                       </div>
                       <button
                         type="button"
                         onClick={() => onPrenotaIntervento?.(item, gruppo.condominio_id)}
                         className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
                       >
-                        Prenota per questo condominio
+                        Prenota per {gruppo.nome}
                       </button>
                     </div>
                   </div>
@@ -10656,7 +10694,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
               onClick={() => handlePromoCta(item)}
               className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
             >
-              {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item))}
+              {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : (isOperativo && condominioOperativoSelezionato(item) ? `Prenota per ${condominioOperativoSelezionato(item).nome}` : ctaLabelFor(item)))}
             </button>
             {isGestore && prenotazioniPromo(item).length > 0 && typeof onConfermaPrenotazione === 'function' && (
               <button
