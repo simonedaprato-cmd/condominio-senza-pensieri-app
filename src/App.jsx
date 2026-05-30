@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.10';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.11';
+const APP_VERSION_LABEL = 'CSP v1.0.11';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10480,7 +10480,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, onAvviaVotazionePromo, onVotaPromo, currentUserEmail = '', onRefreshPromo, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
@@ -10643,6 +10643,27 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
   const pianoCondominioPromo = (condominioId) => getPianoAbbonamentoCondominio(condominioId, contratti);
   const puoAvviareVotazionePromo = (condominioId) => canUseSubscriptionFeature(pianoCondominioPromo(condominioId), 'plus');
 
+  const votiPromoPerCondominio = (promoId, condominioId) => (promoVoti || []).filter((v) =>
+    String(v?.promo_id) === String(promoId) &&
+    String(v?.condominio_id) === String(condominioId)
+  );
+
+  const riepilogoVotiPromo = (promoId, condominioId) => {
+    const righe = votiPromoPerCondominio(promoId, condominioId);
+    const favorevoli = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+    const contrari = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
+    const totale = totaleCondominiPromo(condominioId) || 0;
+    const votanti = righe.length;
+    const partecipazione = totale ? Math.round((votanti / totale) * 100) : null;
+    return { righe, favorevoli, contrari, votanti, totale, partecipazione };
+  };
+
+  const votoUtentePromo = (promoId, condominioId) => {
+    const email = String(currentUserEmail || '').toLowerCase().trim();
+    if (!email) return null;
+    return votiPromoPerCondominio(promoId, condominioId).find((v) => String(v?.email || '').toLowerCase().trim() === email) || null;
+  };
+
   const gruppoPromoPopup = (() => {
     if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
     const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
@@ -10747,6 +10768,29 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
                 {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
               </select>
               <p className="mt-2 text-xs font-semibold text-emerald-800">La richiesta arriverà all’amministrazione del condominio selezionato.</p>
+            </div>
+          )}
+          {isCondomino && String(item.id) === String(promoEvidenzaId) && promoCondominioEvidenzaId && (
+            <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+              {(() => {
+                const condominioVotoId = promoCondominioEvidenzaId;
+                const votoGiaDato = votoUtentePromo(item.id, condominioVotoId);
+                return (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione promo</p>
+                    <h4 className="mt-1 text-lg font-black text-slate-900">Esprimi il tuo parere</h4>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Un condòmino ha manifestato interesse per questa promozione valida fino al {formatDate(item.validita_al)}. Indica se sei favorevole o contrario all'attivazione per il tuo condominio.</p>
+                    {votoGiaDato ? (
+                      <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-800 shadow-sm">Hai già votato: {String(votoGiaDato.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</p>
+                    ) : (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'favorevole')} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">👍 Favorevole</button>
+                        <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'contrario')} className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-red-600 shadow-sm ring-1 ring-red-100">👎 Contrario</button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
           {esaurita && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">Tutte le disponibilità previste per questa iniziativa sono state assegnate.</p>}
@@ -11024,6 +11068,47 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
               )}
             </div>
 
+            <div className="mt-5 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+              {(() => {
+                const riepilogo = riepilogoVotiPromo(gruppoPromoPopup.promo.id, gruppoPromoPopup.gruppo.condominio_id);
+                const plusEnabled = puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id);
+                return (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione condominiale</p>
+                        <h4 className="mt-1 text-lg font-black text-slate-900">Parere dei condòmini sulla promo</h4>
+                        {!plusEnabled && (
+                          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                            La votazione automatica consente di raccogliere il parere dei condòmini direttamente dall'app e attivare la promo in caso di approvazione. Funzione disponibile per condomìni Plus e Premium.
+                          </p>
+                        )}
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${plusEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500'}`}>
+                        {plusEnabled ? 'PLUS • PREMIUM' : '🔒 PLUS • PREMIUM'}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-4">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Favorevoli</p><p className="mt-1 text-2xl font-black text-emerald-700">{riepilogo.favorevoli}</p></div>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Contrari</p><p className="mt-1 text-2xl font-black text-red-600">{riepilogo.contrari}</p></div>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Votanti</p><p className="mt-1 text-2xl font-black text-slate-900">{riepilogo.votanti}/{riepilogo.totale || 'n.d.'}</p></div>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Partecipazione</p><p className="mt-1 text-2xl font-black text-slate-900">{riepilogo.partecipazione !== null ? `${riepilogo.partecipazione}%` : 'n.d.'}</p></div>
+                    </div>
+                    {riepilogo.righe.length > 0 && (
+                      <div className="mt-3 grid gap-2">
+                        {riepilogo.righe.map((v) => (
+                          <div key={v.id || `${v.email}-${v.voto}`} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm shadow-sm">
+                            <span className="font-black text-slate-800">{nomeCompletoUtentePromo(v.email, v.nome, v.condominio_id)}</span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-black ${String(v.voto || '').toLowerCase().includes('fav') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{String(v.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
             {statoPromo(gruppoPromoPopup.promo) !== 'attiva' && (
               <p className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
                 Questa promozione è {badgeLabel(statoPromo(gruppoPromoPopup.promo)).toLowerCase()} e non può più essere prenotata. Gli interessi restano consultabili come storico della campagna.
@@ -11046,10 +11131,14 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
               <button
                 type="button"
                 disabled={!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id)}
-                onClick={() => alert('Votazione promo predisposta per una release successiva: disponibile solo per condomìni Plus/Premium.')}
+                onClick={async () => {
+                  if (!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id)) return;
+                  await onAvviaVotazionePromo?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                  await onRefreshPromo?.();
+                }}
                 className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
               >
-                {puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) ? 'Avvia votazione' : 'Votazione Plus/Premium'}
+                {puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) ? 'Avvia votazione' : '🔒 Riservato Plus/Premium'}
               </button>
             </div>
           </div>
@@ -13291,6 +13380,7 @@ export default function App() {
   const [sendingRivista, setSendingRivista] = useState(false);
   const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
   const [promoInteressi, setPromoInteressi] = useState([]);
+  const [promoVoti, setPromoVoti] = useState([]);
   const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
   const [promoCondominioDeeplinkId, setPromoCondominioDeeplinkId] = useState(null);
   const [promoDeeplinkTick, setPromoDeeplinkTick] = useState(0);
@@ -14323,6 +14413,14 @@ export default function App() {
 
       if (!interessiError) setPromoInteressi(interessiData || []);
       else if (interessiError.code !== 'PGRST116' && interessiError.code !== '42P01') console.warn('Errore refresh interessi promo:', interessiError);
+
+      const { data: votiPromoData, error: votiPromoError } = await supabase
+        .from('promo_voti')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!votiPromoError) setPromoVoti(votiPromoData || []);
+      else if (votiPromoError.code !== 'PGRST116' && votiPromoError.code !== '42P01') console.warn('Errore refresh voti promo:', votiPromoError);
     } catch (error) {
       console.warn('Errore aggiornamento Promo Senza Pensieri:', error);
     }
@@ -14718,6 +14816,84 @@ export default function App() {
   };
 
 
+  const avviaVotazionePromo = async (promoRecord = {}, condominioIdRichiesto = null) => {
+    if (!promoRecord?.id) return null;
+    const condominioId = Number(condominioIdRichiesto || 0);
+    if (!condominioId) {
+      mostraToast('Condominio non selezionato', 'Seleziona il condominio per avviare la votazione promo.', 'warning');
+      return null;
+    }
+    const piano = getPianoAbbonamentoCondominio(condominioId, contratti);
+    if (!canUseSubscriptionFeature(piano, 'plus')) {
+      mostraToast('Funzione Plus/Premium', 'La votazione automatica è riservata ai condomìni Plus e Premium.', 'warning');
+      return null;
+    }
+    try {
+      const deepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        promoCondominio: condominioId,
+        evento: 'promo_votazione',
+      });
+      const { data, error } = await supabase.functions.invoke('notify-promo-votazione', {
+        body: {
+          promoId: promoRecord.id,
+          condominioId,
+          richiedenteEmail: utente?.email || userProfile?.email || '',
+          richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
+          deepLink,
+          url: deepLink,
+        },
+      });
+      if (error || data?.success === false) {
+        console.warn('Avvio votazione promo non completato:', error || data);
+        mostraToast('Votazione non avviata', data?.error || error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
+        return null;
+      }
+      mostraToast('Votazione avviata', 'I condòmini sono stati avvisati e potranno esprimere il proprio parere dall’app.', 'success');
+      await aggiornaPromoSenzaPensieriDati();
+      await aggiornaNotificheCentro();
+      return data;
+    } catch (error) {
+      console.error('Errore avvio votazione promo:', error);
+      mostraToast('Errore votazione', error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
+      return null;
+    }
+  };
+
+  const registraVotoPromo = async (promoRecord = {}, condominioIdRichiesto = null, voto = '') => {
+    if (!promoRecord?.id) return null;
+    const condominioId = Number(condominioIdRichiesto || 0);
+    const votoNorm = String(voto || '').toLowerCase().includes('fav') ? 'favorevole' : 'contrario';
+    const email = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
+    if (!condominioId || !email) {
+      mostraToast('Voto non registrato', 'Non riesco a collegare il voto al condominio o al tuo profilo.', 'warning');
+      return null;
+    }
+    try {
+      const payload = {
+        promo_id: promoRecord.id,
+        condominio_id: condominioId,
+        email,
+        nome: userProfile?.nome || utente?.user_metadata?.name || '',
+        voto: votoNorm,
+      };
+      const { error } = await supabase
+        .from('promo_voti')
+        .upsert(payload, { onConflict: 'promo_id,condominio_id,email' });
+      if (error) throw error;
+      mostraToast('Voto registrato', `Hai espresso voto ${votoNorm}.`, 'success');
+      await aggiornaPromoSenzaPensieriDati();
+      return true;
+    } catch (error) {
+      console.error('Errore voto promo:', error);
+      mostraToast('Errore voto', error?.message || 'Non è stato possibile registrare il voto promo.', 'error');
+      return null;
+    }
+  };
+
+
   const carica = async () => {
     setLoading(true);
     try {
@@ -14800,6 +14976,13 @@ export default function App() {
         .order('created_at', { ascending: false });
       if (promoInteressiError && promoInteressiError.code !== 'PGRST116' && promoInteressiError.code !== '42P01') throw promoInteressiError;
       setPromoInteressi(promoInteressiData || []);
+
+      const { data: promoVotiData, error: promoVotiError } = await supabase
+        .from('promo_voti')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (promoVotiError && promoVotiError.code !== 'PGRST116' && promoVotiError.code !== '42P01') throw promoVotiError;
+      setPromoVoti(promoVotiData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -17590,6 +17773,7 @@ export default function App() {
             <PromoSenzaPensieriSuite
               promo={promoSenzaPensieri}
               promoInteressi={promoInteressi}
+              promoVoti={promoVoti}
               condomini={condominiVisibili}
               contratti={contratti}
               utentiSistema={utentiSistema}
@@ -17599,6 +17783,10 @@ export default function App() {
               onOpenCreate={() => setShowPromoModal(true)}
               onRiproponi={riproponiPromoSenzaPensieri}
               onConfermaPrenotazione={confermaPrenotazionePromo}
+              onAvviaVotazionePromo={avviaVotazionePromo}
+              onVotaPromo={registraVotoPromo}
+              currentUserEmail={utente?.email || userProfile?.email || ''}
+              onRefreshPromo={aggiornaPromoSenzaPensieriDati}
               promoEvidenzaId={promoDeeplinkId}
               promoCondominioEvidenzaId={promoCondominioDeeplinkId}
               promoDeeplinkTick={promoDeeplinkTick}
@@ -17626,6 +17814,7 @@ export default function App() {
           <PromoSenzaPensieriSuite
             promo={promoSenzaPensieri}
             promoInteressi={promoInteressi}
+            promoVoti={promoVoti}
             condomini={condominiVisibili}
             contratti={contratti}
             utentiSistema={utentiSistema}
@@ -17636,6 +17825,10 @@ export default function App() {
             promoCondominioEvidenzaId={promoCondominioDeeplinkId}
             promoDeeplinkTick={promoDeeplinkTick}
             onPrenotaIntervento={prenotaInterventoPromo}
+            onAvviaVotazionePromo={avviaVotazionePromo}
+            onVotaPromo={registraVotoPromo}
+            currentUserEmail={utente?.email || userProfile?.email || ''}
+            onRefreshPromo={aggiornaPromoSenzaPensieriDati}
           />
         )}
 
@@ -17726,6 +17919,7 @@ export default function App() {
           <PromoSenzaPensieriSuite
             promo={promoSenzaPensieri}
             promoInteressi={promoInteressi}
+            promoVoti={promoVoti}
             condomini={condominiVisibili}
             contratti={contratti}
             utentiSistema={utentiSistema}
@@ -17736,6 +17930,9 @@ export default function App() {
             promoCondominioEvidenzaId={promoCondominioDeeplinkId}
             promoDeeplinkTick={promoDeeplinkTick}
             onRichiediAmministratore={richiediPromoAlTuoAmministratore}
+            onVotaPromo={registraVotoPromo}
+            currentUserEmail={utente?.email || userProfile?.email || ''}
+            onRefreshPromo={aggiornaPromoSenzaPensieriDati}
           />
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
