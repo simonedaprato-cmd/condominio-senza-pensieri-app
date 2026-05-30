@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.11';
-const APP_VERSION_LABEL = 'CSP v1.0.11';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -11130,15 +11130,28 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
               </button>
               <button
                 type="button"
-                disabled={!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id)}
-                onClick={async () => {
+                disabled={!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) || promoActionLoading === `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`}
+                onClick={async (event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const actionKey = `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
                   if (!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id)) return;
-                  await onAvviaVotazionePromo?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                  await onRefreshPromo?.();
+                  if (typeof onAvviaVotazionePromo !== 'function') {
+                    console.warn('Handler onAvviaVotazionePromo non collegato alla sezione Promo.');
+                    alert('Funzione votazione non collegata alla sezione Promo.');
+                    return;
+                  }
+                  try {
+                    setPromoActionLoading(actionKey);
+                    await onAvviaVotazionePromo(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                    await onRefreshPromo?.();
+                  } finally {
+                    setPromoActionLoading(null);
+                  }
                 }}
                 className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
               >
-                {puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) ? 'Avvia votazione' : '🔒 Riservato Plus/Premium'}
+                {promoActionLoading === `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}` ? 'Avvio votazione...' : (puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) ? 'Avvia votazione' : '🔒 Riservato Plus/Premium')}
               </button>
             </div>
           </div>
@@ -14829,6 +14842,7 @@ export default function App() {
       return null;
     }
     try {
+      mostraToast('Avvio votazione', 'Sto preparando la votazione promo per i condòmini.', 'info');
       const deepLink = buildAppDeepLink({
         fromPush: '1',
         section: 'promo',
