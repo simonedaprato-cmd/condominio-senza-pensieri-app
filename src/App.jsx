@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -34,6 +34,13 @@ const STATI_PRATICA = [
   'Sopralluogo effettuato',
   'Preventivata',
   'Accettata',
+  'Pianificata',
+  'Chiusa',
+];
+
+const STATI_PRATICA_PROMO = [
+  'Nuova',
+  'Presa in carico',
   'Pianificata',
   'Chiusa',
 ];
@@ -10466,6 +10473,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
   const [promoActionLoading, setPromoActionLoading] = useState(null);
   const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
   const [promoCondominioPopup, setPromoCondominioPopup] = useState(null);
+  const [promoPrenotaAltroCondominio, setPromoPrenotaAltroCondominio] = useState('');
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
@@ -10548,13 +10556,18 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
     chiusa: 'Chiusa',
   }[stato] || stato || 'Promo');
 
-  const promoOrdinate = [...(promo || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const promoOrdinate = [...(promo || [])].sort((a, b) => {
+    const dateA = new Date(a.validita_dal || a.inviata_at || a.created_at || 0).getTime();
+    const dateB = new Date(b.validita_dal || b.inviata_at || b.created_at || 0).getTime();
+    return dateB - dateA;
+  });
   const promoDeeplink = promoEvidenzaId
     ? promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId))
     : null;
-  const promoAttivaDefault = promoOrdinate.find(isAttiva);
+  const promoAttiveOrdinate = promoOrdinate.filter(isAttiva);
+  const promoAttivaDefault = promoAttiveOrdinate[0] || null;
   const promoAttiva = promoDeeplink || promoAttivaDefault;
-  const archivioBase = promoOrdinate.filter((item) => !promoAttiva || item.id !== promoAttiva.id);
+  const archivioBase = promoOrdinate.filter((item) => !promoAttiva || String(item.id) !== String(promoAttiva.id));
   const queryPromo = ricercaPromo.toLowerCase().trim();
   const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
     .filter(Boolean)
@@ -10688,16 +10701,16 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
     const esaurita = stato === 'esaurita';
 
     return (
-      <article className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-xl shadow-emerald-950/10">
+      <article className="overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 shadow-xl shadow-amber-950/10">
         {item.immagine_url ? (
           <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
             <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
           </div>
         ) : (
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-teal-700 to-slate-950 p-6 text-white md:p-8">
+          <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-yellow-600 to-slate-950 p-6 text-white md:p-8">
             <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-emerald-300/20 blur-3xl" />
-            <p className="relative text-xs font-black uppercase tracking-[0.28em] text-emerald-100">Promo Senza Pensieri</p>
+            <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-yellow-200/25 blur-3xl" />
+            <p className="relative text-xs font-black uppercase tracking-[0.28em] text-yellow-100">Promo Senza Pensieri</p>
             <h3 className="relative mt-3 max-w-2xl text-3xl font-black leading-tight md:text-4xl">{item.titolo}</h3>
           </div>
         )}
@@ -10792,7 +10805,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
 
         {gruppi.length === 0 ? (
           <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
-            Nessun condominio del tuo portafoglio ha ancora manifestato interesse per questa promo.
+            Nessun condominio del tuo portafoglio ha ancora manifestato interesse per questa promo. Puoi comunque selezionare un condominio e prenotare l'intervento dalla scheda dedicata.
           </div>
         ) : (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -10830,6 +10843,29 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
           })}
         </div>
         )}
+
+        {statoPromo(item) === 'attiva' && condominiDisponibili.length > 0 && (
+          <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Selezione diretta amministratore</p>
+            <p className="mt-1 text-sm font-semibold text-amber-900">Puoi prenotare la promo anche per un condominio del tuo portafoglio, senza attendere ulteriori richieste.</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+              <select
+                value={promoPrenotaAltroCondominio || condominiDisponibili[0]?.id || ''}
+                onChange={(e) => setPromoPrenotaAltroCondominio(e.target.value)}
+                className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+              >
+                {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: promoPrenotaAltroCondominio || condominiDisponibili[0]?.id })}
+                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white"
+              >
+                Apri scheda
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     );
   };
@@ -10838,28 +10874,17 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
 
   return (
     <section className="space-y-4 pb-8">
-      <div className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-50 shadow-sm">
-        <div className="p-5 md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Vetrina CSP</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-900">Promo Senza Pensieri</h2>
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-                Opportunità riservate agli utenti CSP per proteggere, valorizzare e migliorare il proprio immobile. Proposte selezionate, vantaggi dedicati e disponibilità limitate.
-              </p>
-            </div>
-            {canCreate && (
-              <button
-                type="button"
-                onClick={onOpenCreate}
-                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
-              >
-                + Nuova Promo
-              </button>
-            )}
-          </div>
+      {canCreate && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onOpenCreate}
+            className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+          >
+            + Nuova Promo
+          </button>
         </div>
-      </div>
+      )}
 
       {promoAttiva ? (
         <>
@@ -10870,7 +10895,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
         <EmptyState
           icon="💚"
           title="Nessuna promo attiva"
-          text={canCreate ? 'Crea la prima promozione periodica per trasformare CSP in una vetrina commerciale proprietaria.' : 'Quando sarà disponibile una nuova opportunità, la troverai qui in evidenza.'}
+          text={canCreate ? 'Crea la prima promozione periodica per attivare il canale commerciale interno CSP.' : 'Quando sarà disponibile una nuova opportunità, la troverai qui in evidenza.'}
           action="Vetrina pronta"
           tone="emerald"
         />
@@ -11670,6 +11695,8 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   if (!segnalazione) return null;
 
   const condominioPratica = (condomini || []).find((c) => Number(c.id) === Number(segnalazione.condominio_id));
+  const isPromoPratica = String(segnalazione.origine || '').toLowerCase().trim() === 'promo';
+  const statiDisponibiliPratica = isPromoPratica ? STATI_PRATICA_PROMO : STATI_PRATICA;
   const mapsCspParts = [
     segnalazione.indirizzo,
     segnalazione.luogo,
@@ -12129,8 +12156,13 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <div className="hidden md:block">
               <TimelinePratica stato={segnalazione.stato} />
             </div>
+            {isPromoPratica && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                Pratica generata da Promo Senza Pensieri: flusso semplificato senza fase preventivo. Stati previsti: Nuova, Presa in carico, Pianificata, Chiusa.
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
-              {ruolo === 'gestore' && STATI_PRATICA.map((stato) => (
+              {ruolo === 'gestore' && statiDisponibiliPratica.map((stato) => (
                 <button
                   key={stato}
                   onClick={() => onChangeStatus(segnalazione.id, stato)}
