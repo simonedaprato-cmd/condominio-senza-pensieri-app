@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10787,15 +10787,16 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
     if (!isOperativo || !item) return null;
     const gruppi = interessiCondominiPromo(item);
     const interessatiTotali = gruppi.reduce((sum, gruppo) => sum + (gruppo.interessati?.length || 0), 0);
+    const promoPrenotabile = statoPromo(item) === 'attiva' && condominiDisponibili.length > 0;
 
     return (
       <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm shadow-emerald-950/5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Portafoglio amministrato</p>
-            <h3 className="mt-1 text-xl font-black text-slate-900">Condomìni interessati</h3>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Opportunità per i tuoi condomìni</h3>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Vedi solo i condomìni del tuo portafoglio dove almeno un condòmino ha manifestato interesse. Apri la scheda per dettagli, prenotazione o futura votazione.
+              Le richieste ricevute dai tuoi condomìni compariranno qui. Puoi inoltre valutare autonomamente questa opportunità e prenotarla direttamente per i condomìni che ritieni più adatti.
             </p>
           </div>
           <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
@@ -10803,51 +10804,45 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
           </span>
         </div>
 
-        {gruppi.length === 0 ? (
-          <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
-            Nessun condominio del tuo portafoglio ha ancora manifestato interesse per questa promo. Puoi comunque selezionare un condominio e prenotare l'intervento dalla scheda dedicata.
-          </div>
-        ) : (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {gruppi.map((gruppo) => {
-            const count = gruppo.interessati?.length || 0;
-            const totale = totaleCondominiPromo(gruppo.condominio_id);
-            const percentuale = percentualeInteressePromo(gruppo);
-            const inEvidenza = count > 0;
+        {gruppi.length > 0 && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {gruppi.map((gruppo) => {
+              const count = gruppo.interessati?.length || 0;
+              const totale = totaleCondominiPromo(gruppo.condominio_id);
+              const percentuale = percentualeInteressePromo(gruppo);
 
-            return (
-              <button
-                key={gruppo.condominio_id}
-                type="button"
-                onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: gruppo.condominio_id })}
-                className={`w-full rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${inEvidenza ? 'border-emerald-200 bg-emerald-50 shadow-sm shadow-emerald-950/5' : 'border-slate-200 bg-slate-50'}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-base font-black text-slate-900">{gruppo.nome}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">
-                      {count} condòmin{count === 1 ? 'o interessato' : 'i interessati'}{totale ? ` su ${totale}` : ''}
-                    </p>
+              return (
+                <button
+                  key={gruppo.condominio_id}
+                  type="button"
+                  onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: gruppo.condominio_id })}
+                  className="w-full rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-left shadow-sm shadow-emerald-950/5 transition hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-black text-slate-900">{gruppo.nome}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        {count} condòmin{count === 1 ? 'o interessato' : 'i interessati'}{totale ? ` su ${totale}` : ''}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                      {percentuale !== null ? `${percentuale}%` : 'Apri'}
+                    </span>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${inEvidenza ? 'bg-white text-emerald-700' : 'bg-white text-slate-500'}`}>
-                    {percentuale !== null ? `${percentuale}%` : 'Apri'}
-                  </span>
-                </div>
-                {percentuale !== null && (
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, percentuale)}%` }} />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
+                  {percentuale !== null && (
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, percentuale)}%` }} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         )}
 
-        {statoPromo(item) === 'attiva' && condominiDisponibili.length > 0 && (
-          <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Selezione diretta amministratore</p>
-            <p className="mt-1 text-sm font-semibold text-amber-900">Puoi prenotare la promo anche per un condominio del tuo portafoglio, senza attendere ulteriori richieste.</p>
+        {promoPrenotabile ? (
+          <div className="mt-4 rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Prenotazione diretta</p>
             <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
               <select
                 value={promoPrenotaAltroCondominio || condominiDisponibili[0]?.id || ''}
@@ -10864,6 +10859,10 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
                 Apri scheda
               </button>
             </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+            Questa promozione non è più prenotabile. Le eventuali richieste restano disponibili come storico della campagna.
           </div>
         )}
       </section>
