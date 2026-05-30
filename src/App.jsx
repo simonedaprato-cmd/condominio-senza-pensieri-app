@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10172,6 +10172,62 @@ function DashboardStorico({ segnalazioni }) {
   );
 }
 
+
+function NuovePraticheGestoreBox({ segnalazioni = [], condomini = [], onOpen }) {
+  const condominioNome = (id) => (condomini || []).find((c) => Number(c.id) === Number(id))?.nome || `Condominio #${id || 'n.d.'}`;
+  const nuove = (Array.isArray(segnalazioni) ? segnalazioni : [])
+    .filter((s) => String(s?.stato || '').toLowerCase().trim() === 'nuova' && !isValoreVero(s?.archiviata))
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const promoNuove = nuove.filter((s) => String(s?.origine || '').toLowerCase().trim() === 'promo').length;
+
+  return (
+    <section className="rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/70 to-white p-5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Nuove pratiche</p>
+          <h3 className="mt-1 text-xl font-black text-slate-900">Da prendere in carico</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Le pratiche appena aperte, incluse quelle generate dalle Promo Senza Pensieri.</p>
+        </div>
+        <div className="flex gap-2">
+          <span className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm">{nuove.length} nuove</span>
+          {promoNuove > 0 && <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700">{promoNuove} Promo</span>}
+        </div>
+      </div>
+
+      {nuove.length === 0 ? (
+        <div className="mt-4 rounded-2xl border border-dashed border-emerald-200 bg-white/80 p-4 text-sm font-semibold text-slate-500">Nessuna nuova pratica in attesa. Il flusso operativo è pulito.</div>
+      ) : (
+        <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1 csp-scroll">
+          {nuove.map((pratica) => {
+            const isPromo = String(pratica?.origine || '').toLowerCase().trim() === 'promo';
+            return (
+              <button
+                key={pratica.id}
+                type="button"
+                onClick={() => onOpen?.(pratica)}
+                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isPromo && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>}
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Nuova</span>
+                    </div>
+                    <h4 className="mt-2 text-base font-black text-slate-900">{pratica.titolo || `Pratica #${pratica.id}`}</h4>
+                    <p className="mt-1 text-xs font-bold text-slate-500">{condominioNome(pratica.condominio_id)}</p>
+                    {pratica.descrizione && <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-600">{pratica.descrizione}</p>}
+                  </div>
+                  <span className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">Apri scheda</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function DashboardStatiGestore({ segnalazioni, onOpen }) {
   const stati = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa', 'Rifiutata'];
 
@@ -14224,6 +14280,20 @@ export default function App() {
     const riferimentoIdRaw = notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || '';
     const riferimentoId = Number(riferimentoIdRaw || 0);
 
+    if (tipo.includes('promo_pratica') && riferimentoId) {
+      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+      else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+      else setCondominoSection('segnalazioni');
+      if (pratica) {
+        setDettaglioAperto(pratica);
+      } else {
+        mostraToast('Pratica in caricamento', 'La pratica collegata alla promo sarà disponibile appena terminato l’aggiornamento dati.', 'info');
+        await carica();
+      }
+      return;
+    }
+
     if (tipo.includes('promo')) {
       await aggiornaPromoSenzaPensieriDati();
       if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
@@ -14535,8 +14605,11 @@ export default function App() {
         return null;
       }
 
-      mostraToast('Prenotazione inviata', 'Il gestore è stato avvisato della richiesta di intervento.', 'success');
+      mostraToast('Pratica CSP aperta', 'La prenotazione promo è stata trasformata automaticamente in una nuova pratica CSP.', 'success');
       await carica();
+      if (data?.segnalazione?.id) {
+        setDettaglioAperto(data.segnalazione);
+      }
       return data;
     } catch (error) {
       console.error('Errore prenotazione promo:', error);
@@ -17252,6 +17325,8 @@ export default function App() {
             <div className="-mt-2">
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
             </div>
+
+            <NuovePraticheGestoreBox segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
 
             <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
 
