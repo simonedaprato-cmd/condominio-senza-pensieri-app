@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.3';
-const APP_VERSION_LABEL = 'CSP v1.0.3';
+const APP_VERSION = '1.0.4';
+const APP_VERSION_LABEL = 'CSP v1.0.4';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,7 +10404,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], contratti = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null, promoCondominioEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], contratti = [], utentiSistema = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null, promoCondominioEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
@@ -10420,6 +10420,13 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
 
   const condominiDisponibili = Array.isArray(condomini) ? condomini : [];
   const nomeCondominioPromo = (id) => condominiDisponibili.find((c) => String(c.id) === String(id))?.nome || `Condominio ${id}`;
+  const nomeCompletoUtentePromo = (email, fallback = '') => {
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const utenteMatch = (utentiSistema || []).find((u) => String(u?.email || '').toLowerCase().trim() === cleanEmail);
+    const nomeCognome = [utenteMatch?.nome, utenteMatch?.cognome].filter(Boolean).join(' ').trim();
+    const fallbackPulito = String(fallback || '').trim();
+    return nomeCognome || fallbackPulito || cleanEmail || 'Condòmino';
+  };
   const condominioSceltoPerPromo = (item) => {
     const idSalvato = condominiSceltiPromo?.[item?.id];
     if (idSalvato) return idSalvato;
@@ -10516,7 +10523,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
       const gruppo = mappa.get(key);
       const email = String(r?.email || '').toLowerCase();
       if (!email || !gruppo.interessati.some((i) => String(i.email || '').toLowerCase() === email)) {
-        gruppo.interessati.push({ nome: r?.nome || r?.email || 'Condòmino', email: r?.email || '' });
+        gruppo.interessati.push({ nome: nomeCompletoUtentePromo(r?.email, r?.nome), email: r?.email || '' });
       }
     });
 
@@ -10560,7 +10567,12 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
     const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId));
     if (!promoItem) return;
     const gruppo = interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioEvidenzaId));
-    if (!gruppo) return;
+    if (!gruppo) {
+      // Se il deeplink arriva prima del refresh completo degli interessi, manteniamo il condominio selezionato
+      // e ritentiamo automaticamente al successivo aggiornamento di promo_interessi.
+      setCondominioSceltoPerPromo(promoItem.id, promoCondominioEvidenzaId);
+      return;
+    }
     setPromoCondominioPopup({ promoId: promoItem.id, condominioId: gruppo.condominio_id });
   }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoInteressi, promo?.length, condominiDisponibili?.length]);
 
@@ -10901,8 +10913,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
                 <div className="mt-3 grid gap-2">
                   {gruppoPromoPopup.gruppo.interessati.map((interessato) => (
                     <div key={interessato.email || interessato.nome} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                      <p className="text-sm font-black text-slate-900">{interessato.nome || interessato.email || 'Condòmino'}</p>
-                      {interessato.email && <p className="mt-1 text-xs font-semibold text-slate-500">{interessato.email}</p>}
+                      <p className="text-sm font-black text-slate-900">{interessato.nome || 'Condòmino'}</p>
                     </div>
                   ))}
                 </div>
@@ -10911,16 +10922,24 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], c
               )}
             </div>
 
+            {statoPromo(gruppoPromoPopup.promo) !== 'attiva' && (
+              <p className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                Questa promozione è {badgeLabel(statoPromo(gruppoPromoPopup.promo)).toLowerCase()} e non può più essere prenotata. Gli interessi restano consultabili come storico della campagna.
+              </p>
+            )}
+
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <button
                 type="button"
+                disabled={statoPromo(gruppoPromoPopup.promo) !== 'attiva'}
                 onClick={async () => {
+                  if (statoPromo(gruppoPromoPopup.promo) !== 'attiva') return;
                   await onPrenotaIntervento?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
                   setPromoCondominioPopup(null);
                 }}
-                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
               >
-                Prenota intervento
+                {statoPromo(gruppoPromoPopup.promo) === 'attiva' ? 'Prenota intervento' : 'Promo non più prenotabile'}
               </button>
               <button
                 type="button"
@@ -17433,6 +17452,7 @@ export default function App() {
               promoInteressi={promoInteressi}
               condomini={condominiVisibili}
               contratti={contratti}
+              utentiSistema={utentiSistema}
               ruolo={ruoloNormalizzato}
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
@@ -17466,6 +17486,7 @@ export default function App() {
             promoInteressi={promoInteressi}
             condomini={condominiVisibili}
             contratti={contratti}
+            utentiSistema={utentiSistema}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
@@ -17563,6 +17584,7 @@ export default function App() {
             promoInteressi={promoInteressi}
             condomini={condominiVisibili}
             contratti={contratti}
+            utentiSistema={utentiSistema}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
