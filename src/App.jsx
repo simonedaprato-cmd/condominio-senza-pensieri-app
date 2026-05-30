@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10733,6 +10733,8 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     const residua = disponibilitaResidua(item);
     const ultime = residua !== null && residua > 0 && residua <= 3;
     const esaurita = stato === 'esaurita';
+    const isVotazionePromoDeeplink = isCondomino && String(item.id) === String(promoEvidenzaId) && promoCondominioEvidenzaId;
+    const condominioVotazioneNome = isVotazionePromoDeeplink ? nomeCondominioPromo(promoCondominioEvidenzaId) : '';
 
     return (
       <article className="overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 shadow-xl shadow-amber-950/10">
@@ -10757,7 +10759,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
           </div>
           {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
           {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
-          {isCondomino && condominiDisponibili.length > 1 && (
+          {isCondomino && condominiDisponibili.length > 1 && !isVotazionePromoDeeplink && (
             <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
               <label className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Per quale condominio vuoi richiederla?</label>
               <select
@@ -10770,18 +10772,37 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
               <p className="mt-2 text-xs font-semibold text-emerald-800">La richiesta arriverà all’amministrazione del condominio selezionato.</p>
             </div>
           )}
-          {isCondomino && String(item.id) === String(promoEvidenzaId) && promoCondominioEvidenzaId && (
-            <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+          {isVotazionePromoDeeplink && (
+            <div className="mt-4 rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4 shadow-sm">
               {(() => {
                 const condominioVotoId = promoCondominioEvidenzaId;
                 const votoGiaDato = votoUtentePromo(item.id, condominioVotoId);
                 return (
                   <>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione promo</p>
-                    <h4 className="mt-1 text-lg font-black text-slate-900">Esprimi il tuo parere</h4>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Un condòmino ha manifestato interesse per questa promozione valida fino al {formatDate(item.validita_al)}. Indica se sei favorevole o contrario all'attivazione per il tuo condominio.</p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione promo</p>
+                        <h4 className="mt-1 text-lg font-black text-slate-900">{condominioVotazioneNome}</h4>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-indigo-700 shadow-sm">Parere condòmini</span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+                      È stata avviata una votazione per valutare l'attivazione della promozione <span className="font-black text-slate-900">“{item.titolo}”</span> per il tuo condominio.
+                      {item.validita_al ? <> L'offerta è valida fino al <span className="font-black text-slate-900">{formatDate(item.validita_al)}</span>.</> : null}
+                    </p>
+                    {item.descrizione && (
+                      <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-600 shadow-sm">
+                        {item.descrizione}
+                      </div>
+                    )}
+                    {item.prezzo && (
+                      <div className="mt-3 w-fit rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Prezzo promo</p>
+                        <p className="mt-1 text-xl font-black text-slate-900">{item.prezzo}</p>
+                      </div>
+                    )}
                     {votoGiaDato ? (
-                      <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-800 shadow-sm">Hai già votato: {String(votoGiaDato.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</p>
+                      <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-800 shadow-sm">Hai già votato: {String(votoGiaDato.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</p>
                     ) : (
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'favorevole')} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">👍 Favorevole</button>
@@ -10809,7 +10830,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            {!isOperativo && (
+            {!isOperativo && !isVotazionePromoDeeplink && (
               <button
                 type="button"
                 disabled={stato !== 'attiva'}
