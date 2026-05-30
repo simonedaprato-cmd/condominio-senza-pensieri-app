@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.9';
-const APP_VERSION_LABEL = 'CSP v1.0.9';
+const APP_VERSION = '1.0.10';
+const APP_VERSION_LABEL = 'CSP v1.0.10';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10237,6 +10237,14 @@ function NuovePraticheGestoreBox({ segnalazioni = [], condomini = [], onOpen }) 
 
 function DashboardStatiGestore({ segnalazioni, onOpen }) {
   const stati = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa', 'Rifiutata'];
+  const isPromoPratica = (s) => String(s?.origine || '').toLowerCase().trim() === 'promo';
+  const operative = (Array.isArray(segnalazioni) ? segnalazioni : []).filter((s) => {
+    if (isValoreVero(s?.archiviata)) return false;
+    const stato = String(s?.stato || '').trim();
+    if (stato.toLowerCase() === 'nuova') return false;
+    if (isPromoPratica(s)) return ['Presa in carico', 'Pianificata', 'Chiusa'].includes(stato);
+    return true;
+  });
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -10247,13 +10255,13 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
           <p className="mt-1 text-sm text-slate-500">Vista rapida per controllare avanzamento, ritardi e priorità operative.</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-          {segnalazioni.length} pratiche attive
+          {operative.length} pratiche operative
         </span>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {stati.map((stato) => {
-          const items = segnalazioni.filter((s) => s.stato === stato);
+          const items = operative.filter((s) => s.stato === stato);
           return (
             <div key={stato} className="flex h-96 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -10268,7 +10276,12 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
                   items.map((s) => (
                     <button key={s.id} onClick={() => onOpen(s)} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="line-clamp-2 text-sm font-bold text-slate-900">{s.titolo}</p>
+                        <div className="min-w-0">
+                          <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                            {isPromoPratica(s) && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>}
+                          </div>
+                          <p className="line-clamp-2 text-sm font-bold text-slate-900">{s.titolo}</p>
+                        </div>
                         <span className={'shrink-0 text-xs font-black ' + priorityClass(s.priorita)}>{s.priorita}</span>
                       </div>
                       <p className="mt-1 truncate text-xs text-slate-500">{s.condominio}</p>
