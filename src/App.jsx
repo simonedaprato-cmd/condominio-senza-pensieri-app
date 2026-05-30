@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.17';
-const APP_VERSION_LABEL = 'CSP v1.0.17';
+const APP_VERSION = '1.0.18';
+const APP_VERSION_LABEL = 'CSP v1.0.18';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10409,6 +10409,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
   const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
+  const [promoCondominioPopup, setPromoCondominioPopup] = useState(null);
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
@@ -10540,6 +10541,26 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
     return gruppi.find((g) => String(g.condominio_id) === String(id)) || gruppi[0] || null;
   };
 
+  const totaleCondominiPromo = (condominioId) => {
+    const condominio = condominiDisponibili.find((c) => String(c.id) === String(condominioId));
+    return getNumeroFamiglieCondominio(condominio || {});
+  };
+
+  const percentualeInteressePromo = (gruppo) => {
+    const totale = totaleCondominiPromo(gruppo?.condominio_id);
+    if (!totale) return null;
+    return Math.min(100, Math.round(((gruppo?.interessati?.length || 0) / totale) * 100));
+  };
+
+  const gruppoPromoPopup = (() => {
+    if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
+    const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
+    const gruppo = promoItem
+      ? interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioPopup.condominioId))
+      : null;
+    return promoItem && gruppo ? { promo: promoItem, gruppo } : null;
+  })();
+
   const ctaLabelFor = (item) => {
     const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
     if (isCondomino) return 'Chiedila al tuo amministratore';
@@ -10637,65 +10658,17 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
               <p className="mt-1 text-sm font-black text-slate-800">{residua !== null ? `${residua} residue su ${item.limite_quantita}` : (item.limite || 'Fino a scadenza promo')}</p>
             </div>
           </div>
-          {isOperativo && interessiCondominiPromo(item).length > 0 && (
-            <div className="mt-5 rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Condomini interessati</p>
-                  <h4 className="text-lg font-black text-slate-900">Richieste e prenotazioni per questa promo</h4>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">{interessiCondominiPromo(item).reduce((sum, g) => sum + g.interessati.length, 0)} interessati</span>
-              </div>
-
-              {condominiDisponibili.length > 1 && (
-                <div className="mt-4 rounded-2xl border border-emerald-100 bg-white p-4">
-                  <label className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Prenota per un condominio specifico</label>
-                  <select
-                    value={condominioSceltoPerPromo(item)}
-                    onChange={(e) => setCondominioSceltoPerPromo(item.id, e.target.value)}
-                    className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                  >
-                    {condominiDisponibili.map((c) => {
-                      const gruppo = interessiCondominiPromo(item).find((g) => String(g.condominio_id) === String(c.id));
-                      const count = gruppo?.interessati?.length || 0;
-                      return <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`} {count ? `• ${count} interessat${count === 1 ? 'o' : 'i'}` : ''}</option>;
-                    })}
-                  </select>
-                  <p className="mt-2 text-xs font-semibold text-emerald-800">La prenotazione verrà collegata al condominio selezionato.</p>
-                </div>
-              )}
-
-              <div className="mt-3 grid gap-3">
-                {interessiCondominiPromo(item).map((gruppo) => (
-                  <div key={gruppo.condominio_id} className={`rounded-2xl border p-4 ${String(condominioSceltoPerPromo(item)) === String(gruppo.condominio_id) ? 'border-emerald-300 bg-white shadow-sm' : 'border-emerald-100 bg-white/80'}`}>
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <p className="text-sm font-black text-slate-900">{gruppo.nome}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">{gruppo.interessati.length ? `${gruppo.interessati.length} condòmin${gruppo.interessati.length === 1 ? 'o interessato' : 'i interessati'}` : 'Nessun interesse registrato'}</p>
-                        {gruppo.interessati.length > 0 && <p className="mt-2 text-xs font-semibold text-slate-500">{gruppo.interessati.map((i) => i.nome || i.email).join(', ')}</p>}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onPrenotaIntervento?.(item, gruppo.condominio_id)}
-                        className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
-                      >
-                        Prenota per {gruppo.nome}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={stato !== 'attiva'}
-              onClick={() => handlePromoCta(item)}
-              className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
-            >
-              {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : (isOperativo && condominioOperativoSelezionato(item) ? `Prenota per ${condominioOperativoSelezionato(item).nome}` : ctaLabelFor(item)))}
-            </button>
+            {!isOperativo && (
+              <button
+                type="button"
+                disabled={stato !== 'attiva'}
+                onClick={() => handlePromoCta(item)}
+                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+              >
+                {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item))}
+              </button>
+            )}
             {isGestore && prenotazioniPromo(item).length > 0 && typeof onConfermaPrenotazione === 'function' && (
               <button
                 type="button"
@@ -10713,6 +10686,65 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
           </div>
         </div>
       </article>
+    );
+  };
+
+
+  const PromoCondominiOperativiBox = ({ item }) => {
+    if (!isOperativo || !item) return null;
+    const gruppi = interessiCondominiPromo(item);
+    const interessatiTotali = gruppi.reduce((sum, gruppo) => sum + (gruppo.interessati?.length || 0), 0);
+
+    return (
+      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm shadow-emerald-950/5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Portafoglio amministrato</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Condomìni collegati alla promo</h3>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Apri la scheda del condominio per vedere gli interessati, stimare il peso sul totale e procedere con prenotazione o votazione.
+            </p>
+          </div>
+          <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+            {interessatiTotali} interessat{interessatiTotali === 1 ? 'o' : 'i'} totali
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {gruppi.map((gruppo) => {
+            const count = gruppo.interessati?.length || 0;
+            const totale = totaleCondominiPromo(gruppo.condominio_id);
+            const percentuale = percentualeInteressePromo(gruppo);
+            const inEvidenza = count > 0;
+
+            return (
+              <button
+                key={gruppo.condominio_id}
+                type="button"
+                onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: gruppo.condominio_id })}
+                className={`w-full rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${inEvidenza ? 'border-emerald-200 bg-emerald-50 shadow-sm shadow-emerald-950/5' : 'border-slate-200 bg-slate-50'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-base font-black text-slate-900">{gruppo.nome}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">
+                      {count} condòmin{count === 1 ? 'o interessato' : 'i interessati'}{totale ? ` su ${totale}` : ''}
+                    </p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${inEvidenza ? 'bg-white text-emerald-700' : 'bg-white text-slate-500'}`}>
+                    {percentuale !== null ? `${percentuale}%` : 'Apri'}
+                  </span>
+                </div>
+                {percentuale !== null && (
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, percentuale)}%` }} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
     );
   };
 
@@ -10744,7 +10776,10 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
       </div>
 
       {promoAttiva ? (
-        <PromoHero item={promoAttiva} />
+        <>
+          <PromoHero item={promoAttiva} />
+          <PromoCondominiOperativiBox item={promoAttiva} />
+        </>
       ) : (
         <EmptyState
           icon="💚"
@@ -10820,6 +10855,75 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
           </div>
         )}
       </div>
+
+      {gruppoPromoPopup && (
+        <div className="fixed inset-0 z-[230] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+          <div className="mx-auto my-8 w-full max-w-2xl rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Scheda condominio promo</p>
+                <h3 className="mt-1 text-2xl font-black text-slate-900">{gruppoPromoPopup.gruppo.nome}</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{gruppoPromoPopup.promo.titolo}</p>
+              </div>
+              <button type="button" onClick={() => setPromoCondominioPopup(null)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Interessati</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{gruppoPromoPopup.gruppo.interessati.length}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Condòmini totali</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{totaleCondominiPromo(gruppoPromoPopup.gruppo.condominio_id) || 'n.d.'}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Incidenza</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{percentualeInteressePromo(gruppoPromoPopup.gruppo) !== null ? `${percentualeInteressePromo(gruppoPromoPopup.gruppo)}%` : 'n.d.'}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-black uppercase tracking-[0.16em] text-slate-700">Condòmini interessati</h4>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">Aggiornato ora</span>
+              </div>
+              {gruppoPromoPopup.gruppo.interessati.length ? (
+                <div className="mt-3 grid gap-2">
+                  {gruppoPromoPopup.gruppo.interessati.map((interessato) => (
+                    <div key={interessato.email || interessato.nome} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <p className="text-sm font-black text-slate-900">{interessato.nome || interessato.email || 'Condòmino'}</p>
+                      {interessato.email && <p className="mt-1 text-xs font-semibold text-slate-500">{interessato.email}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">Nessun condòmino ha ancora manifestato interesse, ma puoi comunque prenotare l’intervento per questo condominio.</p>
+              )}
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await onPrenotaIntervento?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                  setPromoCondominioPopup(null);
+                }}
+                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+              >
+                Prenota intervento
+              </button>
+              <button
+                type="button"
+                onClick={() => alert('Votazione promo predisposta per una release successiva: disponibile per condomìni Plus/Premium.')}
+                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm"
+              >
+                Avvia votazione
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -13172,20 +13276,35 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handleServiceWorkerMessage = (event) => {
-      const data = event?.data || {};
+    let broadcastChannel = null;
+
+    const handleDeepLinkPayload = (data = {}) => {
       if (data?.type !== 'CSP_PUSH_DEEPLINK') return;
       applicaDeeplinkPushInApp(data.url || data.deeplink || data.launchUrl || '');
+    };
+
+    const handleServiceWorkerMessage = (event) => {
+      handleDeepLinkPayload(event?.data || {});
     };
 
     if (navigator?.serviceWorker?.addEventListener) {
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
     }
 
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        broadcastChannel = new BroadcastChannel('csp-push-deeplink');
+        broadcastChannel.onmessage = (event) => handleDeepLinkPayload(event?.data || {});
+      }
+    } catch (_) {}
+
     return () => {
       if (navigator?.serviceWorker?.removeEventListener) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
       }
+      try {
+        broadcastChannel?.close?.();
+      } catch (_) {}
     };
   }, [ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection]);
 
