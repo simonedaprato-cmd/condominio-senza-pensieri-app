@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.18';
-const APP_VERSION_LABEL = 'CSP v1.0.18';
+const APP_VERSION = '1.0.1';
+const APP_VERSION_LABEL = 'CSP v1.0.1';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10404,7 +10404,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 }
 
 
-function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null }) {
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], contratti = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, promoEvidenzaId = null, promoCondominioEvidenzaId = null }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
   const [promoActionLoading, setPromoActionLoading] = useState(null);
@@ -10509,15 +10509,6 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
 
     const mappa = new Map();
 
-    // Precarico i condomini visibili così amministratore/collaboratore vedono sempre
-    // il contesto corretto e possono prenotare per un condominio preciso anche se
-    // non ci sono ancora richieste registrate.
-    condominiDisponibili.forEach((c) => {
-      const key = String(c?.id || '');
-      if (!key) return;
-      mappa.set(key, { condominio_id: c.id, nome: c.nome || `Condominio ${c.id}`, interessati: [] });
-    });
-
     righe.forEach((r) => {
       const key = String(r?.condominio_id || '');
       if (!key) return;
@@ -10552,6 +10543,9 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
     return Math.min(100, Math.round(((gruppo?.interessati?.length || 0) / totale) * 100));
   };
 
+  const pianoCondominioPromo = (condominioId) => getPianoAbbonamentoCondominio(condominioId, contratti);
+  const puoAvviareVotazionePromo = (condominioId) => canUseSubscriptionFeature(pianoCondominioPromo(condominioId), 'plus');
+
   const gruppoPromoPopup = (() => {
     if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
     const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
@@ -10560,6 +10554,15 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
       : null;
     return promoItem && gruppo ? { promo: promoItem, gruppo } : null;
   })();
+
+  useEffect(() => {
+    if (!isOperativo || !promoEvidenzaId || !promoCondominioEvidenzaId) return;
+    const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId));
+    if (!promoItem) return;
+    const gruppo = interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioEvidenzaId));
+    if (!gruppo) return;
+    setPromoCondominioPopup({ promoId: promoItem.id, condominioId: gruppo.condominio_id });
+  }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoInteressi, promo?.length, condominiDisponibili?.length]);
 
   const ctaLabelFor = (item) => {
     const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
@@ -10700,9 +10703,9 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Portafoglio amministrato</p>
-            <h3 className="mt-1 text-xl font-black text-slate-900">Condomìni collegati alla promo</h3>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Condomìni interessati</h3>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Apri la scheda del condominio per vedere gli interessati, stimare il peso sul totale e procedere con prenotazione o votazione.
+              Vedi solo i condomìni del tuo portafoglio dove almeno un condòmino ha manifestato interesse. Apri la scheda per dettagli, prenotazione o futura votazione.
             </p>
           </div>
           <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
@@ -10710,6 +10713,11 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
           </span>
         </div>
 
+        {gruppi.length === 0 ? (
+          <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+            Nessun condominio del tuo portafoglio ha ancora manifestato interesse per questa promo.
+          </div>
+        ) : (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {gruppi.map((gruppo) => {
             const count = gruppo.interessati?.length || 0;
@@ -10744,6 +10752,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
             );
           })}
         </div>
+        )}
       </section>
     );
   };
@@ -10898,7 +10907,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">Nessun condòmino ha ancora manifestato interesse, ma puoi comunque prenotare l’intervento per questo condominio.</p>
+                <p className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">Nessun condòmino ha ancora manifestato interesse per questo condominio.</p>
               )}
             </div>
 
@@ -10915,10 +10924,11 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], condomini = [], r
               </button>
               <button
                 type="button"
-                onClick={() => alert('Votazione promo predisposta per una release successiva: disponibile per condomìni Plus/Premium.')}
-                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm"
+                disabled={!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id)}
+                onClick={() => alert('Votazione promo predisposta per una release successiva: disponibile solo per condomìni Plus/Premium.')}
+                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
               >
-                Avvia votazione
+                {puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) ? 'Avvia votazione' : 'Votazione Plus/Premium'}
               </button>
             </div>
           </div>
@@ -13145,6 +13155,7 @@ export default function App() {
   const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
   const [promoInteressi, setPromoInteressi] = useState([]);
   const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
+  const [promoCondominioDeeplinkId, setPromoCondominioDeeplinkId] = useState(null);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [savingPromo, setSavingPromo] = useState(false);
 
@@ -13859,6 +13870,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const section = params.get('section');
     const promoId = params.get('promo') || params.get('promoId');
+    const promoCondominioId = params.get('promoCondominio') || params.get('promoCondominioId') || params.get('condominio_id') || params.get('condominioId');
 
     if (section !== 'promo' && !promoId) return;
 
@@ -13867,10 +13879,15 @@ export default function App() {
     else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('promo');
 
     if (promoId) setPromoDeeplinkId(promoId);
+    if (promoCondominioId) setPromoCondominioDeeplinkId(String(promoCondominioId));
 
     params.delete('section');
     params.delete('promo');
     params.delete('promoId');
+    params.delete('promoCondominio');
+    params.delete('promoCondominioId');
+    params.delete('condominio_id');
+    params.delete('condominioId');
     params.delete('fromPush');
     params.delete('evento');
     params.delete('source');
@@ -14171,6 +14188,7 @@ export default function App() {
       else setCondominoSection('promo');
 
       if (riferimentoIdRaw) setPromoDeeplinkId(String(riferimentoIdRaw));
+      if (notifica?.condominio_id) setPromoCondominioDeeplinkId(String(notifica.condominio_id));
       return;
     }
 
@@ -14389,6 +14407,7 @@ export default function App() {
         fromPush: '1',
         section: 'promo',
         promo: promoRecord.id,
+        promoCondominio: condominioId,
         evento: 'promo_interesse_condomino',
       });
 
@@ -14434,6 +14453,7 @@ export default function App() {
         fromPush: '1',
         section: 'promo',
         promo: promoRecord.id,
+        promoCondominio: condominioId,
         evento: 'promo_prenotazione_amministratore',
       });
 
@@ -14477,6 +14497,7 @@ export default function App() {
         fromPush: '1',
         section: 'promo',
         promo: promoRecord.id,
+        promoCondominio: interesseRecord.condominio_id,
         evento: 'promo_confermata',
       });
 
@@ -17356,12 +17377,14 @@ export default function App() {
               promo={promoSenzaPensieri}
               promoInteressi={promoInteressi}
               condomini={condominiVisibili}
+              contratti={contratti}
               ruolo={ruoloNormalizzato}
               canCreate={true}
               onOpenCreate={() => setShowPromoModal(true)}
               onRiproponi={riproponiPromoSenzaPensieri}
               onConfermaPrenotazione={confermaPrenotazionePromo}
               promoEvidenzaId={promoDeeplinkId}
+              promoCondominioEvidenzaId={promoCondominioDeeplinkId}
             />
           </>
         )}
@@ -17387,9 +17410,11 @@ export default function App() {
             promo={promoSenzaPensieri}
             promoInteressi={promoInteressi}
             condomini={condominiVisibili}
+            contratti={contratti}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
+            promoCondominioEvidenzaId={promoCondominioDeeplinkId}
             onPrenotaIntervento={prenotaInterventoPromo}
           />
         )}
@@ -17482,9 +17507,11 @@ export default function App() {
             promo={promoSenzaPensieri}
             promoInteressi={promoInteressi}
             condomini={condominiVisibili}
+            contratti={contratti}
             ruolo={ruoloNormalizzato}
             canCreate={false}
             promoEvidenzaId={promoDeeplinkId}
+            promoCondominioEvidenzaId={promoCondominioDeeplinkId}
             onRichiediAmministratore={richiediPromoAlTuoAmministratore}
           />
         )}
