@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.17';
+const APP_VERSION_LABEL = 'CSP v1.0.17';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10483,6 +10483,7 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, onAvviaVotazionePromo, onVotaPromo, currentUserEmail = '', onRefreshPromo, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
+  const [promoManualeEvidenzaId, setPromoManualeEvidenzaId] = useState(null);
   const [promoActionLoading, setPromoActionLoading] = useState(null);
   const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
   const [promoCondominioPopup, setPromoCondominioPopup] = useState(null);
@@ -10577,9 +10578,12 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
   const promoDeeplink = promoEvidenzaId
     ? promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId))
     : null;
+  const promoManualeEvidenza = promoManualeEvidenzaId
+    ? promoOrdinate.find((item) => String(item.id) === String(promoManualeEvidenzaId))
+    : null;
   const promoAttiveOrdinate = promoOrdinate.filter(isAttiva);
   const promoAttivaDefault = promoAttiveOrdinate[0] || null;
-  const promoAttiva = promoDeeplink || promoAttivaDefault;
+  const promoAttiva = promoDeeplink || promoManualeEvidenza || promoAttivaDefault;
   const archivioBase = promoOrdinate.filter((item) => !promoAttiva || String(item.id) !== String(promoAttiva.id));
   const queryPromo = ricercaPromo.toLowerCase().trim();
   const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
@@ -10710,6 +10714,15 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     setCondominioSceltoPerPromo(promoItem.id, promoCondominioEvidenzaId);
     setPromoCondominioPopup({ promoId: promoItem.id, condominioId: promoCondominioEvidenzaId });
   }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoDeeplinkTick, promoInteressi, promo?.length, condominiDisponibili?.length]);
+
+  const apriPromoInEvidenza = (item) => {
+    if (!item?.id) return;
+    setPromoManualeEvidenzaId(item.id);
+    setPromoCondominioPopup(null);
+    setTimeout(() => {
+      try { document.getElementById('promo-senza-pensieri-hero')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+    }, 50);
+  };
 
   const ctaLabelFor = (item) => {
     const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
@@ -11039,7 +11052,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
               const stato = statoPromo(item);
               const residua = disponibilitaResidua(item);
               return (
-                <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <article key={item.id} role="button" tabIndex={0} onClick={() => apriPromoInEvidenza(item)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apriPromoInEvidenza(item); } }} className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-emerald-200 hover:bg-white hover:shadow-md">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
@@ -11049,6 +11062,13 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <p className="rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{item.prezzo || 'Promo'}</p>
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); apriPromoInEvidenza(item); }}
+                        className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
+                      >
+                        Apri promo
+                      </button>
                       {isGestore && ['scaduta', 'esaurita', 'chiusa'].includes(stato) && (
                         <button
                           type="button"
