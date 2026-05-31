@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.19';
-const APP_VERSION_LABEL = 'CSP v1.0.19';
+const APP_VERSION = '1.0.20';
+const APP_VERSION_LABEL = 'CSP v1.0.20';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10583,10 +10583,13 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     ? promoOrdinate.find((item) => String(item.id) === String(promoSchedaPopupId))
     : null;
   const promoAttiveOrdinate = promoOrdinate.filter(isAttiva);
-  const promoAttivaDefault = promoAttiveOrdinate[0] || null;
-  // La vetrina resta sempre sulla promo più recente/deeplink: le promo d'archivio si aprono in popup dedicato.
-  const promoAttiva = promoDeeplink || promoAttivaDefault;
-  const archivioBase = promoOrdinate.filter((item) => !promoAttiva || String(item.id) !== String(promoAttiva.id));
+  // Le promo attive diventano tutte vetrine autonome: più opportunità visibili, più cross selling.
+  // L'archivio resta dedicato alle promo non più attive, apribili in scheda popup.
+  const promoAttiva = promoDeeplink && isAttiva(promoDeeplink) ? promoDeeplink : null;
+  const promoAttiveVetrina = promoAttiva
+    ? [promoAttiva, ...promoAttiveOrdinate.filter((item) => String(item.id) !== String(promoAttiva.id))]
+    : promoAttiveOrdinate;
+  const archivioBase = promoOrdinate.filter((item) => !isAttiva(item));
   const queryPromo = ricercaPromo.toLowerCase().trim();
   const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
     .filter(Boolean)
@@ -10679,12 +10682,21 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
 
   const riepilogoVotiPromo = (promoId, condominioId) => {
     const righe = votiPromoPerCondominio(promoId, condominioId);
-    const favorevoli = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+    const emailVotanti = new Set(righe.map((v) => String(v?.email || '').toLowerCase().trim()).filter(Boolean));
+    const interessiFavorevoli = (promoInteressi || []).filter((r) =>
+      String(r?.promo_id) === String(promoId) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
+      !emailVotanti.has(String(r?.email || '').toLowerCase().trim())
+    );
+    const favorevoliEspliciti = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+    const favorevoli = favorevoliEspliciti + interessiFavorevoli.length;
     const contrari = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
     const totale = totaleCondominiPromo(condominioId) || 0;
-    const votanti = righe.length;
+    const votanti = righe.length + interessiFavorevoli.length;
     const partecipazione = totale ? Math.round((votanti / totale) * 100) : null;
-    return { righe, favorevoli, contrari, votanti, totale, partecipazione };
+    return { righe, favorevoli, favorevoliEspliciti, favorevoliImpliciti: interessiFavorevoli.length, contrari, votanti, totale, partecipazione };
   };
 
   const votoUtentePromo = (promoId, condominioId) => {
@@ -11050,11 +11062,15 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
         </div>
       )}
 
-      {promoAttiva ? (
-        <>
-          <PromoHero item={promoAttiva} />
-          <PromoCondominiOperativiBox item={promoAttiva} />
-        </>
+      {promoAttiveVetrina.length > 0 ? (
+        <div className="space-y-4">
+          {promoAttiveVetrina.map((item) => (
+            <div key={item.id} className="space-y-4">
+              <PromoHero item={item} />
+              <PromoCondominiOperativiBox item={item} />
+            </div>
+          ))}
+        </div>
       ) : (
         <EmptyState
           icon="💚"
