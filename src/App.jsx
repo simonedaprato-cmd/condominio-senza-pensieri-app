@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.14';
-const APP_VERSION_LABEL = 'CSP v1.0.14';
+const APP_VERSION = '1.0.15';
+const APP_VERSION_LABEL = 'CSP v1.0.15';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10602,6 +10602,22 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
   ) || null;
 
+  const prenotazionePromoConPratica = (item, condominioId) => {
+    const prenotazione = prenotazionePromoPerCondominio(item, condominioId);
+    const stato = String(prenotazione?.stato || '').toLowerCase();
+    const segnalazioneId = prenotazione?.segnalazione_id || prenotazione?.segnalazioneId || null;
+    return Boolean(prenotazione && (segnalazioneId || stato === 'confermato'));
+  };
+
+  const votazionePromoPerCondominio = (item, condominioId) => (promoInteressi || []).find((r) => {
+    const azione = String(r?.azione || '').toLowerCase();
+    const stato = String(r?.stato || '').toLowerCase();
+    return String(r?.promo_id) === String(item?.id) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      (azione.includes('votazione') || stato === 'votazione_in_corso') &&
+      stato !== 'annullato';
+  }) || null;
+
   const interessiCondominiPromo = (item) => {
     const idsVisibili = new Set(condominiDisponibili.map((c) => String(c.id)));
     const righe = (promoInteressi || []).filter((r) =>
@@ -11146,7 +11162,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {(() => {
                 const prenotazioneEsistente = prenotazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                const giaPrenotata = Boolean(prenotazioneEsistente);
+                const giaPrenotata = prenotazionePromoConPratica(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
                 const prenotazioneLoadingKey = `prenota-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
                 const disabledPrenota = statoPromo(gruppoPromoPopup.promo) !== 'attiva' || giaPrenotata || promoActionLoading === prenotazioneLoadingKey;
                 return (
@@ -11169,31 +11185,38 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
                   </button>
                 );
               })()}
-              <button
-                type="button"
-                disabled={!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) || promoActionLoading === `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`}
-                onClick={async (event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  const actionKey = `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
-                  if (!puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id)) return;
-                  if (typeof onAvviaVotazionePromo !== 'function') {
-                    console.warn('Handler onAvviaVotazionePromo non collegato alla sezione Promo.');
-                    alert('Funzione votazione non collegata alla sezione Promo.');
-                    return;
-                  }
-                  try {
-                    setPromoActionLoading(actionKey);
-                    await onAvviaVotazionePromo(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                    await onRefreshPromo?.();
-                  } finally {
-                    setPromoActionLoading(null);
-                  }
-                }}
-                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-              >
-                {promoActionLoading === `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}` ? 'Avvio votazione...' : (puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id) ? 'Avvia votazione' : '🔒 Riservato Plus/Premium')}
-              </button>
+              {(() => {
+                const actionKey = `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
+                const votazioneInCorso = Boolean(votazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id));
+                const plusEnabled = puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id);
+                const disabledVotazione = !plusEnabled || votazioneInCorso || promoActionLoading === actionKey;
+                return (
+                  <button
+                    type="button"
+                    disabled={disabledVotazione}
+                    onClick={async (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (disabledVotazione) return;
+                      if (typeof onAvviaVotazionePromo !== 'function') {
+                        console.warn('Handler onAvviaVotazionePromo non collegato alla sezione Promo.');
+                        alert('Funzione votazione non collegata alla sezione Promo.');
+                        return;
+                      }
+                      try {
+                        setPromoActionLoading(actionKey);
+                        await onAvviaVotazionePromo(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                        await onRefreshPromo?.();
+                      } finally {
+                        setPromoActionLoading(null);
+                      }
+                    }}
+                    className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    {votazioneInCorso ? '🗳️ Votazione in corso' : promoActionLoading === actionKey ? 'Avvio votazione...' : (plusEnabled ? 'Avvia votazione' : '🔒 Riservato Plus/Premium')}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
