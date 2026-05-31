@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.16';
+const APP_VERSION_LABEL = 'CSP v1.0.16';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -14973,8 +14973,55 @@ export default function App() {
         .from('promo_voti')
         .upsert(payload, { onConflict: 'promo_id,condominio_id,email' });
       if (error) throw error;
+
+      const { data: votiAggiornati, error: votiAggiornatiError } = await supabase
+        .from('promo_voti')
+        .select('*')
+        .eq('promo_id', promoRecord.id)
+        .eq('condominio_id', condominioId);
+      if (votiAggiornatiError && votiAggiornatiError.code !== 'PGRST116') throw votiAggiornatiError;
+
+      const votiUnici = Array.from(new Map((votiAggiornati || []).map((v) => [String(v?.email || '').toLowerCase().trim(), v])).values());
+      const favorevoli = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+      const contrari = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
+      const totaleFamiglieCondominio = Number(totaleCondominiPromo(condominioId) || 0);
+      const sogliaMaggioranza = totaleFamiglieCondominio ? Math.floor(totaleFamiglieCondominio / 2) + 1 : 1;
+      const maggioranzaAssolutaRaggiunta = favorevoli >= sogliaMaggioranza && favorevoli > contrari;
+      const unanimitaRaggiunta = totaleFamiglieCondominio > 0 && favorevoli >= totaleFamiglieCondominio;
+
       mostraToast('Voto registrato', `Hai espresso voto ${votoNorm}.`, 'success');
+
+      if (unanimitaRaggiunta) {
+        try {
+          const deepLink = buildAppDeepLink({ fromPush: '1', section: 'promo', promo: promoRecord.id, promoCondominio: condominioId, evento: 'promo_votazione_approvata' });
+          const { data: autoData, error: autoError } = await supabase.functions.invoke('notify-promo-prenotazione-amministratore', {
+            body: {
+              promoId: promoRecord.id,
+              condominioId,
+              viaVotazione: true,
+              richiedenteEmail: email,
+              richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
+              ruolo: 'votazione',
+              deepLink,
+              url: deepLink,
+            },
+          });
+          if (autoError || autoData?.success === false) {
+            console.warn('Creazione pratica da votazione promo non completata:', autoError || autoData);
+          } else if (autoData?.segnalazione?.id || autoData?.segnalazione_id) {
+            mostraToast('Promo approvata all’unanimità', 'Tutti i pareri risultano favorevoli: è stata aperta automaticamente una pratica CSP.', 'success');
+          }
+        } catch (autoError) {
+          console.warn('Errore creazione automatica pratica promo:', autoError);
+        }
+      }
+
+      if (!unanimitaRaggiunta && maggioranzaAssolutaRaggiunta) {
+        mostraToast('Maggioranza raggiunta', 'La maggioranza favorevole è stata raggiunta. L’amministratore può procedere con Prenota intervento.', 'info');
+      }
+
       await aggiornaPromoSenzaPensieriDati();
+      await carica();
       return true;
     } catch (error) {
       console.error('Errore voto promo:', error);
