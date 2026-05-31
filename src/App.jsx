@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.17';
-const APP_VERSION_LABEL = 'CSP v1.0.17';
+const APP_VERSION = '1.0.19';
+const APP_VERSION_LABEL = 'CSP v1.0.19';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -10483,7 +10483,8 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
 function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, onAvviaVotazionePromo, onVotaPromo, currentUserEmail = '', onRefreshPromo, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
   const [filtroGestore, setFiltroGestore] = useState('tutte');
   const [ricercaPromo, setRicercaPromo] = useState('');
-  const [promoManualeEvidenzaId, setPromoManualeEvidenzaId] = useState(null);
+  const [promoSchedaPopupId, setPromoSchedaPopupId] = useState(null);
+  const [promoRichiesteLocali, setPromoRichiesteLocali] = useState({});
   const [promoActionLoading, setPromoActionLoading] = useState(null);
   const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
   const [promoCondominioPopup, setPromoCondominioPopup] = useState(null);
@@ -10578,12 +10579,13 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
   const promoDeeplink = promoEvidenzaId
     ? promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId))
     : null;
-  const promoManualeEvidenza = promoManualeEvidenzaId
-    ? promoOrdinate.find((item) => String(item.id) === String(promoManualeEvidenzaId))
+  const promoSchedaPopup = promoSchedaPopupId
+    ? promoOrdinate.find((item) => String(item.id) === String(promoSchedaPopupId))
     : null;
   const promoAttiveOrdinate = promoOrdinate.filter(isAttiva);
   const promoAttivaDefault = promoAttiveOrdinate[0] || null;
-  const promoAttiva = promoDeeplink || promoManualeEvidenza || promoAttivaDefault;
+  // La vetrina resta sempre sulla promo più recente/deeplink: le promo d'archivio si aprono in popup dedicato.
+  const promoAttiva = promoDeeplink || promoAttivaDefault;
   const archivioBase = promoOrdinate.filter((item) => !promoAttiva || String(item.id) !== String(promoAttiva.id));
   const queryPromo = ricercaPromo.toLowerCase().trim();
   const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
@@ -10691,6 +10693,30 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     return votiPromoPerCondominio(promoId, condominioId).find((v) => String(v?.email || '').toLowerCase().trim() === email) || null;
   };
 
+  const interesseUtentePromo = (promoId, condominioId) => {
+    const email = String(currentUserEmail || '').toLowerCase().trim();
+    if (!promoId || !condominioId || !email) return null;
+    const localKey = `${promoId}::${condominioId}::${email}`;
+    if (promoRichiesteLocali?.[localKey]) return promoRichiesteLocali[localKey];
+    return (promoInteressi || []).find((r) =>
+      String(r?.promo_id) === String(promoId) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
+      String(r?.email || '').toLowerCase().trim() === email
+    ) || null;
+  };
+
+  const interesseCondominioPromo = (promoId, condominioId) => {
+    if (!promoId || !condominioId) return null;
+    return (promoInteressi || []).find((r) =>
+      String(r?.promo_id) === String(promoId) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+    ) || null;
+  };
+
   const gruppoPromoPopup = (() => {
     if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
     const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
@@ -10717,11 +10743,8 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
 
   const apriPromoInEvidenza = (item) => {
     if (!item?.id) return;
-    setPromoManualeEvidenzaId(item.id);
+    setPromoSchedaPopupId(item.id);
     setPromoCondominioPopup(null);
-    setTimeout(() => {
-      try { document.getElementById('promo-senza-pensieri-hero')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
-    }, 50);
   };
 
   const ctaLabelFor = (item) => {
@@ -10737,9 +10760,25 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     if (!item?.id) return;
 
     if (isCondomino && typeof onRichiediAmministratore === 'function') {
+      const condominioIdRichiesta = condominioSceltoPerPromo(item);
       try {
         setPromoActionLoading(item.id);
-        await onRichiediAmministratore(item, condominioSceltoPerPromo(item));
+        const result = await onRichiediAmministratore(item, condominioIdRichiesta);
+        if (result !== null && result !== false) {
+          const email = String(currentUserEmail || '').toLowerCase().trim();
+          const localKey = `${item.id}::${condominioIdRichiesta}::${email}`;
+          setPromoRichiesteLocali((prev) => ({
+            ...prev,
+            [localKey]: {
+              promo_id: item.id,
+              condominio_id: condominioIdRichiesta,
+              email,
+              azione: 'interesse',
+              stato: 'richiesto',
+            },
+          }));
+          try { await onRefreshPromo?.(); } catch (_) {}
+        }
       } finally {
         setPromoActionLoading(null);
       }
@@ -10771,9 +10810,12 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
     const esaurita = stato === 'esaurita';
     const isVotazionePromoDeeplink = isCondomino && String(item.id) === String(promoEvidenzaId) && promoCondominioEvidenzaId;
     const condominioVotazioneNome = isVotazionePromoDeeplink ? nomeCondominioPromo(promoCondominioEvidenzaId) : '';
+    const condominioCtaId = isCondomino ? condominioSceltoPerPromo(item) : '';
+    const richiestaUtenteInviata = isCondomino ? interesseUtentePromo(item.id, condominioCtaId) : null;
+    const interesseCondominioPresente = isCondomino ? interesseCondominioPromo(item.id, condominioCtaId) : null;
 
     return (
-      <article className="overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 shadow-xl shadow-amber-950/10">
+      <article id="promo-senza-pensieri-hero" className="overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 shadow-xl shadow-amber-950/10">
         {item.immagine_url ? (
           <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
             <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
@@ -10865,16 +10907,25 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
               <p className="mt-1 text-sm font-black text-slate-800">{residua !== null ? `${residua} residue su ${item.limite_quantita}` : (item.limite || 'Fino a scadenza promo')}</p>
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap items-center gap-2">
             {!isOperativo && !isVotazionePromoDeeplink && (
-              <button
-                type="button"
-                disabled={stato !== 'attiva'}
-                onClick={() => handlePromoCta(item)}
-                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
-              >
-                {promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item))}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={stato !== 'attiva' || Boolean(richiestaUtenteInviata)}
+                  onClick={() => handlePromoCta(item)}
+                  className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+                >
+                  {richiestaUtenteInviata
+                    ? 'Richiesta inviata'
+                    : (promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item)))}
+                </button>
+                {richiestaUtenteInviata ? (
+                  <span className="rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">Richiesta già inviata per questo condominio.</span>
+                ) : interesseCondominioPresente ? (
+                  <span className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-black text-amber-700 ring-1 ring-amber-100">Un condòmino ha già manifestato interesse.</span>
+                ) : null}
+              </>
             )}
             {isGestore && prenotazioniPromo(item).length > 0 && typeof onConfermaPrenotazione === 'function' && (
               <button
@@ -11086,6 +11137,21 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
           </div>
         )}
       </div>
+
+      {promoSchedaPopup && (
+        <div className="fixed inset-0 z-[225] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+          <div className="mx-auto my-8 w-full max-w-4xl rounded-[2rem] border border-white/70 bg-white p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between gap-3 px-1">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">Scheda promo</p>
+                <h3 className="text-lg font-black text-slate-900">{promoSchedaPopup.titolo || 'Promo Senza Pensieri'}</h3>
+              </div>
+              <button type="button" onClick={() => setPromoSchedaPopupId(null)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
+            </div>
+            <PromoHero item={promoSchedaPopup} />
+          </div>
+        </div>
+      )}
 
       {gruppoPromoPopup && (
         <div className="fixed inset-0 z-[230] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
