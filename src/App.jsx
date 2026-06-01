@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.20';
-const APP_VERSION_LABEL = 'CSP v1.0.20';
+const APP_VERSION = '1.0.21';
+const APP_VERSION_LABEL = 'CSP v1.0.21';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -638,6 +638,54 @@ function AppMotionStyles() {
       .csp-touch-card:active {
         transform: scale(0.985);
         box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.45);
+      }
+
+      @keyframes cspButtonSpin {
+        from { transform: translateY(-50%) rotate(0deg); }
+        to { transform: translateY(-50%) rotate(360deg); }
+      }
+
+      button.csp-action-feedback,
+      a.csp-action-feedback,
+      [role="button"].csp-action-feedback {
+        transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+      }
+
+      button.csp-action-busy,
+      a.csp-action-busy,
+      [role="button"].csp-action-busy {
+        position: relative !important;
+        pointer-events: none;
+        filter: saturate(1.05) brightness(0.98);
+        transform: translateY(0) scale(0.985);
+        opacity: 0.92;
+      }
+
+      button.csp-action-busy {
+        padding-right: 2.45rem !important;
+      }
+
+      button.csp-action-busy::after,
+      a.csp-action-busy::after,
+      [role="button"].csp-action-busy::after {
+        content: "";
+        position: absolute;
+        right: 0.82rem;
+        top: 50%;
+        width: 0.88rem;
+        height: 0.88rem;
+        border-radius: 999px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        opacity: 0.9;
+        animation: cspButtonSpin 720ms linear infinite;
+      }
+
+      button.csp-action-busy[data-csp-compact="true"]::after,
+      a.csp-action-busy[data-csp-compact="true"]::after,
+      [role="button"].csp-action-busy[data-csp-compact="true"]::after {
+        right: 50%;
+        margin-right: -0.44rem;
       }
     `}</style>
   );
@@ -13520,6 +13568,55 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [showFabLabel, setShowFabLabel] = useState(false);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
+    const shouldSkipButtonFeedback = (button) => {
+      if (!button) return true;
+      if (button.disabled || button.getAttribute('aria-disabled') === 'true') return true;
+      if (button.dataset?.cspNoBusy === 'true') return true;
+      if (button.classList.contains('csp-action-busy')) return true;
+      if (button.closest('[data-csp-no-busy="true"]')) return true;
+      return false;
+    };
+
+    const handleButtonFeedback = (event) => {
+      const target = event.target;
+      const button = target?.closest?.('button, a[role="button"], [role="button"]');
+      if (shouldSkipButtonFeedback(button)) return;
+
+      window.setTimeout(() => {
+        if (!button.isConnected || shouldSkipButtonFeedback(button)) return;
+
+        const testo = (button.textContent || '').trim();
+        const isCompact = testo.length <= 2 || button.offsetWidth < 46 || button.offsetHeight < 34;
+        button.classList.add('csp-action-feedback', 'csp-action-busy');
+        if (isCompact) button.dataset.cspCompact = 'true';
+        button.setAttribute('aria-busy', 'true');
+
+        const wasDisabled = button instanceof HTMLButtonElement ? button.disabled : false;
+        if (button instanceof HTMLButtonElement && !wasDisabled) {
+          button.dataset.cspWasDisabled = 'false';
+          button.disabled = true;
+        }
+
+        window.setTimeout(() => {
+          if (!button.isConnected) return;
+          button.classList.remove('csp-action-busy');
+          button.removeAttribute('aria-busy');
+          delete button.dataset.cspCompact;
+          if (button instanceof HTMLButtonElement && button.dataset.cspWasDisabled === 'false') {
+            button.disabled = false;
+            delete button.dataset.cspWasDisabled;
+          }
+        }, 1400);
+      }, 0);
+    };
+
+    document.addEventListener('click', handleButtonFeedback, true);
+    return () => document.removeEventListener('click', handleButtonFeedback, true);
+  }, []);
   const [votiPreventivi, setVotiPreventivi] = useState([]);
   const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
