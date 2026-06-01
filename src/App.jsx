@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.17';
-const APP_VERSION_LABEL = 'CSP v1.0.17';
+const APP_VERSION = '1.0.18';
+const APP_VERSION_LABEL = 'CSP v1.0.18';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -226,7 +226,7 @@ function subscriptionPlanCardClass(piano = 'base') {
 
 
 
-function TopbarPlanTextLabel({ piano = 'base' }) {
+function TopbarPlanTextLabel({ piano = 'base', onClick }) {
   const pianoNorm = normalizzaPianoAbbonamento(piano);
   const label = pianoNorm === 'premium'
     ? 'CSP PREMIUM'
@@ -239,6 +239,19 @@ function TopbarPlanTextLabel({ piano = 'base' }) {
     : pianoNorm === 'plus'
       ? 'text-sky-100'
       : 'text-white/80';
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`rounded-full px-2 py-1 text-xs font-black uppercase tracking-[0.16em] transition hover:bg-white/10 active:scale-95 ${cls}`}
+        title="Apri i piani CSP"
+      >
+        {label}
+      </button>
+    );
+  }
 
   return (
     <span className={`text-xs font-black uppercase tracking-[0.16em] ${cls}`}>
@@ -2265,6 +2278,7 @@ function LiveTopBar({
   onOpenNotifica,
   onRefreshNotifiche,
   onClearEvidenzaNotifiche,
+  onOpenPiano,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [showNotifiche, setShowNotifiche] = useState(false);
@@ -2332,7 +2346,7 @@ function LiveTopBar({
           </button>
           <div className="relative flex items-center justify-end gap-2 text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
             {isCondominoTopbar ? (
-              <TopbarPlanTextLabel piano={pianoAbbonamento} />
+              <TopbarPlanTextLabel piano={pianoAbbonamento} onClick={onOpenPiano} />
             ) : (
               <>
                 <span>{formattedDate}</span>
@@ -15925,7 +15939,6 @@ export default function App() {
 
   const condominoSections = [
     { id: 'home-intelligente', label: '⭐ Home Intelligente', subtitle: 'La tua vista riepilogativa' },
-    { id: 'piani-csp', label: '💎 Il tuo piano', subtitle: 'Piani e servizi CSP' },
     { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
@@ -16031,6 +16044,7 @@ export default function App() {
             onOpenNotifica={apriNotificaCentro}
             onRefreshNotifiche={aggiornaNotificheCentro}
             onClearEvidenzaNotifiche={pulisciEvidenzaNotifiche}
+            onOpenPiano={() => { setStatusMessage(''); setCondominoSection('piani-csp'); }}
           />
         )}
 
