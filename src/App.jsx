@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.22';
-const APP_VERSION_LABEL = 'CSP v1.0.22';
+const APP_VERSION = '1.0.23';
+const APP_VERSION_LABEL = 'CSP v1.0.23';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -15207,12 +15207,28 @@ export default function App() {
       if (votiAggiornatiError && votiAggiornatiError.code !== 'PGRST116') throw votiAggiornatiError;
 
       const votiUnici = Array.from(new Map((votiAggiornati || []).map((v) => [String(v?.email || '').toLowerCase().trim(), v])).values());
-      const favorevoli = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+      const emailVotantiAggiornati = new Set(votiUnici.map((v) => String(v?.email || '').toLowerCase().trim()).filter(Boolean));
+      const favorevoliEspliciti = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
       const contrari = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
+      const { data: interessiAggiornati, error: interessiAggiornatiError } = await supabase
+        .from('promo_interessi')
+        .select('email, azione, stato')
+        .eq('promo_id', promoRecord.id)
+        .eq('condominio_id', condominioId);
+      if (interessiAggiornatiError && interessiAggiornatiError.code !== 'PGRST116') throw interessiAggiornatiError;
+      const interessiFavorevoliImpliciti = Array.from(new Map((interessiAggiornati || [])
+        .filter((r) =>
+          String(r?.azione || '').toLowerCase().includes('interesse') &&
+          String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+        )
+        .map((r) => [String(r?.email || '').toLowerCase().trim(), r])
+        .filter(([email]) => email && !emailVotantiAggiornati.has(email))
+      ).values()).length;
+      const favorevoli = favorevoliEspliciti + interessiFavorevoliImpliciti;
       const totaleFamiglieCondominio = Number(totaleCondominiPromo(condominioId) || 0);
       const sogliaMaggioranza = totaleFamiglieCondominio ? Math.floor(totaleFamiglieCondominio / 2) + 1 : 1;
       const maggioranzaAssolutaRaggiunta = favorevoli >= sogliaMaggioranza && favorevoli > contrari;
-      const unanimitaRaggiunta = totaleFamiglieCondominio > 0 && favorevoli >= totaleFamiglieCondominio;
+      const unanimitaRaggiunta = totaleFamiglieCondominio > 0 && contrari === 0 && favorevoli >= totaleFamiglieCondominio;
 
       mostraToast('Voto registrato', `Hai espresso voto ${votoNorm}.`, 'success');
 
