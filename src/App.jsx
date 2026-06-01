@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.6';
-const APP_VERSION_LABEL = 'CSP v1.0.6';
+const APP_VERSION = '1.0.7';
+const APP_VERSION_LABEL = 'CSP v1.0.7';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -14727,7 +14727,13 @@ export default function App() {
     const riferimentoIdRaw = notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || '';
     const riferimentoId = Number(riferimentoIdRaw || 0);
 
-    if (tipo.includes('promo_pratica') && riferimentoId) {
+    const isPromoPraticaCsp = riferimentoId && (
+      tipo.includes('promo_pratica') ||
+      tipo.includes('promo_prenotazione_confermata') ||
+      tipo.includes('promo_attivata')
+    );
+
+    if (isPromoPraticaCsp) {
       const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
       if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
       else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
@@ -14737,6 +14743,10 @@ export default function App() {
       } else {
         mostraToast('Pratica in caricamento', 'La pratica collegata alla promo sarà disponibile appena terminato l’aggiornamento dati.', 'info');
         await carica();
+        setTimeout(() => {
+          const aggiornata = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
+          if (aggiornata) setDettaglioAperto(aggiornata);
+        }, 600);
       }
       return;
     }
