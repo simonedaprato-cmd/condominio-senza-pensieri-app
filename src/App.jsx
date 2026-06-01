@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.12';
-const APP_VERSION_LABEL = 'CSP v1.0.12';
+const APP_VERSION = '1.0.13';
+const APP_VERSION_LABEL = 'CSP v1.0.13';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -34,13 +34,6 @@ const STATI_PRATICA = [
   'Sopralluogo effettuato',
   'Preventivata',
   'Accettata',
-  'Pianificata',
-  'Chiusa',
-];
-
-const STATI_PRATICA_PROMO = [
-  'Nuova',
-  'Presa in carico',
   'Pianificata',
   'Chiusa',
 ];
@@ -254,160 +247,6 @@ function TopbarPlanTextLabel({ piano = 'base' }) {
   );
 }
 
-
-
-function PianoCspExperienceModal({ piano = 'base', onClose, onInfo }) {
-  const pianoNorm = normalizzaPianoAbbonamento(piano);
-  const pianoLabel = pianoNorm === 'premium' ? 'CSP Premium' : pianoNorm === 'plus' ? 'CSP Plus' : 'CSP Base';
-  const piani = [
-    {
-      id: 'base',
-      nome: 'CSP Base',
-      payoff: 'Il punto di partenza per gestire il condominio con ordine e tracciabilità.',
-      badge: 'Incluso',
-      tone: 'slate',
-      items: [
-        'Segnalazioni condominiali',
-        'Monitoraggio pratiche',
-        'Notifiche in tempo reale',
-        'Documentazione condivisa',
-      ],
-    },
-    {
-      id: 'plus',
-      nome: 'CSP Plus',
-      payoff: 'Più servizi, più coinvolgimento e meno passaggi manuali per il condominio.',
-      badge: 'Upgrade naturale',
-      tone: 'sky',
-      items: [
-        'Tutto il piano Base',
-        'La Tua Casa Senza Pensieri',
-        'Votazioni Promo Senza Pensieri',
-        'Accesso completo alla Rivista CSP',
-        'Promozioni dedicate',
-      ],
-    },
-    {
-      id: 'premium',
-      nome: 'CSP Premium',
-      payoff: 'L’esperienza completa per vivere il condominio con priorità, servizi e opportunità esclusive.',
-      badge: 'Esperienza completa',
-      tone: 'amber',
-      items: [
-        'Tutto il piano Plus',
-        'Gestione emergenze prioritaria',
-        'Priorità sugli interventi',
-        'Accesso anticipato alle opportunità',
-        'Servizi esclusivi Premium',
-      ],
-    },
-  ];
-
-  const toneClass = (id) => {
-    if (id === 'premium') return 'border-amber-300/70 bg-gradient-to-br from-amber-300/15 via-yellow-200/10 to-white/5 shadow-amber-500/10';
-    if (id === 'plus') return 'border-sky-300/70 bg-gradient-to-br from-sky-300/15 via-cyan-200/10 to-white/5 shadow-sky-500/10';
-    return 'border-white/15 bg-white/7 shadow-black/20';
-  };
-
-  return (
-    <div className="fixed inset-0 z-[260] overflow-y-auto bg-black text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.30),transparent_32%),radial-gradient(circle_at_75%_20%,rgba(245,158,11,0.22),transparent_28%),linear-gradient(135deg,#020617,#030712_45%,#022c22)]" />
-      <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 md:px-8 md:py-8">
-        <div className="flex items-center justify-between gap-4">
-          <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-white/80 shadow-lg shadow-black/20 backdrop-blur-xl">
-            <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-lg shadow-emerald-300/50" />
-            Stai utilizzando: {pianoLabel}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl font-black text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-white/15 active:translate-y-0 active:scale-95"
-            aria-label="Chiudi"
-          >
-            ×
-          </button>
-        </div>
-
-        <header className="mx-auto mt-8 max-w-3xl text-center md:mt-12">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-amber-200/25 bg-black/35 p-3 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl">
-            <img src={SPLASH_LOGO_SRC} alt="CSP" className="h-full w-full object-contain drop-shadow-[0_0_22px_rgba(16,185,129,0.45)]" />
-          </div>
-          <p className="mt-6 text-xs font-black uppercase tracking-[0.32em] text-emerald-200">Premium Experience</p>
-          <h2 className="mt-3 text-4xl font-black tracking-tight text-white md:text-6xl">
-            Il tuo piano<br />Condominio Senza Pensieri
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-sm font-semibold leading-7 text-white/70 md:text-base">
-            Scopri tutti i servizi disponibili e le opportunità riservate al tuo condominio.
-          </p>
-        </header>
-
-        <section className="mt-8 grid gap-4 md:mt-10 md:grid-cols-3">
-          {piani.map((item) => {
-            const isActive = pianoNorm === item.id;
-            const isAvailable = getLivelloPianoAbbonamento(item.id) > getLivelloPianoAbbonamento(pianoNorm);
-            return (
-              <article
-                key={item.id}
-                className={`relative overflow-hidden rounded-[2rem] border p-5 shadow-2xl backdrop-blur-xl ${toneClass(item.id)} ${isActive ? 'ring-2 ring-emerald-300/70' : ''}`}
-              >
-                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-                <div className="relative">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">{item.badge}</p>
-                      <h3 className="mt-2 text-2xl font-black text-white">{item.nome}</h3>
-                    </div>
-                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${isActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-white/15 bg-white/10 text-white/60'}`}>
-                      {isActive ? 'Attivo' : isAvailable ? 'Disponibile' : 'Incluso'}
-                    </span>
-                  </div>
-                  <p className="mt-4 min-h-[4rem] text-sm font-semibold leading-6 text-white/70">{item.payoff}</p>
-                  <ul className="mt-5 space-y-3">
-                    {item.items.map((feature) => (
-                      <li key={feature} className="flex gap-3 text-sm font-bold leading-5 text-white/82">
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-300/18 text-xs text-emerald-100 ring-1 ring-emerald-200/30">✓</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
-            );
-          })}
-        </section>
-
-        <section className="mx-auto mt-8 w-full max-w-3xl rounded-[2rem] border border-white/15 bg-white/10 p-5 text-center shadow-2xl shadow-black/25 backdrop-blur-xl md:mt-10 md:p-6">
-          <p className="text-sm font-semibold leading-7 text-white/76">
-            Ogni piano è pensato per offrire un livello diverso di assistenza, servizi e opportunità.
-            <br className="hidden md:block" />
-            Scopri quale soluzione è più adatta al tuo condominio.
-          </p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              type="button"
-              onClick={onInfo}
-              className="rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-emerald-950 shadow-xl shadow-emerald-950/30 transition hover:-translate-y-0.5 hover:shadow-2xl active:translate-y-0 active:scale-[0.98]"
-            >
-              Scopri come attivare Plus o Premium
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-white/18 bg-white/10 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-white/75 transition hover:-translate-y-0.5 hover:bg-white/15 active:translate-y-0 active:scale-[0.98]"
-            >
-              Torna all’app
-            </button>
-          </div>
-          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-white/35">
-            Predisposto per il riepilogo servizi attivi nelle prossime evoluzioni CSP
-          </p>
-        </section>
-      </div>
-    </div>
-  );
-}
-
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
   return SUPABASE_URL + '/storage/v1/object/public/allegati/' + encodeURIComponent(fileName);
@@ -419,62 +258,208 @@ function formatEuro(value) {
   return '€ ' + formattato;
 }
 
-function formatCurrency(value) {
-  return formatEuro(value);
-}
 
-function normalizeItalianPhone(phone) {
-  if (!phone) return '';
-  let raw = String(phone).trim();
-  if (!raw) return '';
-  raw = raw.replace(/[^\d+]/g, '');
-  if (raw.startsWith('00')) raw = raw.slice(2);
-  if (raw.startsWith('+')) raw = raw.slice(1);
-  raw = raw.replace(/\D/g, '');
+function normalizzaTelefonoItaliaCsp(phone) {
+  const raw = String(phone || '').replace(/\D/g, '');
   if (!raw) return '';
   if (raw.startsWith('39')) return raw;
   return `39${raw}`;
 }
 
-function ContactActionButtons({ phone, label = 'contatto', compact = false }) {
-  const normalized = normalizeItalianPhone(phone);
-  if (!normalized || normalized.length < 8) return null;
-  const readable = `+${normalized}`;
-  const whatsappText = encodeURIComponent(`Ciao, ti contatto da Condominio Senza Pensieri per la tua richiesta.`);
-  const baseBtn = compact
-    ? 'inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-black shadow-sm transition active:scale-[0.98]'
-    : 'inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black shadow-sm transition active:scale-[0.98]';
+function formatTelefonoCsp(phone) {
+  const raw = String(phone || '').replace(/\D/g, '');
+  if (!raw) return 'Telefono non indicato';
+  return raw.replace(/(\d{3})(?=\d)/, '$1 ').replace(/(\d{3}\s\d{3})(?=\d)/, '$1 ');
+}
+
+function getNomeCompletoCsp(profile = {}, utentiCondomini = [], email = '', condominioId = null) {
+  const mail = String(email || profile?.email || '').toLowerCase().trim();
+  const id = Number(condominioId || 0);
+  const row = (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail && (!id || Number(u.condominio_id || 0) === id))
+    || (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail)
+    || {};
+  return [profile?.nome || row.nome, profile?.cognome || row.cognome].filter(Boolean).join(' ').trim() || mail || 'Utente CSP';
+}
+
+function getCognomeCsp(profile = {}, utentiCondomini = [], email = '', condominioId = null) {
+  const mail = String(email || profile?.email || '').toLowerCase().trim();
+  const id = Number(condominioId || 0);
+  const row = (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail && (!id || Number(u.condominio_id || 0) === id))
+    || (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail)
+    || {};
+  return String(profile?.cognome || row.cognome || '').trim();
+}
+
+function PianoCspPremiumExperienceModal({ piano = 'base', onClose, onRequestUpgrade }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const cards = [
+    {
+      key: 'base',
+      title: 'CSP Base',
+      eyebrow: 'Essenziale',
+      text: 'La base operativa per restare aggiornati sulle pratiche del condominio.',
+      items: ['Segnalazioni condominiali', 'Monitoraggio pratiche', 'Notifiche in tempo reale', 'Documentazione condivisa'],
+      cls: 'border-white/10 bg-white/6 text-slate-100',
+    },
+    {
+      key: 'plus',
+      title: 'CSP Plus',
+      eyebrow: 'Più comodità',
+      text: 'Automazioni e servizi evoluti per rendere il condominio più semplice da gestire.',
+      items: ['Tutto il Base', 'La tua casa Senza Pensieri', 'Votazioni Promo Senza Pensieri', 'Promozioni dedicate', 'Maggiore coinvolgimento dei condòmini'],
+      cls: 'border-sky-300/30 bg-sky-400/10 text-sky-50 shadow-sky-950/20',
+    },
+    {
+      key: 'premium',
+      title: 'CSP Premium',
+      eyebrow: 'Esperienza completa',
+      text: 'Il livello più completo per assistenza, priorità e opportunità dedicate.',
+      items: ['Tutto il Plus', 'Gestione emergenze prioritaria', 'Priorità sugli interventi', 'Accesso anticipato alle opportunità', 'Servizi esclusivi Premium'],
+      cls: 'border-amber-300/35 bg-amber-300/10 text-amber-50 shadow-amber-950/20',
+    },
+  ];
+  const ctaLabel = pianoNorm === 'premium'
+    ? 'Piano Premium attivo'
+    : pianoNorm === 'plus'
+      ? 'Scopri come attivare Premium'
+      : 'Scopri come attivare Plus o Premium';
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      <a href={`tel:+${normalized}`} className={`${baseBtn} bg-emerald-600 text-white`} aria-label={`Chiama ${label}`}>
-        📞 Chiama
-      </a>
-      <a href={`https://wa.me/${normalized}?text=${whatsappText}`} target="_blank" rel="noreferrer" className={`${baseBtn} bg-[#25D366] text-white`} aria-label={`Scrivi su WhatsApp a ${label}`}>
-        💬 WhatsApp
-      </a>
-      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-500">{readable}</span>
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950 text-white csp-enter">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_32%),linear-gradient(145deg,#020617,#020617_45%,#111827)] px-4 py-6 md:px-8">
+        <div className="mx-auto flex max-w-4xl justify-end">
+          <button type="button" onClick={onClose} className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/80 transition hover:bg-white/15">Torna all'app</button>
+        </div>
+        <div className="mx-auto mt-5 max-w-4xl text-center">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-emerald-300/20 bg-white/8 shadow-2xl shadow-emerald-950/40">
+            <LogoMark className="h-16 w-auto" />
+          </div>
+          <p className="mt-6 text-[10px] font-black uppercase tracking-[0.32em] text-emerald-300">Condominio Senza Pensieri</p>
+          <h2 className="mt-2 text-4xl font-black leading-tight md:text-5xl">Il tuo piano CSP</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/65">
+            Scopri tutti i servizi disponibili e le opportunità riservate al tuo condominio.
+          </p>
+          <div className="mt-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-white/75">
+            Stai utilizzando: <span className="ml-2 text-emerald-200">CSP {pianoNorm}</span>
+          </div>
+        </div>
+        <div className="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-3">
+          {cards.map((card) => {
+            const active = card.key === pianoNorm;
+            return (
+              <article key={card.key} className={`rounded-[2rem] border p-5 shadow-2xl ${card.cls} ${active ? 'ring-2 ring-emerald-300/70' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">{card.eyebrow}</p>
+                    <h3 className="mt-2 text-2xl font-black">{card.title}</h3>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${active ? 'bg-emerald-300 text-emerald-950' : 'bg-white/10 text-white/55'}`}>{active ? 'Attivo' : 'Disponibile'}</span>
+                </div>
+                <p className="mt-3 min-h-[3rem] text-sm font-semibold leading-6 text-white/65">{card.text}</p>
+                <ul className="mt-5 space-y-3 text-left text-sm font-bold text-white/80">
+                  {card.items.map((item) => <li key={item} className="flex gap-2"><span className="text-emerald-300">✓</span><span>{item}</span></li>)}
+                </ul>
+              </article>
+            );
+          })}
+        </div>
+        <div className="mx-auto mt-8 max-w-3xl rounded-[2rem] border border-white/10 bg-white/8 p-5 text-center shadow-2xl shadow-slate-950/40">
+          <p className="text-sm font-semibold leading-6 text-white/70">
+            Ogni piano è pensato per offrire un livello diverso di assistenza, servizi e opportunità.
+            Scopri quale soluzione è più adatta al tuo condominio.
+          </p>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+            {pianoNorm === 'premium' ? (
+              <span className="rounded-2xl border border-amber-300/35 bg-amber-300/15 px-5 py-3 text-sm font-black text-amber-100">✓ Piano Premium attivo</span>
+            ) : (
+              <button type="button" onClick={() => onRequestUpgrade?.(pianoNorm === 'plus' ? 'premium' : 'plus_premium')} className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 shadow-xl shadow-emerald-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-300 active:translate-y-0">
+                {ctaLabel}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white/80 transition hover:bg-white/15">Torna all'app</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function formatPromoPrezzo(value) {
-  if (value === null || value === undefined) return 'Su richiesta';
-  const raw = String(value).trim();
-  if (!raw) return 'Su richiesta';
-  if (raw.includes('€')) return raw;
-  const parseNumber = (text) => {
-    const cleaned = String(text || '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : null;
-  };
-  if (/^[0-9\s.,]+$/.test(raw)) {
-    const n = parseNumber(raw);
-    return n === null ? raw : formatEuro(n);
-  }
-  return raw.replace(/([0-9][0-9\s.,]*)/, (match) => {
-    const n = parseNumber(match);
-    return n === null ? match : formatEuro(n);
-  });
+function RichiestaUpgradeCspModal({ data, sending = false, note = '', onChangeNote, onClose, onSubmit }) {
+  if (!data) return null;
+  return (
+    <div className="fixed inset-0 z-[230] flex items-end justify-center bg-slate-950/60 p-3 backdrop-blur-sm md:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-2xl csp-enter md:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Richiesta informazioni</p>
+            <h3 className="mt-1 text-2xl font-black text-slate-950">Piano CSP {data.pianoLabel}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-3 py-1 text-sm font-black text-slate-600">×</button>
+        </div>
+        <div className="mt-5 rounded-[1.5rem] border border-emerald-100 bg-emerald-50 p-4">
+          <p className="text-sm font-semibold leading-6 text-emerald-950">
+            Se desiderate passare al piano {data.pianoLabel} saremo lieti di organizzare un breve incontro presso il vostro condominio per illustrarvi tutti i vantaggi, i servizi e le opportunità disponibili.
+          </p>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Richiedente</p><p className="mt-1 font-black text-slate-900">{data.nomeCompleto}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Condominio</p><p className="mt-1 font-black text-slate-900">{data.condominioNome}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Telefono</p><p className="mt-1 font-black text-slate-900">{formatTelefonoCsp(data.telefono)}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Email</p><p className="mt-1 font-black text-slate-900">{data.email}</p></div>
+        </div>
+        <label className="mt-4 block text-sm font-black text-slate-700">Note aggiuntive
+          <textarea value={note} onChange={(e) => onChangeNote?.(e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" placeholder="Puoi aggiungere preferenze su giorni, orari o informazioni utili." />
+        </label>
+        <button type="button" onClick={onSubmit} disabled={sending} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70">
+          {sending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {sending ? 'Invio richiesta…' : 'Invia richiesta'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RichiesteUpgradeGestoreBox({ richieste = [], onUpdateData }) {
+  const aperte = (richieste || []).filter((r) => String(r.stato || 'nuova') !== 'archiviata').slice(0, 8);
+  if (!aperte.length) return null;
+  return (
+    <section className="rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-5 shadow-sm">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Upgrade CSP</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">Richieste Upgrade CSP</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Lead qualificati dai condòmini interessati a Plus e Premium.</p>
+        </div>
+        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{aperte.length} richieste</span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {aperte.map((r) => {
+          const tel = normalizzaTelefonoItaliaCsp(r.telefono);
+          const waText = `Ciao ${r.nome || ''}, ti contatto per la richiesta informazioni CSP ${String(r.piano_richiesto || '').toUpperCase()} per ${r.condominio_nome || 'il tuo condominio'}.`;
+          return (
+            <article key={r.id} className="rounded-[1.5rem] border border-white bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Piano richiesto: {String(r.piano_richiesto || '').toUpperCase()}</p>
+              <h3 className="mt-1 text-base font-black text-slate-900">{[r.nome, r.cognome].filter(Boolean).join(' ') || r.email}</h3>
+              <p className="mt-1 text-xs font-bold text-slate-500">{r.condominio_nome || 'Condominio n.d.'}</p>
+              <p className="mt-2 text-xs font-semibold text-slate-500">{r.email || 'Email n.d.'} {r.telefono ? `• ${r.telefono}` : ''}</p>
+              {r.note && <p className="mt-2 rounded-2xl bg-slate-50 p-3 text-xs font-semibold text-slate-600">{r.note}</p>}
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {tel && <a href={`tel:+${tel}`} className="rounded-xl bg-emerald-600 px-3 py-2 text-center text-xs font-black text-white">Chiama</a>}
+                {tel && <a href={`https://wa.me/${tel}?text=${encodeURIComponent(waText)}`} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-black text-white">WhatsApp</a>}
+                {r.email && <a href={`mailto:${r.email}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-xs font-black text-slate-700">Email</a>}
+              </div>
+              <label className="mt-3 block text-xs font-black text-slate-600">Data presentazione
+                <input type="datetime-local" value={r.data_presentazione ? String(r.data_presentazione).slice(0,16) : ''} onChange={(e) => onUpdateData?.(r, e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold" />
+              </label>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function formatCurrency(value) {
+  return formatEuro(value);
 }
 
 function formatNotificaTempo(value) {
@@ -649,17 +634,9 @@ function isPushLaunchContext() {
     params.has('segnalazione') ||
     params.has('segnalazioneId') ||
     params.has('capitolato') ||
-    params.has('casep') ||
-    params.has('capitolatoId') ||
     params.has('rivista') ||
     params.has('magazine') ||
-    params.has('report') ||
-    params.has('reportId') ||
-    params.has('promo') ||
-    params.has('promoId') ||
-    params.get('section') === 'rivista' ||
-    params.get('section') === 'report' ||
-    params.get('section') === 'promo'
+    params.get('section') === 'rivista'
   );
 }
 
@@ -846,54 +823,6 @@ function AppMotionStyles() {
       .csp-touch-card:active {
         transform: scale(0.985);
         box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.45);
-      }
-
-      @keyframes cspButtonSpin {
-        from { transform: translateY(-50%) rotate(0deg); }
-        to { transform: translateY(-50%) rotate(360deg); }
-      }
-
-      button.csp-action-feedback,
-      a.csp-action-feedback,
-      [role="button"].csp-action-feedback {
-        transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
-      }
-
-      button.csp-action-busy,
-      a.csp-action-busy,
-      [role="button"].csp-action-busy {
-        position: relative !important;
-        pointer-events: none;
-        filter: saturate(1.05) brightness(0.98);
-        transform: translateY(0) scale(0.985);
-        opacity: 0.92;
-      }
-
-      button.csp-action-busy {
-        padding-right: 2.45rem !important;
-      }
-
-      button.csp-action-busy::after,
-      a.csp-action-busy::after,
-      [role="button"].csp-action-busy::after {
-        content: "";
-        position: absolute;
-        right: 0.82rem;
-        top: 50%;
-        width: 0.88rem;
-        height: 0.88rem;
-        border-radius: 999px;
-        border: 2px solid currentColor;
-        border-top-color: transparent;
-        opacity: 0.9;
-        animation: cspButtonSpin 720ms linear infinite;
-      }
-
-      button.csp-action-busy[data-csp-compact="true"]::after,
-      a.csp-action-busy[data-csp-compact="true"]::after,
-      [role="button"].csp-action-busy[data-csp-compact="true"]::after {
-        right: 50%;
-        margin-right: -0.44rem;
       }
     `}</style>
   );
@@ -2607,9 +2536,8 @@ function LiveTopBar({
               <button
                 type="button"
                 onClick={onOpenPianiCsp}
-                className="group rounded-full border border-white/20 bg-white/10 px-2.5 py-1 shadow-sm shadow-emerald-950/10 transition hover:-translate-y-0.5 hover:bg-white/15 active:translate-y-0 active:scale-[0.98]"
+                className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:bg-white/15 active:scale-95"
                 title="Scopri il tuo piano CSP"
-                aria-label="Scopri il tuo piano Condominio Senza Pensieri"
               >
                 <TopbarPlanTextLabel piano={pianoAbbonamento} />
               </button>
@@ -6021,8 +5949,6 @@ function CapitolatoSenzaPensieriSuite({
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
   onDeleteCapitolato,
-  deeplinkCapitolatoId = null,
-  onClearDeeplinkCapitolato = null,
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
@@ -6505,36 +6431,31 @@ function CapitolatoSenzaPensieriSuite({
     });
   }, [capitolatoAperto?.id, capitolatoAperto?.data_assemblea, capitolatoAperto?.luogo_assemblea]);
 
-  // Deeplink CaSeP: push e campanella aprono direttamente la scheda popup della pratica.
+  // Release 141: deep link push CaSeP.
+  // Le push CaSeP aprono direttamente la scheda capitolato con ?fromPush=1&capitolato=ID.
   useEffect(() => {
     if (!capitolatiVisibili.length) return;
     if (typeof window === 'undefined') return;
 
     const params = new URLSearchParams(window.location.search || '');
-    const urlCapitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
-    const targetCapitolatoId = deeplinkCapitolatoId || urlCapitolatoId;
-    if (!targetCapitolatoId) return;
+    const capitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
+    if (!capitolatoId) return;
 
-    const capitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(targetCapitolatoId));
+    const capitolato = capitolatiVisibili.find((item) => Number(item.id) === Number(capitolatoId));
     if (!capitolato) return;
 
     setCapitolatoApertoId(Number(capitolato.id));
-    if (typeof onClearDeeplinkCapitolato === 'function' && deeplinkCapitolatoId) onClearDeeplinkCapitolato();
+    params.delete('capitolato');
+    params.delete('casep');
+    params.delete('capitolatoId');
+    params.delete('fromPush');
+    params.delete('source');
+    params.delete('utm_source');
 
-    if (urlCapitolatoId) {
-      params.delete('section');
-      params.delete('capitolato');
-      params.delete('casep');
-      params.delete('capitolatoId');
-      params.delete('fromPush');
-      params.delete('source');
-      params.delete('utm_source');
-
-      const query = params.toString();
-      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-      window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-    }
-  }, [capitolatiVisibili, deeplinkCapitolatoId, onClearDeeplinkCapitolato]);
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
+  }, [capitolatiVisibili, setCapitolatoApertoId]);
 
   const valorePotenziale = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
   const valoreOfferteGestore = capitolatiVisibili.reduce((sum, item) => sum + Number(item.valore_offerta || 0), 0);
@@ -10444,72 +10365,8 @@ function DashboardStorico({ segnalazioni }) {
   );
 }
 
-
-function NuovePraticheGestoreBox({ segnalazioni = [], condomini = [], onOpen }) {
-  const condominioNome = (id) => (condomini || []).find((c) => Number(c.id) === Number(id))?.nome || `Condominio #${id || 'n.d.'}`;
-  const nuove = (Array.isArray(segnalazioni) ? segnalazioni : [])
-    .filter((s) => String(s?.stato || '').toLowerCase().trim() === 'nuova' && !isValoreVero(s?.archiviata))
-    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-  const promoNuove = nuove.filter((s) => String(s?.origine || '').toLowerCase().trim() === 'promo').length;
-
-  return (
-    <section className="rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/70 to-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Nuove pratiche</p>
-          <h3 className="mt-1 text-xl font-black text-slate-900">Da prendere in carico</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Le pratiche appena aperte, incluse quelle generate dalle Promo Senza Pensieri.</p>
-        </div>
-        <div className="flex gap-2">
-          <span className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm">{nuove.length} nuove</span>
-          {promoNuove > 0 && <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700">{promoNuove} Promo</span>}
-        </div>
-      </div>
-
-      {nuove.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-emerald-200 bg-white/80 p-4 text-sm font-semibold text-slate-500">Nessuna nuova pratica in attesa. Il flusso operativo è pulito.</div>
-      ) : (
-        <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1 csp-scroll">
-          {nuove.map((pratica) => {
-            const isPromo = String(pratica?.origine || '').toLowerCase().trim() === 'promo';
-            return (
-              <button
-                key={pratica.id}
-                type="button"
-                onClick={() => onOpen?.(pratica)}
-                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {isPromo && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>}
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Nuova</span>
-                    </div>
-                    <h4 className="mt-2 text-base font-black text-slate-900">{pratica.titolo || `Pratica #${pratica.id}`}</h4>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{condominioNome(pratica.condominio_id)}</p>
-                    {pratica.descrizione && <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-600">{pratica.descrizione}</p>}
-                  </div>
-                  <span className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">Apri scheda</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function DashboardStatiGestore({ segnalazioni, onOpen }) {
   const stati = ['Presa in carico', 'Sopralluogo effettuato', 'Preventivata', 'Accettata', 'Pianificata', 'Chiusa', 'Rifiutata'];
-  const isPromoPratica = (s) => String(s?.origine || '').toLowerCase().trim() === 'promo';
-  const operative = (Array.isArray(segnalazioni) ? segnalazioni : []).filter((s) => {
-    if (isValoreVero(s?.archiviata)) return false;
-    const stato = String(s?.stato || '').trim();
-    if (stato.toLowerCase() === 'nuova') return false;
-    if (isPromoPratica(s)) return ['Presa in carico', 'Pianificata', 'Chiusa'].includes(stato);
-    return true;
-  });
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -10520,13 +10377,13 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
           <p className="mt-1 text-sm text-slate-500">Vista rapida per controllare avanzamento, ritardi e priorità operative.</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-          {operative.length} pratiche operative
+          {segnalazioni.length} pratiche attive
         </span>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {stati.map((stato) => {
-          const items = operative.filter((s) => s.stato === stato);
+          const items = segnalazioni.filter((s) => s.stato === stato);
           return (
             <div key={stato} className="flex h-96 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -10541,12 +10398,7 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
                   items.map((s) => (
                     <button key={s.id} onClick={() => onOpen(s)} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                            {isPromoPratica(s) && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>}
-                          </div>
-                          <p className="line-clamp-2 text-sm font-bold text-slate-900">{s.titolo}</p>
-                        </div>
+                        <p className="line-clamp-2 text-sm font-bold text-slate-900">{s.titolo}</p>
                         <span className={'shrink-0 text-xs font-black ' + priorityClass(s.priorita)}>{s.priorita}</span>
                       </div>
                       <p className="mt-1 truncate text-xs text-slate-500">{s.condominio}</p>
@@ -10741,943 +10593,6 @@ function LaTuaRivistaSuite({ riviste, ruolo, onOpenPubblica, canPublish = false 
         </div>
       )}
     </section>
-  );
-}
-
-
-function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, onAvviaVotazionePromo, onVotaPromo, currentUserEmail = '', onRefreshPromo, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
-  const [filtroGestore, setFiltroGestore] = useState('tutte');
-  const [ricercaPromo, setRicercaPromo] = useState('');
-  const [promoSchedaPopupId, setPromoSchedaPopupId] = useState(null);
-  const [promoRichiesteLocali, setPromoRichiesteLocali] = useState({});
-  const [promoActionLoading, setPromoActionLoading] = useState(null);
-  const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
-  const [promoCondominioPopup, setPromoCondominioPopup] = useState(null);
-  const [promoPrenotaAltroCondominio, setPromoPrenotaAltroCondominio] = useState('');
-  const oggi = new Date();
-  oggi.setHours(0, 0, 0, 0);
-
-  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
-  const isGestore = ruoloNorm === 'gestore';
-  const isCondomino = ['condominio', 'condomino'].includes(ruoloNorm);
-  const isOperativo = ['amministratore', 'collaboratore'].includes(ruoloNorm);
-
-  const condominiDisponibili = Array.isArray(condomini) ? condomini : [];
-  const nomeCondominioPromo = (id) => condominiDisponibili.find((c) => String(c.id) === String(id))?.nome || `Condominio ${id}`;
-  const nomeCompletoUtentePromo = (email, fallback = '', condominioId = null) => {
-    const cleanEmail = String(email || '').toLowerCase().trim();
-    const utenteMatch = (utentiSistema || []).find((u) => String(u?.email || '').toLowerCase().trim() === cleanEmail);
-    const collegamentoMatch = (utentiCondomini || []).find((row) => {
-      const sameEmail = String(row?.email || '').toLowerCase().trim() === cleanEmail;
-      if (!sameEmail) return false;
-      if (condominioId === null || condominioId === undefined || condominioId === '') return true;
-      return String(row?.condominio_id) === String(condominioId);
-    });
-    const nome = String(utenteMatch?.nome || fallback || '').trim();
-    const cognome = String(collegamentoMatch?.cognome || utenteMatch?.cognome || '').trim();
-    const nomeCognome = [nome, cognome].filter(Boolean).join(' ').trim();
-    const fallbackPulito = String(fallback || '').trim();
-    return nomeCognome || fallbackPulito || cleanEmail || 'Condòmino';
-  };
-  const condominioSceltoPerPromo = (item) => {
-    const idSalvato = condominiSceltiPromo?.[item?.id];
-    if (idSalvato) return idSalvato;
-    return condominiDisponibili?.[0]?.id || '';
-  };
-  const setCondominioSceltoPerPromo = (promoId, condominioId) => {
-    setCondominiSceltiPromo((prev) => ({ ...prev, [promoId]: condominioId }));
-  };
-
-  const asNumber = (value) => {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const dataFine = (item) => item?.validita_al ? new Date(item.validita_al) : null;
-  const disponibilitaResidua = (item) => {
-    const limite = asNumber(item?.limite_quantita);
-    if (!limite) return null;
-    return Math.max(limite - asNumber(item?.prenotazioni_attuali), 0);
-  };
-
-  const statoPromo = (item) => {
-    if (!item) return 'bozza';
-    const statoManuale = String(item.stato || '').toLowerCase().trim();
-    if (['bozza', 'chiusa'].includes(statoManuale)) return statoManuale;
-
-    const limite = asNumber(item.limite_quantita);
-    const prenotate = asNumber(item.prenotazioni_attuali);
-    if (limite > 0 && prenotate >= limite) return 'esaurita';
-
-    const fine = dataFine(item);
-    if (fine && fine < oggi) return 'scaduta';
-
-    if (statoManuale === 'esaurita' || statoManuale === 'scaduta') return statoManuale;
-    if (statoManuale === 'attiva' || item.attiva !== false) return 'attiva';
-    return 'bozza';
-  };
-
-  const isAttiva = (item) => statoPromo(item) === 'attiva';
-  const formatDate = (value) => value ? new Date(value).toLocaleDateString('it-IT') : 'n.d.';
-
-  const badgeClass = (stato) => ({
-    bozza: 'bg-amber-100 text-amber-700',
-    attiva: 'bg-emerald-100 text-emerald-700',
-    esaurita: 'bg-red-100 text-red-700',
-    scaduta: 'bg-slate-200 text-slate-500',
-    chiusa: 'bg-blue-100 text-blue-700',
-  }[stato] || 'bg-slate-100 text-slate-500');
-
-  const badgeLabel = (stato) => ({
-    bozza: 'Bozza',
-    attiva: 'Attiva',
-    esaurita: 'Esaurita',
-    scaduta: 'Scaduta',
-    chiusa: 'Chiusa',
-  }[stato] || stato || 'Promo');
-
-  const promoOrdinate = [...(promo || [])].sort((a, b) => {
-    const dateA = new Date(a.validita_dal || a.inviata_at || a.created_at || 0).getTime();
-    const dateB = new Date(b.validita_dal || b.inviata_at || b.created_at || 0).getTime();
-    return dateB - dateA;
-  });
-  const promoDeeplink = promoEvidenzaId
-    ? promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId))
-    : null;
-  const promoSchedaPopup = promoSchedaPopupId
-    ? promoOrdinate.find((item) => String(item.id) === String(promoSchedaPopupId))
-    : null;
-  const promoAttiveOrdinate = promoOrdinate.filter(isAttiva);
-  // Le promo attive diventano tutte vetrine autonome: più opportunità visibili, più cross selling.
-  // L'archivio resta dedicato alle promo non più attive, apribili in scheda popup.
-  const promoAttiva = promoDeeplink && isAttiva(promoDeeplink) ? promoDeeplink : null;
-  const promoAttiveVetrina = promoAttiva
-    ? [promoAttiva, ...promoAttiveOrdinate.filter((item) => String(item.id) !== String(promoAttiva.id))]
-    : promoAttiveOrdinate;
-  const archivioBase = promoOrdinate.filter((item) => !isAttiva(item));
-  const queryPromo = ricercaPromo.toLowerCase().trim();
-  const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(queryPromo));
-  const archivio = isGestore
-    ? archivioBase.filter((item) => (filtroGestore === 'tutte' || statoPromo(item) === filtroGestore) && matchRicerca(item))
-    : archivioBase.filter(matchRicerca).slice(0, 5);
-
-  const prenotazioniPromo = (item) => (promoInteressi || []).filter((r) =>
-    String(r?.promo_id) === String(item?.id) &&
-    String(r?.azione || '').toLowerCase() === 'prenotazione' &&
-    String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
-  );
-
-  const prenotazionePromoPerCondominio = (item, condominioId) => (promoInteressi || []).find((r) =>
-    String(r?.promo_id) === String(item?.id) &&
-    String(r?.condominio_id) === String(condominioId) &&
-    String(r?.azione || '').toLowerCase() === 'prenotazione' &&
-    String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
-  ) || null;
-
-  const prenotazionePromoConPratica = (item, condominioId) => {
-    const prenotazione = prenotazionePromoPerCondominio(item, condominioId);
-    const stato = String(prenotazione?.stato || '').toLowerCase();
-    const segnalazioneId = prenotazione?.segnalazione_id || prenotazione?.segnalazioneId || null;
-    return Boolean(prenotazione && (segnalazioneId || stato === 'confermato'));
-  };
-
-  const votazionePromoPerCondominio = (item, condominioId) => (promoInteressi || []).find((r) => {
-    const azione = String(r?.azione || '').toLowerCase();
-    const stato = String(r?.stato || '').toLowerCase();
-    return String(r?.promo_id) === String(item?.id) &&
-      String(r?.condominio_id) === String(condominioId) &&
-      (azione.includes('votazione') || stato === 'votazione_in_corso') &&
-      stato !== 'annullato';
-  }) || null;
-
-  const interessiCondominiPromo = (item) => {
-    const idsVisibili = new Set(condominiDisponibili.map((c) => String(c.id)));
-    const righe = (promoInteressi || []).filter((r) =>
-      String(r?.promo_id) === String(item?.id) &&
-      String(r?.azione || '').toLowerCase().includes('interesse') &&
-      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
-      (!idsVisibili.size || idsVisibili.has(String(r?.condominio_id)))
-    );
-
-    const mappa = new Map();
-
-    righe.forEach((r) => {
-      const key = String(r?.condominio_id || '');
-      if (!key) return;
-      if (!mappa.has(key)) mappa.set(key, { condominio_id: r.condominio_id, nome: nomeCondominioPromo(r.condominio_id), interessati: [] });
-      const gruppo = mappa.get(key);
-      const email = String(r?.email || '').toLowerCase();
-      if (!email || !gruppo.interessati.some((i) => String(i.email || '').toLowerCase() === email)) {
-        gruppo.interessati.push({ nome: nomeCompletoUtentePromo(r?.email, r?.nome, r?.condominio_id), email: r?.email || '' });
-      }
-    });
-
-    return Array.from(mappa.values()).sort((a, b) => {
-      if (b.interessati.length !== a.interessati.length) return b.interessati.length - a.interessati.length;
-      return a.nome.localeCompare(b.nome);
-    });
-  };
-
-  const condominioOperativoSelezionato = (item) => {
-    const id = condominioSceltoPerPromo(item);
-    const gruppi = interessiCondominiPromo(item);
-    return gruppi.find((g) => String(g.condominio_id) === String(id)) || gruppi[0] || null;
-  };
-
-  const totaleCondominiPromo = (condominioId) => {
-    const condominio = condominiDisponibili.find((c) => String(c.id) === String(condominioId));
-    return getNumeroFamiglieCondominio(condominio || {});
-  };
-
-  const percentualeInteressePromo = (gruppo) => {
-    const totale = totaleCondominiPromo(gruppo?.condominio_id);
-    if (!totale) return null;
-    return Math.min(100, Math.round(((gruppo?.interessati?.length || 0) / totale) * 100));
-  };
-
-  const pianoCondominioPromo = (condominioId) => getPianoAbbonamentoCondominio(condominioId, contratti);
-  const puoAvviareVotazionePromo = (condominioId) => canUseSubscriptionFeature(pianoCondominioPromo(condominioId), 'plus');
-
-  const votiPromoPerCondominio = (promoId, condominioId) => (promoVoti || []).filter((v) =>
-    String(v?.promo_id) === String(promoId) &&
-    String(v?.condominio_id) === String(condominioId)
-  );
-
-  const riepilogoVotiPromo = (promoId, condominioId) => {
-    const righe = votiPromoPerCondominio(promoId, condominioId);
-    const emailVotanti = new Set(righe.map((v) => String(v?.email || '').toLowerCase().trim()).filter(Boolean));
-    const interessiFavorevoli = (promoInteressi || []).filter((r) =>
-      String(r?.promo_id) === String(promoId) &&
-      String(r?.condominio_id) === String(condominioId) &&
-      String(r?.azione || '').toLowerCase().includes('interesse') &&
-      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
-      !emailVotanti.has(String(r?.email || '').toLowerCase().trim())
-    );
-    const favorevoliEspliciti = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
-    const favorevoli = favorevoliEspliciti + interessiFavorevoli.length;
-    const contrari = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
-    const totale = totaleCondominiPromo(condominioId) || 0;
-    const votanti = righe.length + interessiFavorevoli.length;
-    const partecipazione = totale ? Math.round((votanti / totale) * 100) : null;
-    return { righe, favorevoli, favorevoliEspliciti, favorevoliImpliciti: interessiFavorevoli.length, contrari, votanti, totale, partecipazione };
-  };
-
-  const votoUtentePromo = (promoId, condominioId) => {
-    const email = String(currentUserEmail || '').toLowerCase().trim();
-    if (!email) return null;
-    return votiPromoPerCondominio(promoId, condominioId).find((v) => String(v?.email || '').toLowerCase().trim() === email) || null;
-  };
-
-  const interesseUtentePromo = (promoId, condominioId) => {
-    const email = String(currentUserEmail || '').toLowerCase().trim();
-    if (!promoId || !condominioId || !email) return null;
-    const localKey = `${promoId}::${condominioId}::${email}`;
-    if (promoRichiesteLocali?.[localKey]) return promoRichiesteLocali[localKey];
-    return (promoInteressi || []).find((r) =>
-      String(r?.promo_id) === String(promoId) &&
-      String(r?.condominio_id) === String(condominioId) &&
-      String(r?.azione || '').toLowerCase().includes('interesse') &&
-      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
-      String(r?.email || '').toLowerCase().trim() === email
-    ) || null;
-  };
-
-  const interesseCondominioPromo = (promoId, condominioId) => {
-    if (!promoId || !condominioId) return null;
-    return (promoInteressi || []).find((r) =>
-      String(r?.promo_id) === String(promoId) &&
-      String(r?.condominio_id) === String(condominioId) &&
-      String(r?.azione || '').toLowerCase().includes('interesse') &&
-      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
-    ) || null;
-  };
-
-  const gruppoPromoPopup = (() => {
-    if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
-    const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
-    if (!promoItem) return null;
-    const gruppo = interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioPopup.condominioId));
-    if (gruppo) return { promo: promoItem, gruppo };
-    return {
-      promo: promoItem,
-      gruppo: {
-        condominio_id: promoCondominioPopup.condominioId,
-        nome: nomeCondominioPromo(promoCondominioPopup.condominioId),
-        interessati: [],
-      },
-    };
-  })();
-
-  useEffect(() => {
-    if (!isOperativo || !promoEvidenzaId || !promoCondominioEvidenzaId) return;
-    const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId));
-    if (!promoItem) return;
-    setCondominioSceltoPerPromo(promoItem.id, promoCondominioEvidenzaId);
-    setPromoCondominioPopup({ promoId: promoItem.id, condominioId: promoCondominioEvidenzaId });
-  }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoDeeplinkTick, promoInteressi, promo?.length, condominiDisponibili?.length]);
-
-  const apriPromoInEvidenza = (item) => {
-    if (!item?.id) return;
-    setPromoSchedaPopupId(item.id);
-    setPromoCondominioPopup(null);
-  };
-
-  const ctaLabelFor = (item) => {
-    const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
-    if (isCondomino) return 'Chiedila al tuo amministratore';
-    if (isOperativo) return 'Prenota intervento';
-    if (tipo === 'scopri_promo') return 'Scopri la promozione';
-    if (tipo === 'richiedi_info') return 'Richiedi informazioni';
-    return item?.cta_testo || 'Apri promozione';
-  };
-
-  const handlePromoCta = async (item) => {
-    if (!item?.id) return;
-
-    if (isCondomino && typeof onRichiediAmministratore === 'function') {
-      const condominioIdRichiesta = condominioSceltoPerPromo(item);
-      try {
-        setPromoActionLoading(item.id);
-        const result = await onRichiediAmministratore(item, condominioIdRichiesta);
-        if (result !== null && result !== false) {
-          const email = String(currentUserEmail || '').toLowerCase().trim();
-          const localKey = `${item.id}::${condominioIdRichiesta}::${email}`;
-          setPromoRichiesteLocali((prev) => ({
-            ...prev,
-            [localKey]: {
-              promo_id: item.id,
-              condominio_id: condominioIdRichiesta,
-              email,
-              azione: 'interesse',
-              stato: 'richiesto',
-            },
-          }));
-          try { await onRefreshPromo?.(); } catch (_) {}
-        }
-      } finally {
-        setPromoActionLoading(null);
-      }
-      return;
-    }
-
-    if (isOperativo && typeof onPrenotaIntervento === 'function') {
-      try {
-        setPromoActionLoading(item.id);
-        await onPrenotaIntervento(item, condominioSceltoPerPromo(item));
-      } finally {
-        setPromoActionLoading(null);
-      }
-      return;
-    }
-
-    if (isOperativo) {
-      alert('Prenotazione promo predisposta, ma il collegamento al gestore non è disponibile in questo profilo.');
-      return;
-    }
-
-    alert('Azione promo predisposta.');
-  };
-
-  const PromoHero = ({ item }) => {
-    const stato = statoPromo(item);
-    const residua = disponibilitaResidua(item);
-    const ultime = residua !== null && residua > 0 && residua <= 3;
-    const esaurita = stato === 'esaurita';
-    const isVotazionePromoDeeplink = isCondomino && String(item.id) === String(promoEvidenzaId) && promoCondominioEvidenzaId;
-    const condominioVotazioneNome = isVotazionePromoDeeplink ? nomeCondominioPromo(promoCondominioEvidenzaId) : '';
-    const condominioCtaId = isCondomino ? condominioSceltoPerPromo(item) : '';
-    const richiestaUtenteInviata = isCondomino ? interesseUtentePromo(item.id, condominioCtaId) : null;
-    const interesseCondominioPresente = isCondomino ? interesseCondominioPromo(item.id, condominioCtaId) : null;
-
-    return (
-      <article id="promo-senza-pensieri-hero" className="overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 shadow-xl shadow-amber-950/10">
-        {item.immagine_url ? (
-          <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
-            <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
-          </div>
-        ) : (
-          <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-yellow-600 to-slate-950 p-6 text-white md:p-8">
-            <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-yellow-200/25 blur-3xl" />
-            <p className="relative text-xs font-black uppercase tracking-[0.28em] text-yellow-100">Promo Senza Pensieri</p>
-            <h3 className="relative mt-3 max-w-2xl text-3xl font-black leading-tight md:text-4xl">{item.titolo}</h3>
-          </div>
-        )}
-        <div className="p-5 md:p-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
-            {item.validita_al && <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Fino al {formatDate(item.validita_al)}</span>}
-            {ultime && <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-orange-700">Ultime {residua} disponibilità</span>}
-            {item.limite && <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">{item.limite}</span>}
-          </div>
-          {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
-          {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
-          {isCondomino && condominiDisponibili.length > 1 && !isVotazionePromoDeeplink && (
-            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-              <label className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Per quale condominio vuoi richiederla?</label>
-              <select
-                value={condominioSceltoPerPromo(item)}
-                onChange={(e) => setCondominioSceltoPerPromo(item.id, e.target.value)}
-                className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-              >
-                {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
-              </select>
-              <p className="mt-2 text-xs font-semibold text-emerald-800">La richiesta arriverà all’amministrazione del condominio selezionato.</p>
-            </div>
-          )}
-          {isVotazionePromoDeeplink && (
-            <div className="mt-4 rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4 shadow-sm">
-              {(() => {
-                const condominioVotoId = promoCondominioEvidenzaId;
-                const votoGiaDato = votoUtentePromo(item.id, condominioVotoId);
-                return (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione promo</p>
-                        <h4 className="mt-1 text-lg font-black text-slate-900">{condominioVotazioneNome}</h4>
-                      </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-indigo-700 shadow-sm">Parere condòmini</span>
-                    </div>
-                    <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-                      È stata avviata una votazione per valutare l'attivazione della promozione <span className="font-black text-slate-900">“{item.titolo}”</span> per il tuo condominio.
-                      {item.validita_al ? <> L'offerta è valida fino al <span className="font-black text-slate-900">{formatDate(item.validita_al)}</span>.</> : null}
-                    </p>
-                    {item.descrizione && (
-                      <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-600 shadow-sm">
-                        {item.descrizione}
-                      </div>
-                    )}
-                    {item.prezzo && (
-                      <div className="mt-3 w-fit rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Prezzo promo</p>
-                        <p className="mt-1 text-xl font-black text-slate-900">{formatPromoPrezzo(item.prezzo)}</p>
-                      </div>
-                    )}
-                    {votoGiaDato ? (
-                      <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-800 shadow-sm">Hai già votato: {String(votoGiaDato.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</p>
-                    ) : (
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'favorevole')} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">👍 Favorevole</button>
-                        <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'contrario')} className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-red-600 shadow-sm ring-1 ring-red-100">👎 Contrario</button>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
-          {esaurita && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">Tutte le disponibilità previste per questa iniziativa sono state assegnate.</p>}
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Offerta</p>
-              <p className="mt-1 text-2xl font-black text-slate-900">{formatPromoPrezzo(item.prezzo)}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validità</p>
-              <p className="mt-1 text-sm font-black text-slate-800">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Disponibilità</p>
-              <p className="mt-1 text-sm font-black text-slate-800">{residua !== null ? `${residua} residue su ${item.limite_quantita}` : (item.limite || 'Fino a scadenza promo')}</p>
-            </div>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            {!isOperativo && !isVotazionePromoDeeplink && (
-              <>
-                <button
-                  type="button"
-                  disabled={stato !== 'attiva' || Boolean(richiestaUtenteInviata)}
-                  onClick={() => handlePromoCta(item)}
-                  className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
-                >
-                  {richiestaUtenteInviata
-                    ? 'Richiesta inviata'
-                    : (promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item)))}
-                </button>
-                {richiestaUtenteInviata ? (
-                  <span className="rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">Richiesta già inviata per questo condominio.</span>
-                ) : interesseCondominioPresente ? (
-                  <span className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-black text-amber-700 ring-1 ring-amber-100">Un condòmino ha già manifestato interesse.</span>
-                ) : null}
-              </>
-            )}
-            {isGestore && prenotazioniPromo(item).length > 0 && typeof onConfermaPrenotazione === 'function' && (
-              <button
-                type="button"
-                onClick={() => onConfermaPrenotazione(item, prenotazioniPromo(item)[0])}
-                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm"
-              >
-                Conferma prenotazione ({prenotazioniPromo(item).length})
-              </button>
-            )}
-            {item.cta_url && stato === 'attiva' && (
-              <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
-                {item.cta_texto || item.cta_testo || 'Scopri di più'}
-              </a>
-            )}
-          </div>
-        </div>
-      </article>
-    );
-  };
-
-
-  const PromoCondominiOperativiBox = ({ item }) => {
-    if (!isOperativo || !item) return null;
-    const gruppi = interessiCondominiPromo(item);
-    const interessatiTotali = gruppi.reduce((sum, gruppo) => sum + (gruppo.interessati?.length || 0), 0);
-    const promoPrenotabile = statoPromo(item) === 'attiva' && condominiDisponibili.length > 0;
-
-    return (
-      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm shadow-emerald-950/5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Portafoglio amministrato</p>
-            <h3 className="mt-1 text-xl font-black text-slate-900">Opportunità per i tuoi condomìni</h3>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Le richieste ricevute dai tuoi condomìni compariranno qui. Puoi inoltre valutare autonomamente questa opportunità e prenotarla direttamente per i condomìni che ritieni più adatti.
-            </p>
-          </div>
-          <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
-            {interessatiTotali} interessat{interessatiTotali === 1 ? 'o' : 'i'} totali
-          </span>
-        </div>
-
-        {gruppi.length > 0 && (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {gruppi.map((gruppo) => {
-              const count = gruppo.interessati?.length || 0;
-              const totale = totaleCondominiPromo(gruppo.condominio_id);
-              const percentuale = percentualeInteressePromo(gruppo);
-
-              return (
-                <button
-                  key={gruppo.condominio_id}
-                  type="button"
-                  onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: gruppo.condominio_id })}
-                  className="w-full rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-left shadow-sm shadow-emerald-950/5 transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-base font-black text-slate-900">{gruppo.nome}</p>
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        {count} condòmin{count === 1 ? 'o interessato' : 'i interessati'}{totale ? ` su ${totale}` : ''}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
-                      {percentuale !== null ? `${percentuale}%` : 'Apri'}
-                    </span>
-                  </div>
-                  {percentuale !== null && (
-                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, percentuale)}%` }} />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {promoPrenotabile ? (
-          <div className="mt-4 rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Prenotazione diretta</p>
-            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
-              <select
-                value={promoPrenotaAltroCondominio || condominiDisponibili[0]?.id || ''}
-                onChange={(e) => setPromoPrenotaAltroCondominio(e.target.value)}
-                className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
-              >
-                {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
-              </select>
-              <button
-                type="button"
-                onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: promoPrenotaAltroCondominio || condominiDisponibili[0]?.id })}
-                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white"
-              >
-                Apri scheda
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-            Questa promozione non è più prenotabile. Le eventuali richieste restano disponibili come storico della campagna.
-          </div>
-        )}
-      </section>
-    );
-  };
-
-  const filtri = ['tutte', 'attiva', 'bozza', 'esaurita', 'scaduta', 'chiusa'];
-
-  return (
-    <section className="space-y-4 pb-8">
-      {canCreate && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onOpenCreate}
-            className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
-          >
-            + Nuova Promo
-          </button>
-        </div>
-      )}
-
-      {promoAttiveVetrina.length > 0 ? (
-        <div className="space-y-4">
-          {promoAttiveVetrina.map((item) => (
-            <div key={item.id} className="space-y-4">
-              <PromoHero item={item} />
-              <PromoCondominiOperativiBox item={item} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          icon="💚"
-          title="Nessuna promo attiva"
-          text={canCreate ? 'Crea la prima promozione periodica per attivare il canale commerciale interno CSP.' : 'Quando sarà disponibile una nuova opportunità, la troverai qui in evidenza.'}
-          action="Vetrina pronta"
-          tone="emerald"
-        />
-      )}
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-lg font-black text-slate-900">{isGestore ? 'Archivio Promo' : 'Archivio ultime promo'}</h3>
-          </div>
-          {isGestore ? (
-            <div className="flex flex-wrap gap-2">
-              {filtri.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFiltroGestore(f)}
-                  className={`rounded-full px-3 py-1 text-xs font-black capitalize ${filtroGestore === f ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}
-                >
-                  {f === 'tutte' ? 'Tutte' : badgeLabel(f)}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{archivio.length}/5</span>
-          )}
-        </div>
-        {isGestore && (
-          <input
-            className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-            placeholder="🔍 Cerca promo per titolo o descrizione..."
-            value={ricercaPromo}
-            onChange={(e) => setRicercaPromo(e.target.value)}
-          />
-        )}
-        {archivio.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">Archivio ancora vuoto.</div>
-        ) : (
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            {archivio.map((item) => {
-              const stato = statoPromo(item);
-              const residua = disponibilitaResidua(item);
-              return (
-                <article key={item.id} role="button" tabIndex={0} onClick={() => apriPromoInEvidenza(item)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apriPromoInEvidenza(item); } }} className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-emerald-200 hover:bg-white hover:shadow-md">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
-                      <h4 className="mt-3 text-base font-black text-slate-900">{item.titolo}</h4>
-                      <p className="mt-1 text-xs font-bold text-slate-500">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
-                      {residua !== null && <p className="mt-2 text-xs font-black text-slate-500">Disponibilità residue: {residua}</p>}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <p className="rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{formatPromoPrezzo(item.prezzo)}</p>
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); apriPromoInEvidenza(item); }}
-                        className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
-                      >
-                        Apri promo
-                      </button>
-                      {isGestore && ['scaduta', 'esaurita', 'chiusa'].includes(stato) && (
-                        <button
-                          type="button"
-                          onClick={() => onRiproponi?.(item)}
-                          className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
-                        >
-                          Riproponi Promo
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {promoSchedaPopup && (
-        <div className="fixed inset-0 z-[225] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
-          <div className="mx-auto my-8 w-full max-w-4xl rounded-[2rem] border border-white/70 bg-white p-4 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between gap-3 px-1">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">Scheda promo</p>
-                <h3 className="text-lg font-black text-slate-900">{promoSchedaPopup.titolo || 'Promo Senza Pensieri'}</h3>
-              </div>
-              <button type="button" onClick={() => setPromoSchedaPopupId(null)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
-            </div>
-            <PromoHero item={promoSchedaPopup} />
-          </div>
-        </div>
-      )}
-
-      {gruppoPromoPopup && (
-        <div className="fixed inset-0 z-[230] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
-          <div className="mx-auto my-8 w-full max-w-2xl rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Scheda condominio promo</p>
-                <h3 className="mt-1 text-2xl font-black text-slate-900">{gruppoPromoPopup.gruppo.nome}</h3>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{gruppoPromoPopup.promo.titolo}</p>
-              </div>
-              <button type="button" onClick={() => setPromoCondominioPopup(null)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Interessati</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{gruppoPromoPopup.gruppo.interessati.length}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Condòmini totali</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{totaleCondominiPromo(gruppoPromoPopup.gruppo.condominio_id) || 'n.d.'}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Incidenza</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{percentualeInteressePromo(gruppoPromoPopup.gruppo) !== null ? `${percentualeInteressePromo(gruppoPromoPopup.gruppo)}%` : 'n.d.'}</p>
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h4 className="text-sm font-black uppercase tracking-[0.16em] text-slate-700">Condòmini interessati</h4>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">Aggiornato ora</span>
-              </div>
-              {gruppoPromoPopup.gruppo.interessati.length ? (
-                <div className="mt-3 grid gap-2">
-                  {gruppoPromoPopup.gruppo.interessati.map((interessato) => (
-                    <div key={interessato.email || interessato.nome} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                      <p className="text-sm font-black text-slate-900">{interessato.nome || 'Condòmino'}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">Nessun condòmino ha ancora manifestato interesse per questo condominio.</p>
-              )}
-            </div>
-
-            <div className="mt-5 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
-              {(() => {
-                const riepilogo = riepilogoVotiPromo(gruppoPromoPopup.promo.id, gruppoPromoPopup.gruppo.condominio_id);
-                const plusEnabled = puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id);
-                return (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione condominiale</p>
-                        <h4 className="mt-1 text-lg font-black text-slate-900">Parere dei condòmini sulla promo</h4>
-                        {!plusEnabled && (
-                          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                            La votazione automatica consente di raccogliere il parere dei condòmini direttamente dall'app e attivare la promo in caso di approvazione. Funzione disponibile per condomìni Plus e Premium.
-                          </p>
-                        )}
-                      </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-black ${plusEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500'}`}>
-                        {plusEnabled ? 'PLUS • PREMIUM' : '🔒 PLUS • PREMIUM'}
-                      </span>
-                    </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-4">
-                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Favorevoli</p><p className="mt-1 text-2xl font-black text-emerald-700">{riepilogo.favorevoli}</p></div>
-                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Contrari</p><p className="mt-1 text-2xl font-black text-red-600">{riepilogo.contrari}</p></div>
-                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Votanti</p><p className="mt-1 text-2xl font-black text-slate-900">{riepilogo.votanti}/{riepilogo.totale || 'n.d.'}</p></div>
-                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Partecipazione</p><p className="mt-1 text-2xl font-black text-slate-900">{riepilogo.partecipazione !== null ? `${riepilogo.partecipazione}%` : 'n.d.'}</p></div>
-                    </div>
-                    {riepilogo.righe.length > 0 && (
-                      <div className="mt-3 grid gap-2">
-                        {riepilogo.righe.map((v) => (
-                          <div key={v.id || `${v.email}-${v.voto}`} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm shadow-sm">
-                            <span className="font-black text-slate-800">{nomeCompletoUtentePromo(v.email, v.nome, v.condominio_id)}</span>
-                            <span className={`rounded-full px-3 py-1 text-xs font-black ${String(v.voto || '').toLowerCase().includes('fav') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{String(v.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-
-            {statoPromo(gruppoPromoPopup.promo) !== 'attiva' && (
-              <p className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-                Questa promozione è {badgeLabel(statoPromo(gruppoPromoPopup.promo)).toLowerCase()} e non può più essere prenotata. Gli interessi restano consultabili come storico della campagna.
-              </p>
-            )}
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {(() => {
-                const prenotazioneEsistente = prenotazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                const giaPrenotata = prenotazionePromoConPratica(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                const prenotazioneLoadingKey = `prenota-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
-                const disabledPrenota = statoPromo(gruppoPromoPopup.promo) !== 'attiva' || giaPrenotata || promoActionLoading === prenotazioneLoadingKey;
-                return (
-                  <button
-                    type="button"
-                    disabled={disabledPrenota}
-                    onClick={async () => {
-                      if (disabledPrenota) return;
-                      try {
-                        setPromoActionLoading(prenotazioneLoadingKey);
-                        const result = await onPrenotaIntervento?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                        if (result?.segnalazione?.id || result?.segnalazione_id) setPromoCondominioPopup(null);
-                      } finally {
-                        setPromoActionLoading(null);
-                      }
-                    }}
-                    className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
-                  >
-                    {giaPrenotata ? 'Prenotata' : promoActionLoading === prenotazioneLoadingKey ? 'Prenotazione…' : statoPromo(gruppoPromoPopup.promo) === 'attiva' ? 'Prenota intervento' : 'Promo non più prenotabile'}
-                  </button>
-                );
-              })()}
-              {(() => {
-                const actionKey = `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
-                const votazioneInCorso = Boolean(votazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id));
-                const plusEnabled = puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id);
-                const disabledVotazione = !plusEnabled || votazioneInCorso || promoActionLoading === actionKey;
-                return (
-                  <button
-                    type="button"
-                    disabled={disabledVotazione}
-                    onClick={async (event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      if (disabledVotazione) return;
-                      if (typeof onAvviaVotazionePromo !== 'function') {
-                        console.warn('Handler onAvviaVotazionePromo non collegato alla sezione Promo.');
-                        alert('Funzione votazione non collegata alla sezione Promo.');
-                        return;
-                      }
-                      try {
-                        setPromoActionLoading(actionKey);
-                        await onAvviaVotazionePromo(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
-                        await onRefreshPromo?.();
-                      } finally {
-                        setPromoActionLoading(null);
-                      }
-                    }}
-                    className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    {votazioneInCorso ? '🗳️ Votazione in corso' : promoActionLoading === actionKey ? 'Avvio votazione...' : (plusEnabled ? 'Avvia votazione' : '🔒 Riservato Plus/Premium')}
-                  </button>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function NuovaPromoModal({ onClose, onCreate, saving }) {
-  const [form, setForm] = useState({
-    titolo: '',
-    descrizione: '',
-    prezzo: '',
-    immagine_url: '',
-    validita_dal: new Date().toISOString().slice(0, 10),
-    validita_al: '',
-    cta_tipo: 'chiedi_amministratore',
-    cta_testo: 'Chiedila al tuo amministratore',
-    cta_url: '',
-    limite: '',
-    limite_quantita: '',
-    stato: 'attiva',
-    attiva: true,
-  });
-  const [errore, setErrore] = useState('');
-
-  const ctaOptions = [
-    { tipo: 'chiedi_amministratore', label: 'Chiedila al tuo amministratore' },
-    { tipo: 'prenota_intervento', label: 'Prenota intervento' },
-    { tipo: 'richiedi_info', label: 'Richiedi informazioni' },
-    { tipo: 'scopri_promo', label: 'Scopri la promozione' },
-    { tipo: 'richiedi_votazione', label: 'Richiedi votazione' },
-  ];
-
-  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-
-  const aggiornaCtaTipo = (tipo) => {
-    const selected = ctaOptions.find((item) => item.tipo === tipo) || ctaOptions[0];
-    setForm((prev) => ({ ...prev, cta_tipo: selected.tipo, cta_testo: selected.label }));
-  };
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setErrore('');
-    if (!form.titolo.trim()) {
-      setErrore('Inserisci il titolo della promozione.');
-      return;
-    }
-    await onCreate(form);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
-      <form onSubmit={submit} className="mx-auto my-6 w-full max-w-2xl rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Promo Senza Pensieri</p>
-            <h3 className="mt-1 text-xl font-black text-slate-900">Nuova promozione</h3>
-            <p className="mt-1 text-sm text-slate-500">Crea una promo stagionale da mostrare nella vetrina interna CSP.</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
-        </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Titolo promo" value={form.titolo} onChange={(e) => update('titolo', e.target.value)} />
-          <textarea className="min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Descrizione" value={form.descrizione} onChange={(e) => update('descrizione', e.target.value)} />
-          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Prezzo / offerta" value={form.prezzo} onChange={(e) => update('prezzo', e.target.value)} />
-          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Testo limite es. Disponibilità limitata" value={form.limite} onChange={(e) => update('limite', e.target.value)} />
-          <input type="number" min="0" className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Quantità massima es. 20" value={form.limite_quantita} onChange={(e) => update('limite_quantita', e.target.value)} />
-          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida dal<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_dal} onChange={(e) => update('validita_dal', e.target.value)} /></label>
-          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida fino al<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_al} onChange={(e) => update('validita_al', e.target.value)} /></label>
-          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">CTA tracciabile
-            <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.cta_tipo} onChange={(e) => aggiornaCtaTipo(e.target.value)}>
-              {ctaOptions.map((option) => <option key={option.tipo} value={option.tipo}>{option.label}</option>)}
-            </select>
-          </label>
-          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA URL opzionale" value={form.cta_url} onChange={(e) => update('cta_url', e.target.value)} />
-          <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Immagine URL opzionale" value={form.immagine_url} onChange={(e) => update('immagine_url', e.target.value)} />
-          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:col-span-2">Stato promo
-            <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.stato} onChange={(e) => { update('stato', e.target.value); update('attiva', e.target.value === 'attiva'); }}>
-              <option value="bozza">Bozza</option>
-              <option value="attiva">Attiva</option>
-            </select>
-          </label>
-        </div>
-
-        {errore && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{errore}</p>}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600">Annulla</button>
-          <button type="submit" disabled={saving} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Salvataggio...' : (form.stato === 'attiva' ? 'Crea promo attiva' : 'Salva bozza')}</button>
-        </div>
-      </form>
-    </div>
   );
 }
 
@@ -12134,12 +11049,7 @@ function SegnalazioneCard({ segnalazione, onOpen, pianoAbbonamento = 'base', sho
           <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
           <p className="break-words text-sm text-slate-500">{segnalazione.condominio}</p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {String(segnalazione.origine || '').toLowerCase() === 'promo' && (
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>
-          )}
-          <span className={'rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
-        </div>
+        <span className={'shrink-0 rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
       </div>
     </button>
   );
@@ -12240,13 +11150,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
   if (!segnalazione) return null;
 
   const condominioPratica = (condomini || []).find((c) => Number(c.id) === Number(segnalazione.condominio_id));
-  const isPromoPratica = String(segnalazione.origine || '').toLowerCase().trim() === 'promo';
-  const statiDisponibiliPratica = isPromoPratica ? STATI_PRATICA_PROMO : STATI_PRATICA;
-  const statiBottoniPratica = isPromoPratica
-    ? STATI_PRATICA_PROMO.filter((stato) => stato !== 'Pianificata')
-    : statiDisponibiliPratica;
-  const isPromoDaPianificare = isPromoPratica && segnalazione.stato === 'Presa in carico';
-  const isPraticaStandardDaPianificare = !isPromoPratica && segnalazione.stato === 'Accettata';
   const mapsCspParts = [
     segnalazione.indirizzo,
     segnalazione.luogo,
@@ -12255,22 +11158,6 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     segnalazione.condominio,
     condominioPratica?.nome,
   ];
-
-  const emailRichiedentePratica = [
-    segnalazione.email,
-    segnalazione.richiedente_email,
-    segnalazione.email_condomino,
-    segnalazione.utente_email,
-    segnalazione.created_by,
-    segnalazione.creato_da_email,
-    segnalazione.segnalatore_email,
-  ].map((value) => String(value || '').toLowerCase().trim()).find(Boolean);
-  const utenteRichiedentePratica = emailRichiedentePratica
-    ? (utentiSistema || []).find((utente) => String(utente.email || '').toLowerCase().trim() === emailRichiedentePratica)
-    : null;
-  const telefonoRichiedentePratica = segnalazione.telefono || utenteRichiedentePratica?.telefono || '';
-  const nomeRichiedentePratica = segnalazione.referente || utenteRichiedentePratica?.nome || emailRichiedentePratica || 'richiedente';
-  const mostraAzioniContattoPratica = (ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && telefonoRichiedentePratica;
 
   const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazione.id));
   const votoUtente = votiPratica.find((v) => String(v.email || '').toLowerCase().trim() === String(utenteEmail || '').toLowerCase().trim());
@@ -12443,10 +11330,7 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <GoogleMapsButton parts={mapsCspParts} className="mt-1" />
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
-            <p><span className="text-slate-500">Telefono:</span> {telefonoRichiedentePratica || segnalazione.telefono || 'n.d.'}</p>
-            {mostraAzioniContattoPratica && (
-              <ContactActionButtons phone={telefonoRichiedentePratica} label={nomeRichiedentePratica} compact />
-            )}
+            <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
             {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
               <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
             )}
@@ -12725,13 +11609,8 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <div className="hidden md:block">
               <TimelinePratica stato={segnalazione.stato} />
             </div>
-            {isPromoPratica && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-                Pratica generata da Promo Senza Pensieri: flusso semplificato senza fase preventivo. Stati previsti: Nuova, Presa in carico, Pianificata tramite calendario e Chiusa.
-              </div>
-            )}
             <div className="flex flex-wrap gap-2">
-              {ruolo === 'gestore' && statiBottoniPratica.map((stato) => (
+              {ruolo === 'gestore' && STATI_PRATICA.map((stato) => (
                 <button
                   key={stato}
                   onClick={() => onChangeStatus(segnalazione.id, stato)}
@@ -12753,27 +11632,23 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
               </div>
             )}
 
-            {ruolo === 'gestore' && (isPraticaStandardDaPianificare || isPromoDaPianificare) && (
-              <div className={`space-y-3 rounded-2xl border p-4 ${isPromoPratica ? 'border-amber-200 bg-amber-50' : 'border-sky-100 bg-sky-50'}`}>
-                <p className={`font-semibold ${isPromoPratica ? 'text-amber-900' : 'text-sky-800'}`}>{isPromoPratica ? 'Pianificazione intervento promo' : 'Pianificazione lavori'}</p>
-                <p className={`text-sm ${isPromoPratica ? 'text-amber-800' : 'text-sky-700'}`}>
-                  {isPromoPratica
-                    ? 'Inserisci la data dell’intervento: la pratica passerà automaticamente a Pianificata e i condòmini riceveranno la comunicazione.'
-                    : 'Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.'}
-                </p>
+            {ruolo === 'gestore' && segnalazione.stato === 'Accettata' && (
+              <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <p className="font-semibold text-sky-800">Pianificazione lavori</p>
+                <p className="text-sm text-sky-700">Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.</p>
                 <input
                   type="date"
                   value={dataInizioPresunta}
                   onChange={(e) => setDataInizioPresunta(e.target.value)}
-                  className={`w-full rounded-xl border px-3 py-2 text-sm ${isPromoPratica ? 'border-amber-200' : 'border-sky-200'}`}
+                  className="w-full rounded-xl border border-sky-200 px-3 py-2 text-sm"
                 />
                 <button
                   type="button"
                   disabled={!dataInizioPresunta}
                   onClick={() => onPianificaLavori(segnalazione.id, dataInizioPresunta)}
-                  className={`rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-60 ${isPromoPratica ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'}`}
+                  className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                 >
-                  {isPromoPratica ? 'Pianifica intervento promo' : 'Pianifica lavori'}
+                  Pianifica lavori
                 </button>
               </div>
             )}
@@ -13474,9 +12349,6 @@ function LavoriPrivatiSuite({
                 <h3 className="text-xl font-black text-slate-900">{lavoroAperto.titolo}</h3>
                 <p className="text-sm font-semibold text-slate-500">{getCondominioNome(lavoroAperto.condominio_id)} • {lavoroAperto.stato}</p>
                 <GoogleMapsButton parts={[getCondominioInfo(lavoroAperto.condominio_id)?.indirizzo, getCondominioInfo(lavoroAperto.condominio_id)?.citta, getCondominioNome(lavoroAperto.condominio_id)]} className="mt-3" />
-                {isGestore && (lavoroAperto.condomino_telefono || lavoroAperto.telefono) && (
-                  <ContactActionButtons phone={lavoroAperto.condomino_telefono || lavoroAperto.telefono} label={lavoroAperto.condomino_nome || lavoroAperto.condomino_email || 'cliente'} compact />
-                )}
               </div>
               <button onClick={() => setLavoroAperto(null)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
             </div>
@@ -13807,55 +12679,6 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNuovaSegnalazione, setShowNuovaSegnalazione] = useState(false);
   const [showFabLabel, setShowFabLabel] = useState(false);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
-
-    const shouldSkipButtonFeedback = (button) => {
-      if (!button) return true;
-      if (button.disabled || button.getAttribute('aria-disabled') === 'true') return true;
-      if (button.dataset?.cspNoBusy === 'true') return true;
-      if (button.classList.contains('csp-action-busy')) return true;
-      if (button.closest('[data-csp-no-busy="true"]')) return true;
-      return false;
-    };
-
-    const handleButtonFeedback = (event) => {
-      const target = event.target;
-      const button = target?.closest?.('button, a[role="button"], [role="button"]');
-      if (shouldSkipButtonFeedback(button)) return;
-
-      window.setTimeout(() => {
-        if (!button.isConnected || shouldSkipButtonFeedback(button)) return;
-
-        const testo = (button.textContent || '').trim();
-        const isCompact = testo.length <= 2 || button.offsetWidth < 46 || button.offsetHeight < 34;
-        button.classList.add('csp-action-feedback', 'csp-action-busy');
-        if (isCompact) button.dataset.cspCompact = 'true';
-        button.setAttribute('aria-busy', 'true');
-
-        const wasDisabled = button instanceof HTMLButtonElement ? button.disabled : false;
-        if (button instanceof HTMLButtonElement && !wasDisabled) {
-          button.dataset.cspWasDisabled = 'false';
-          button.disabled = true;
-        }
-
-        window.setTimeout(() => {
-          if (!button.isConnected) return;
-          button.classList.remove('csp-action-busy');
-          button.removeAttribute('aria-busy');
-          delete button.dataset.cspCompact;
-          if (button instanceof HTMLButtonElement && button.dataset.cspWasDisabled === 'false') {
-            button.disabled = false;
-            delete button.dataset.cspWasDisabled;
-          }
-        }, 1400);
-      }, 0);
-    };
-
-    document.addEventListener('click', handleButtonFeedback, true);
-    return () => document.removeEventListener('click', handleButtonFeedback, true);
-  }, []);
   const [votiPreventivi, setVotiPreventivi] = useState([]);
   const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
@@ -13873,12 +12696,10 @@ export default function App() {
   const [lavoriPrivati, setLavoriPrivati] = useState([]);
   const [fattureLavoriPrivati, setFattureLavoriPrivati] = useState([]);
   const [lavoroPrivatoApertoId, setLavoroPrivatoApertoId] = useState(null);
-  const [pushDeepLinkTick, setPushDeepLinkTick] = useState(0);
   const [provvigioniMaturate, setProvvigioniMaturate] = useState([]);
   const [fattureProvvigioniGestore, setFattureProvvigioniGestore] = useState([]);
   const [fattureProvvigioniAmministratori, setFattureProvvigioniAmministratori] = useState([]);
   const [capitolatiSenzaPensieri, setCapitolatiSenzaPensieri] = useState([]);
-  const [capitolatoDeeplinkId, setCapitolatoDeeplinkId] = useState(null);
   const [capitolatiEventi, setCapitolatiEventi] = useState([]);
   const [votiAssembleaCasep, setVotiAssembleaCasep] = useState([]);
   const [partnerOnboardingCaSP, setPartnerOnboardingCaSP] = useState([]);
@@ -13893,15 +12714,11 @@ export default function App() {
   const [rivisteCondominio, setRivisteCondominio] = useState([]);
   const [showRivistaModal, setShowRivistaModal] = useState(false);
   const [sendingRivista, setSendingRivista] = useState(false);
-  const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
-  const [promoInteressi, setPromoInteressi] = useState([]);
-  const [promoVoti, setPromoVoti] = useState([]);
-  const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
-  const [promoCondominioDeeplinkId, setPromoCondominioDeeplinkId] = useState(null);
-  const [promoDeeplinkTick, setPromoDeeplinkTick] = useState(0);
-  const [showPromoModal, setShowPromoModal] = useState(false);
-  const [savingPromo, setSavingPromo] = useState(false);
+  const [richiesteUpgradeCsp, setRichiesteUpgradeCsp] = useState([]);
   const [showPianiCspModal, setShowPianiCspModal] = useState(false);
+  const [upgradeRequestData, setUpgradeRequestData] = useState(null);
+  const [upgradeRequestNote, setUpgradeRequestNote] = useState('');
+  const [sendingUpgradeRequest, setSendingUpgradeRequest] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const isCollaboratore = ruoloNormalizzato === 'collaboratore';
@@ -13951,7 +12768,6 @@ export default function App() {
     setShowNuovaSegnalazione(false);
     setShowReportSemestrale(false);
     setShowRivistaModal(false);
-    setShowPromoModal(false);
     setLavoroPrivatoApertoId(null);
     chiudiMenuLaterale();
     window.setTimeout(() => {
@@ -14009,60 +12825,6 @@ export default function App() {
   }, [utentiSistema, condomini]);
 
 
-
-  const applicaDeeplinkPushInApp = (urlString) => {
-    if (typeof window === 'undefined' || !urlString) return;
-    try {
-      const url = new URL(urlString, window.location.origin);
-      if (url.origin !== window.location.origin) return;
-
-      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState(
-        { ...(window.history.state || {}), cspRoute: getCspHistoryRoute(), fromPushInApp: true },
-        document.title,
-        nextUrl
-      );
-
-      if (typeof window.focus === 'function') window.focus();
-      setPushDeepLinkTick((value) => value + 1);
-    } catch (error) {
-      console.warn('Deeplink push in-app non applicato:', error);
-    }
-  };
-
-  useEffect(() => {
-    let broadcastChannel = null;
-
-    const handleDeepLinkPayload = (data = {}) => {
-      if (data?.type !== 'CSP_PUSH_DEEPLINK') return;
-      applicaDeeplinkPushInApp(data.url || data.deeplink || data.launchUrl || '');
-    };
-
-    const handleServiceWorkerMessage = (event) => {
-      handleDeepLinkPayload(event?.data || {});
-    };
-
-    if (navigator?.serviceWorker?.addEventListener) {
-      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
-    }
-
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        broadcastChannel = new BroadcastChannel('csp-push-deeplink');
-        broadcastChannel.onmessage = (event) => handleDeepLinkPayload(event?.data || {});
-      }
-    } catch (_) {}
-
-    return () => {
-      if (navigator?.serviceWorker?.removeEventListener) {
-        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
-      }
-      try {
-        broadcastChannel?.close?.();
-      } catch (_) {}
-    };
-  }, [ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection]);
-
   useEffect(() => {
     const ids = (userProfile?.condominiIds || []).map((id) => String(id));
     if (ids.length === 1 && !selectedCondominioId) setSelectedCondominioId(ids[0]);
@@ -14118,10 +12880,6 @@ export default function App() {
         setShowRivistaModal(false);
         return;
       }
-      if (showPromoModal) {
-        setShowPromoModal(false);
-        return;
-      }
       const route = event.state?.cspRoute;
       if (route?.section) {
         applicaCspHistoryRoute(route);
@@ -14134,7 +12892,7 @@ export default function App() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal, showPromoModal]);
+  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal]);
 
 
   useEffect(() => {
@@ -14230,8 +12988,6 @@ export default function App() {
     numero = '',
     periodo = '',
     titoloRivista = '',
-    fileUrl = '',
-    requiredPlan = 'premium',
   }) => {
     try {
       const { data, error } = await supabase.functions.invoke('notify-rivista', {
@@ -14248,8 +13004,6 @@ export default function App() {
           numero,
           periodo,
           titoloRivista,
-          fileUrl,
-          requiredPlan,
         },
       });
 
@@ -14314,10 +13068,14 @@ export default function App() {
         console.warn('Report caricato ma non salvato in report_condominio:', reportError);
       }
 
-      // Report semestrale: la function send-report-condominio gestisce mail + push + una sola campanella
-      // tramite notification-router. Non chiamiamo anche notify-condominio, altrimenti la notifica
-      // interna viene salvata due volte in notifiche_utenti.
-      const reportDeepLink = buildAppDeepLink({ fromPush: '1', section: 'report', report: reportId || '', evento: 'report_semestrale', segnalazione: '0' });
+      await inviaNotificaCondominio({
+        condominioId,
+        destinatari: 'tutti',
+        title: 'Report semestrale disponibile',
+        message: `È disponibile il report semestrale Premium: ${periodo}. Puoi consultarlo nell’app nella sezione Report condominio oppure dalla mail.`,
+        tipo: 'report_semestrale',
+        riferimentoId: reportId,
+      });
 
       const { data: emailData, error: emailError } = await supabase.functions.invoke('send-report-condominio', {
         body: {
@@ -14326,15 +13084,13 @@ export default function App() {
           periodo,
           reportUrl,
           fileName,
-          reportId,
-          appUrl: reportDeepLink,
         },
       });
 
       if (emailError) throw emailError;
       if (emailData && emailData.success === false) throw new Error(emailData.error || 'Invio email non completato.');
 
-      mostraToast('Report inviato', 'Email e notifica push inviate ai destinatari Premium previsti.', 'success');
+      mostraToast('Report inviato', 'Email e notifica push inviate ad amministratore e condòmini.', 'success');
       setStatusMessage('Report semestrale Premium inviato correttamente.');
       setShowReportSemestrale(false);
     } catch (error) {
@@ -14410,8 +13166,6 @@ export default function App() {
         numero: numero?.trim() || '',
         periodo: periodo?.trim() || '',
         titoloRivista: titolo.trim(),
-        fileUrl,
-        requiredPlan: 'premium',
       });
 
       if (notifyRivista?.success === false) {
@@ -14450,6 +13204,59 @@ export default function App() {
   const reportSemestraleAttivo = subscriptionFlagsCorrenti.isPremium;
   const contrattoCorrenteSospeso = ruoloNormalizzato !== 'gestore'
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
+
+  const apriRichiestaUpgradeDaPiano = (target) => {
+    const pianoTarget = String(target || '').toLowerCase().includes('premium') ? 'premium' : 'plus';
+    const idCondominio = Number(condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
+    const condominio = (condomini || []).find((c) => Number(c.id) === idCondominio) || condominiVisibili?.[0] || {};
+    const email = utente?.email || userProfile?.email || '';
+    const cognome = getCognomeCsp(userProfile, utentiCondomini, email, condominio?.id || idCondominio);
+    const nomeCompleto = getNomeCompletoCsp(userProfile, utentiCondomini, email, condominio?.id || idCondominio);
+    setUpgradeRequestData({
+      piano: pianoTarget,
+      pianoLabel: pianoTarget.toUpperCase(),
+      condominioId: Number(condominio?.id || idCondominio || 0),
+      condominioNome: condominio?.nome || 'Condominio',
+      nome: userProfile?.nome || String(nomeCompleto || '').split(' ')[0] || '',
+      cognome,
+      nomeCompleto,
+      telefono: userProfile?.telefono || utentiCondomini.find((u) => String(u.email || '').toLowerCase() === String(email).toLowerCase())?.telefono || '',
+      email,
+    });
+    setUpgradeRequestNote('');
+  };
+
+  const inviaRichiestaUpgradeCsp = async () => {
+    if (!upgradeRequestData || sendingUpgradeRequest) return;
+    setSendingUpgradeRequest(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('request-upgrade-csp', {
+        body: { ...upgradeRequestData, note: upgradeRequestNote },
+      });
+      if (error) throw error;
+      setUpgradeRequestData(null);
+      setUpgradeRequestNote('');
+      await carica();
+      window.alert(data?.message || 'Richiesta inviata. Sarai contattato al più presto.');
+    } catch (error) {
+      console.error('[CSP upgrade request]', error);
+      alert('Errore invio richiesta upgrade: ' + (error?.message || 'sconosciuto'));
+    } finally {
+      setSendingUpgradeRequest(false);
+    }
+  };
+
+  const aggiornaDataPresentazioneUpgrade = async (richiesta, value) => {
+    try {
+      const payload = { data_presentazione: value ? new Date(value).toISOString() : null };
+      const { error } = await supabase.from('richieste_upgrade_csp').update(payload).eq('id', richiesta.id);
+      if (error) throw error;
+      await carica();
+      mostraToast('Presentazione aggiornata', 'Data presentazione salvata correttamente.', 'success');
+    } catch (error) {
+      alert('Errore salvataggio data presentazione: ' + (error?.message || 'sconosciuto'));
+    }
+  };
 
   const notificheCentroOrdinate = useMemo(() => {
     const map = new Map();
@@ -14563,7 +13370,7 @@ export default function App() {
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
       window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
     }
-  }, [utente, segnalazioni, pushDeepLinkTick]);
+  }, [utente, segnalazioni]);
 
   useEffect(() => {
     if (!utente || !lavoriPrivati.length) return;
@@ -14587,64 +13394,7 @@ export default function App() {
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
       window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
     }
-  }, [utente, lavoriPrivati, ruoloNormalizzato, pushDeepLinkTick]);
-
-  useEffect(() => {
-    if (!utente) return;
-    if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    const section = params.get('section');
-    const capitolatoId = params.get('capitolato') || params.get('casep') || params.get('capitolatoId');
-
-    if (section !== 'capitolato' && section !== 'casep' && !capitolatoId) return;
-
-    if (ruoloNormalizzato === 'gestore') setGestoreSection('capitolato');
-    else if (isAmministratoreOperativo) setAmministratoreSection('capitolato');
-    else setCondominoSection('segnalazioni');
-
-    if (capitolatoId) setCapitolatoDeeplinkId(Number(capitolatoId));
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, pushDeepLinkTick]);
-
-
-  useEffect(() => {
-    if (!utente) return;
-    if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    const section = params.get('section');
-    const promoId = params.get('promo') || params.get('promoId');
-    const promoCondominioId = params.get('promoCondominio') || params.get('promoCondominioId') || params.get('condominio_id') || params.get('condominioId');
-
-    if (section !== 'promo' && !promoId) return;
-
-    aggiornaPromoSenzaPensieriDati();
-
-    if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
-    else if (isAmministratoreOperativo) setAmministratoreSection('promo');
-    else if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('promo');
-
-    if (promoId) setPromoDeeplinkId(promoId);
-    if (promoCondominioId) setPromoCondominioDeeplinkId(String(promoCondominioId));
-    if (promoId || promoCondominioId) setPromoDeeplinkTick((value) => value + 1);
-
-    params.delete('section');
-    params.delete('promo');
-    params.delete('promoId');
-    params.delete('promoCondominio');
-    params.delete('promoCondominioId');
-    params.delete('condominio_id');
-    params.delete('condominioId');
-    params.delete('fromPush');
-    params.delete('evento');
-    params.delete('source');
-    params.delete('utm_source');
-
-    const query = params.toString();
-    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, pushDeepLinkTick]);
-
+  }, [utente, lavoriPrivati, ruoloNormalizzato]);
 
   useEffect(() => {
     if (!utente) return;
@@ -14659,31 +13409,6 @@ export default function App() {
     if (isAmministratoreOperativo) setAmministratoreSection('rivista');
     if (['condominio', 'condomino'].includes(ruoloNormalizzato)) setCondominoSection('rivista');
 
-    const rivisteOrdinate = [...(rivisteCondominio || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    const rivistaDiretta = rivistaId && rivistaId !== 'ultima'
-      ? rivisteOrdinate.find((rivista) => Number(rivista.id) === Number(rivistaId))
-      : rivisteOrdinate[0];
-
-    // Se il deeplink arriva prima del caricamento archivio, non puliamo la query:
-    // il prossimo giro dell'effect risolverà il PDF appena rivisteCondominio è pronto.
-    if (rivistaId && !rivistaDiretta && rivisteOrdinate.length === 0) return;
-
-    const fileUrl = rivistaDiretta?.file_url || buildPublicUrl(rivistaDiretta?.file_nome);
-    if (fileUrl) {
-      const rivistaUrl = fileUrl;
-      // Il deeplink da push viene risolto dopo il caricamento dati: window.open può essere bloccato
-      // come popup. Usiamo la stessa logica dei report: navigazione diretta nella scheda corrente.
-      setTimeout(() => {
-        try {
-          window.location.assign(rivistaUrl);
-        } catch {
-          window.open(rivistaUrl, '_blank', 'noopener,noreferrer');
-        }
-      }, 350);
-    } else if (rivistaId) {
-      mostraToast('Rivista non trovata', 'La rivista collegata alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
-    }
-
     params.delete('section');
     params.delete('rivista');
     params.delete('magazine');
@@ -14694,57 +13419,7 @@ export default function App() {
     const query = params.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, rivisteCondominio, pushDeepLinkTick]);
-
-
-  useEffect(() => {
-    if (!utente) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const section = params.get('section');
-    const reportId = params.get('report') || params.get('reportId');
-
-    if (section !== 'report' && !reportId) return;
-
-    if (ruoloNormalizzato === 'gestore') setGestoreSection('report');
-    else if (isAmministratoreOperativo) setAmministratoreSection('report');
-    else setCondominoSection('report');
-
-    if (reportId) {
-      const reportDiretto = (reportCondominio || []).find((report) => Number(report.id) === Number(reportId));
-
-      // Se i report non sono ancora caricati, aspetta il caricamento dati prima di pulire la query.
-      if (!reportDiretto && (!Array.isArray(reportCondominio) || reportCondominio.length === 0)) return;
-
-      if (reportDiretto?.file_url) {
-        const reportUrl = reportDiretto.file_url;
-        setTimeout(() => {
-          try {
-            window.location.assign(reportUrl);
-          } catch {
-            window.open(reportUrl, '_blank', 'noopener,noreferrer');
-          }
-        }, 350);
-      } else {
-        mostraToast('Report non trovato', 'Il report collegato alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
-      }
-    }
-
-    params.delete('section');
-    params.delete('report');
-    params.delete('reportId');
-    params.delete('pratica');
-    params.delete('segnalazione');
-    params.delete('segnalazioneId');
-    params.delete('fromPush');
-    params.delete('evento');
-    params.delete('source');
-    params.delete('utm_source');
-
-    const query = params.toString();
-    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState({ ...(window.history.state || {}), cspRoute: getCspHistoryRoute() }, document.title, nextUrl);
-  }, [utente, ruoloNormalizzato, isAmministratoreOperativo, reportCondominio, pushDeepLinkTick]);
+  }, [utente, ruoloNormalizzato, isAmministratoreOperativo]);
 
 
   const registraNotificaCentro = async ({ destinatari = [], condominioId = null, titolo = '', messaggio = '', tipo = 'notifica', riferimentoId = null }) => {
@@ -14803,97 +13478,6 @@ export default function App() {
     return [...new Set(emails.filter(Boolean))];
   };
 
-  const destinatariCentroCasep = (capitolato = {}, eventType = 'aggiornamento', extraEmails = []) => {
-    const condominioId = Number(capitolato?.condominio_id || 0);
-    const emails = [];
-    const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
-    const ruoloAzione = ruoloNormalizzato === 'collaboratore' ? 'collaboratore' : ruoloNormalizzato;
-
-    const addEmail = (email) => {
-      const cleanEmail = String(email || '').toLowerCase().trim();
-      if (cleanEmail && cleanEmail !== emailCorrente) emails.push(cleanEmail);
-    };
-
-    const addGestori = () => {
-      (utentiSistema || []).forEach((row) => {
-        if (String(row.ruolo || '').toLowerCase().trim() === 'gestore') addEmail(row.email);
-      });
-    };
-
-    const addAmministrazioneOperativa = () => {
-      const condominio = (condomini || []).find((item) => Number(item.id) === condominioId);
-      addEmail(condominio?.amministratore_email);
-      addEmail(capitolato?.amministratore_email);
-      addEmail(capitolato?.collaboratore_email);
-      addEmail(capitolato?.richiedente_email);
-
-      (utentiCondomini || []).forEach((row) => {
-        if (Number(row.condominio_id) !== condominioId) return;
-        const ruolo = String(row.ruolo || '').toLowerCase().trim();
-        if (ruolo === 'amministratore' || ruolo === 'collaboratore') addEmail(row.email);
-      });
-    };
-
-    // Regola CaSeP: azioni amministratore/collaboratore verso gestore; azioni gestore verso amministratore/collaboratori.
-    // I condòmini non ricevono notifiche CaSeP in campanella.
-    if (ruoloAzione === 'gestore') addAmministrazioneOperativa();
-    else if (ruoloAzione === 'amministratore' || ruoloAzione === 'collaboratore') addGestori();
-    else addGestori();
-
-    (extraEmails || []).forEach(addEmail);
-    return [...new Set(emails.filter(Boolean))];
-  };
-
-  const destinatariCentroLsp = (lavoro = {}, eventType = 'aggiornamento', extraEmails = []) => {
-    const emails = [];
-    const emailCorrente = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
-    const ruoloAzione = ruoloNormalizzato === 'condominio' ? 'condomino' : String(ruoloNormalizzato || '').toLowerCase().trim();
-    const tipoEvento = String(eventType || '').toLowerCase().trim();
-
-    const addEmail = (email) => {
-      const cleanEmail = String(email || '').toLowerCase().trim();
-      if (cleanEmail && cleanEmail !== emailCorrente) emails.push(cleanEmail);
-    };
-
-    const addGestori = () => {
-      (utentiSistema || []).forEach((row) => {
-        if (String(row.ruolo || '').toLowerCase().trim() === 'gestore') addEmail(row.email);
-      });
-    };
-
-    const addSoloCondominoRichiedente = () => {
-      // LSP è una conversazione privata: la campanella lato condòmino deve arrivare
-      // esclusivamente all'email proprietaria della pratica, mai agli altri condòmini
-      // dello stesso condominio e mai ad amministratori/collaboratori.
-      addEmail(lavoro?.condomino_email);
-    };
-
-    if (tipoEvento === 'nuova_richiesta') {
-      addGestori();
-    } else if (ruoloAzione === 'gestore') {
-      addSoloCondominoRichiedente();
-    } else if (ruoloAzione === 'condomino') {
-      addGestori();
-    } else {
-      // Fallback prudente: se il ruolo non è chiaro, non allarghiamo mai ai condòmini.
-      addGestori();
-    }
-
-    // Per LSP gli extra sono ammessi solo se corrispondono al condòmino proprietario
-    // oppure a un gestore già censito. Evita aperture accidentali verso tutto il condominio.
-    const gestoriSet = new Set((utentiSistema || [])
-      .filter((row) => String(row.ruolo || '').toLowerCase().trim() === 'gestore')
-      .map((row) => String(row.email || '').toLowerCase().trim())
-      .filter(Boolean));
-    const proprietario = String(lavoro?.condomino_email || '').toLowerCase().trim();
-    (extraEmails || []).forEach((email) => {
-      const cleanEmail = String(email || '').toLowerCase().trim();
-      if (cleanEmail && (cleanEmail === proprietario || gestoriSet.has(cleanEmail))) addEmail(cleanEmail);
-    });
-
-    return [...new Set(emails.filter(Boolean))];
-  };
-
   const aggiornaNotificheCentro = async () => {
     if (!utente) return;
     try {
@@ -14912,82 +13496,11 @@ export default function App() {
     }
   };
 
-  const aggiornaPromoSenzaPensieriDati = async () => {
-    try {
-      const { data: promoData, error: promoError } = await supabase
-        .from('promo_senza_pensieri')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!promoError) setPromoSenzaPensieri(promoData || []);
-      else if (promoError.code !== 'PGRST116' && promoError.code !== '42P01') console.warn('Errore refresh promo:', promoError);
-
-      const { data: interessiData, error: interessiError } = await supabase
-        .from('promo_interessi')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!interessiError) setPromoInteressi(interessiData || []);
-      else if (interessiError.code !== 'PGRST116' && interessiError.code !== '42P01') console.warn('Errore refresh interessi promo:', interessiError);
-
-      const { data: votiPromoData, error: votiPromoError } = await supabase
-        .from('promo_voti')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!votiPromoError) setPromoVoti(votiPromoData || []);
-      else if (votiPromoError.code !== 'PGRST116' && votiPromoError.code !== '42P01') console.warn('Errore refresh voti promo:', votiPromoError);
-    } catch (error) {
-      console.warn('Errore aggiornamento Promo Senza Pensieri:', error);
-    }
-  };
-
-  const apriNotificaCentro = async (notifica) => {
+  const apriNotificaCentro = (notifica) => {
     const tipo = String(notifica?.tipo || '').toLowerCase().trim();
-    const riferimentoIdRaw = notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || '';
-    const riferimentoId = Number(riferimentoIdRaw || 0);
+    const riferimentoId = Number(notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || 0);
 
-    const isPromoPraticaCsp = riferimentoId && (
-      tipo.includes('promo_pratica') ||
-      tipo.includes('promo_prenotazione_confermata') ||
-      tipo.includes('promo_attivata')
-    );
-
-    if (isPromoPraticaCsp) {
-      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
-      if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
-      else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
-      else setCondominoSection('segnalazioni');
-      if (pratica) {
-        setDettaglioAperto(pratica);
-      } else {
-        mostraToast('Pratica in caricamento', 'La pratica collegata alla promo sarà disponibile appena terminato l’aggiornamento dati.', 'info');
-        await carica();
-        setTimeout(() => {
-          const aggiornata = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
-          if (aggiornata) setDettaglioAperto(aggiornata);
-        }, 600);
-      }
-      return;
-    }
-
-    if (tipo.includes('promo')) {
-      await aggiornaPromoSenzaPensieriDati();
-      if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
-      else if (isAmministratoreOperativo) setAmministratoreSection('promo');
-      else setCondominoSection('promo');
-
-      const promoIdNotifica = notifica?.promo_id || notifica?.promoId || notifica?.promo || notifica?.metadata?.promo_id || notifica?.metadata?.promoId || '';
-      if (promoIdNotifica) setPromoDeeplinkId(String(promoIdNotifica));
-      else if (riferimentoIdRaw && String(riferimentoIdRaw).includes('-')) setPromoDeeplinkId(String(riferimentoIdRaw));
-
-      const condominioPromoNotifica = notifica?.promo_condominio_id || notifica?.promoCondominio || notifica?.metadata?.promo_condominio_id || notifica?.metadata?.promoCondominio || notifica?.condominio_id || '';
-      if (condominioPromoNotifica) setPromoCondominioDeeplinkId(String(condominioPromoNotifica));
-      setPromoDeeplinkTick((value) => value + 1);
-      return;
-    }
-
-    if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('promo') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
+    if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
       const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
       if (pratica) {
         if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
@@ -15003,17 +13516,6 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('rivista');
       else if (isAmministratoreOperativo) setAmministratoreSection('rivista');
       else setCondominoSection('rivista');
-
-      const rivisteOrdinate = [...(rivisteCondominio || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-      const rivistaDiretta = riferimentoId
-        ? rivisteOrdinate.find((rivista) => Number(rivista.id) === Number(riferimentoId))
-        : rivisteOrdinate[0];
-      const fileUrl = rivistaDiretta?.file_url || buildPublicUrl(rivistaDiretta?.file_nome);
-      if (fileUrl) {
-        window.open(fileUrl, '_blank', 'noopener,noreferrer');
-      } else if (riferimentoId) {
-        mostraToast('Rivista non trovata', 'La rivista collegata alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
-      }
       return;
     }
 
@@ -15021,15 +13523,6 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('report');
       else if (isAmministratoreOperativo) setAmministratoreSection('report');
       else setCondominoSection('report');
-
-      if (riferimentoId) {
-        const reportDiretto = (reportCondominio || []).find((report) => Number(report.id) === Number(riferimentoId));
-        if (reportDiretto?.file_url) {
-          window.open(reportDiretto.file_url, '_blank', 'noopener,noreferrer');
-        } else {
-          mostraToast('Report non trovato', 'Il report collegato alla notifica non è più disponibile o non è accessibile da questo profilo.', 'warning');
-        }
-      }
       return;
     }
 
@@ -15044,12 +13537,6 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('capitolato');
       else if (isAmministratoreOperativo) setAmministratoreSection('capitolato');
       else setCondominoSection('segnalazioni');
-
-      if (riferimentoId) {
-        const capitolato = (capitolatiSenzaPensieri || []).find((item) => Number(item.id) === riferimentoId);
-        if (capitolato) setCapitolatoDeeplinkId(Number(capitolato.id));
-        else setCapitolatoDeeplinkId(Number(riferimentoId));
-      }
       return;
     }
 
@@ -15057,12 +13544,6 @@ export default function App() {
       if (ruoloNormalizzato === 'gestore') setGestoreSection('lavori-privati');
       else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
       else setCondominoSection('lavori-privati');
-
-      if (riferimentoId) {
-        const lavoro = (lavoriPrivati || []).find((item) => Number(item.id) === riferimentoId);
-        if (lavoro) setLavoroPrivatoApertoId(Number(lavoro.id));
-        else setLavoroPrivatoApertoId(Number(riferimentoId));
-      }
       return;
     }
 
@@ -15082,425 +13563,6 @@ export default function App() {
     else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
     else setCondominoSection('segnalazioni');
   };
-
-
-  const inviaNotificaPromoSenzaPensieri = async (promoRecord = {}) => {
-    if (!promoRecord?.id) return null;
-    try {
-      const promoDeepLink = buildAppDeepLink({
-        fromPush: '1',
-        section: 'promo',
-        promo: promoRecord.id,
-        evento: 'promo_senza_pensieri',
-      });
-
-      const { data, error } = await supabase.functions.invoke('notify-promo-senza-pensieri', {
-        body: {
-          promoId: promoRecord.id,
-          title: 'Nuova Promo Senza Pensieri',
-          message: `È disponibile una nuova opportunità CSP: ${promoRecord.titolo || 'scoprila in app'}. Apri l’app per visualizzarla.`,
-          deepLink: promoDeepLink,
-          url: promoDeepLink,
-        },
-      });
-
-      if (error || data?.success === false) {
-        console.warn('Promo creata, ma notifica promo non completata:', error || data);
-        mostraToast('Promo salvata', 'La promo è visibile in app, ma l’invio notifiche non è stato completato.', 'warning');
-        return null;
-      }
-
-      mostraToast('Promo pubblicata', `Invio completato: ${data?.emails_found || 0} destinatari unici raggiunti.`, 'success');
-      return data;
-    } catch (error) {
-      console.warn('Errore invio notifica promo:', error);
-      mostraToast('Promo salvata', 'La promo è visibile in app, ma l’invio notifiche non è stato completato.', 'warning');
-      return null;
-    }
-  };
-
-
-  const creaPromoSenzaPensieri = async (promo) => {
-    setSavingPromo(true);
-    try {
-      const payload = {
-        titolo: promo.titolo?.trim(),
-        descrizione: promo.descrizione?.trim() || null,
-        prezzo: promo.prezzo?.trim() || null,
-        immagine_url: promo.immagine_url?.trim() || null,
-        validita_dal: promo.validita_dal || null,
-        validita_al: promo.validita_al || null,
-        cta_tipo: promo.cta_tipo || 'chiedi_amministratore',
-        cta_testo: promo.cta_testo?.trim() || null,
-        cta_url: promo.cta_url?.trim() || null,
-        limite: promo.limite?.trim() || null,
-        limite_quantita: promo.limite_quantita ? Number(promo.limite_quantita) : null,
-        prenotazioni_attuali: 0,
-        stato: promo.stato || (promo.attiva !== false ? 'attiva' : 'bozza'),
-        attiva: (promo.stato || '').toLowerCase() === 'attiva' || promo.attiva === true,
-        created_by: utente?.email || userProfile?.email || null,
-      };
-
-      const { data: insertedPromo, error } = await supabase
-        .from('promo_senza_pensieri')
-        .insert(payload)
-        .select('*')
-        .single();
-      if (error) throw error;
-
-      setShowPromoModal(false);
-      setToastInterno({ tipo: 'success', titolo: 'Promo creata', messaggio: 'La promozione è stata salvata nella vetrina Promo Senza Pensieri.' });
-      if ((insertedPromo?.stato || '').toLowerCase() === 'attiva' || insertedPromo?.attiva === true) {
-        await inviaNotificaPromoSenzaPensieri(insertedPromo);
-      }
-      await carica();
-    } catch (error) {
-      console.error('Errore creazione promo:', error);
-      alert(error?.message || 'Impossibile creare la promozione.');
-    } finally {
-      setSavingPromo(false);
-    }
-  };
-
-
-  const riproponiPromoSenzaPensieri = async (promo) => {
-    if (!promo?.id) return;
-    setSavingPromo(true);
-    try {
-      const payload = {
-        titolo: promo.titolo || 'Nuova promo',
-        descrizione: promo.descrizione || null,
-        prezzo: promo.prezzo || null,
-        immagine_url: promo.immagine_url || null,
-        validita_dal: new Date().toISOString().slice(0, 10),
-        validita_al: null,
-        cta_tipo: promo.cta_tipo || 'chiedi_amministratore',
-        cta_testo: promo.cta_testo || 'Chiedila al tuo amministratore',
-        cta_url: promo.cta_url || null,
-        limite: promo.limite || null,
-        limite_quantita: promo.limite_quantita || null,
-        prenotazioni_attuali: 0,
-        stato: 'bozza',
-        attiva: false,
-        inviata: false,
-        inviata_at: null,
-        riproposta_da: promo.id,
-        created_by: utente?.email || userProfile?.email || null,
-      };
-
-      const { error } = await supabase.from('promo_senza_pensieri').insert(payload);
-      if (error) throw error;
-
-      setToastInterno({ tipo: 'success', titolo: 'Promo riproposta', messaggio: 'È stata creata una nuova bozza partendo dalla promozione selezionata.' });
-      await carica();
-    } catch (error) {
-      console.error('Errore riproposizione promo:', error);
-      alert(error?.message || 'Impossibile riproporre la promozione.');
-    } finally {
-      setSavingPromo(false);
-    }
-  };
-
-  const richiediPromoAlTuoAmministratore = async (promoRecord = {}, condominioIdRichiesto = null) => {
-    if (!promoRecord?.id) return null;
-    const condominioId = Number(condominioIdRichiesto || condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
-    if (!condominioId) {
-      mostraToast('Condominio non trovato', 'Non riesco a collegare la richiesta a un condominio. Verifica il profilo utente.', 'warning');
-      return null;
-    }
-
-    try {
-      const promoDeepLink = buildAppDeepLink({
-        fromPush: '1',
-        section: 'promo',
-        promo: promoRecord.id,
-        promoCondominio: condominioId,
-        evento: 'promo_interesse_condomino',
-      });
-
-      const { data, error } = await supabase.functions.invoke('notify-promo-interesse-condomino', {
-        body: {
-          promoId: promoRecord.id,
-          condominioId,
-          condominoEmail: utente?.email || userProfile?.email || '',
-          condominoNome: userProfile?.nome || utente?.user_metadata?.name || '',
-          deepLink: promoDeepLink,
-          url: promoDeepLink,
-        },
-      });
-
-      if (error || data?.success === false) {
-        console.warn('Richiesta promo non completata:', error || data);
-        mostraToast('Richiesta non completata', data?.error || error?.message || 'Non è stato possibile inviare la richiesta all’amministratore.', 'error');
-        return null;
-      }
-
-      mostraToast('Richiesta inviata', 'Il tuo amministratore è stato avvisato della promozione che ti interessa.', 'success');
-      await carica();
-      return data;
-    } catch (error) {
-      console.error('Errore richiesta promo:', error);
-      mostraToast('Errore richiesta', error?.message || 'Non è stato possibile inviare la richiesta promo.', 'error');
-      return null;
-    }
-  };
-
-
-  const prenotaInterventoPromo = async (promoRecord = {}, condominioIdRichiesto = null) => {
-    if (!promoRecord?.id) return null;
-
-    const condominioId = Number(condominioIdRichiesto || filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || condominiVisibili?.[0]?.id || 0);
-    if (!condominioId) {
-      mostraToast('Condominio non selezionato', 'Seleziona un condominio prima di prenotare l’intervento promo.', 'warning');
-      return null;
-    }
-
-    try {
-      const promoDeepLink = buildAppDeepLink({
-        fromPush: '1',
-        section: 'promo',
-        promo: promoRecord.id,
-        promoCondominio: condominioId,
-        evento: 'promo_prenotazione_amministratore',
-      });
-
-      const { data, error } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
-        body: {
-          promoId: promoRecord.id,
-          condominioId,
-          richiedenteEmail: utente?.email || userProfile?.email || '',
-          richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
-          ruolo: ruoloNormalizzato,
-          deepLink: promoDeepLink,
-          url: promoDeepLink,
-        },
-      });
-
-      if (error || data?.success === false || (data?.skipped && !data?.segnalazione?.id && !data?.segnalazione_id)) {
-        console.warn('Prenotazione promo non completata:', error || data);
-        mostraToast('Prenotazione non completata', data?.error || data?.reason || error?.message || 'Non è stato possibile generare la pratica CSP.', 'error');
-        return null;
-      }
-
-      const segnalazioneId = data?.segnalazione?.id || data?.segnalazione_id || data?.booking?.data?.segnalazione_id || null;
-      mostraToast(data?.alreadyBooked ? 'Promo già prenotata' : 'Pratica CSP aperta', data?.alreadyBooked ? 'La promo risultava già prenotata: apro la pratica collegata.' : 'La prenotazione promo è stata trasformata automaticamente in una nuova pratica CSP.', 'success');
-      await carica();
-      if (segnalazioneId) {
-        const { data: praticaDb, error: praticaError } = await supabase
-          .from('segnalazioni')
-          .select('*, condomini(id, nome, indirizzo)')
-          .eq('id', segnalazioneId)
-          .maybeSingle();
-        if (praticaError) console.warn('Pratica promo creata ma non riletta:', praticaError);
-        const praticaDaAprire = praticaDb ? normalizzaSegnalazioni([praticaDb])[0] : data?.segnalazione;
-        if (praticaDaAprire) {
-          setDettaglioAperto(praticaDaAprire);
-          if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
-          else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
-        }
-      }
-      return data;
-    } catch (error) {
-      console.error('Errore prenotazione promo:', error);
-      mostraToast('Errore prenotazione', error?.message || 'Non è stato possibile inviare la prenotazione promo.', 'error');
-      return null;
-    }
-  };
-
-
-  const confermaPrenotazionePromo = async (promoRecord = {}, interesseRecord = {}) => {
-    if (!promoRecord?.id || !interesseRecord?.id) {
-      mostraToast('Prenotazione non selezionata', 'Non riesco a individuare la prenotazione da confermare.', 'warning');
-      return null;
-    }
-
-    try {
-      const promoDeepLink = buildAppDeepLink({
-        fromPush: '1',
-        section: 'promo',
-        promo: promoRecord.id,
-        promoCondominio: interesseRecord.condominio_id,
-        evento: 'promo_confermata',
-      });
-
-      const { data, error } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
-        body: {
-          promoId: promoRecord.id,
-          interesseId: interesseRecord.id,
-          condominioId: interesseRecord.condominio_id,
-          deepLink: promoDeepLink,
-          url: promoDeepLink,
-        },
-      });
-
-      if (error || data?.success === false) {
-        console.warn('Conferma promo non completata:', error || data);
-        mostraToast('Conferma non completata', data?.error || error?.message || 'Non è stato possibile confermare la prenotazione promo.', 'error');
-        return null;
-      }
-
-      mostraToast('Prenotazione confermata', 'È stata aperta una pratica CSP collegata alla promo.', 'success');
-      await carica();
-      if (data?.segnalazione?.id) {
-        const pratica = segnalazioni.find((s) => Number(s.id) === Number(data.segnalazione.id));
-        if (pratica) setDettaglioAperto(pratica);
-      }
-      return data;
-    } catch (error) {
-      console.error('Errore conferma prenotazione promo:', error);
-      mostraToast('Errore conferma', error?.message || 'Non è stato possibile confermare la prenotazione promo.', 'error');
-      return null;
-    }
-  };
-
-
-  const avviaVotazionePromo = async (promoRecord = {}, condominioIdRichiesto = null) => {
-    if (!promoRecord?.id) return null;
-    const condominioId = Number(condominioIdRichiesto || 0);
-    if (!condominioId) {
-      mostraToast('Condominio non selezionato', 'Seleziona il condominio per avviare la votazione promo.', 'warning');
-      return null;
-    }
-    const piano = getPianoAbbonamentoCondominio(condominioId, contratti);
-    if (!canUseSubscriptionFeature(piano, 'plus')) {
-      mostraToast('Funzione Plus/Premium', 'La votazione automatica è riservata ai condomìni Plus e Premium.', 'warning');
-      return null;
-    }
-    try {
-      mostraToast('Avvio votazione', 'Sto preparando la votazione promo per i condòmini.', 'info');
-      const deepLink = buildAppDeepLink({
-        fromPush: '1',
-        section: 'promo',
-        promo: promoRecord.id,
-        promoCondominio: condominioId,
-        evento: 'promo_votazione',
-      });
-      const { data, error } = await supabase.functions.invoke('notify-promo-votazione', {
-        body: {
-          promoId: promoRecord.id,
-          condominioId,
-          richiedenteEmail: utente?.email || userProfile?.email || '',
-          richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
-          deepLink,
-          url: deepLink,
-        },
-      });
-      if (error || data?.success === false) {
-        console.warn('Avvio votazione promo non completato:', error || data);
-        mostraToast('Votazione non avviata', data?.error || error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
-        return null;
-      }
-      mostraToast('Votazione avviata', 'I condòmini sono stati avvisati e potranno esprimere il proprio parere dall’app.', 'success');
-      await aggiornaPromoSenzaPensieriDati();
-      await aggiornaNotificheCentro();
-      return data;
-    } catch (error) {
-      console.error('Errore avvio votazione promo:', error);
-      mostraToast('Errore votazione', error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
-      return null;
-    }
-  };
-
-  const totaleCondominiPromo = (condominioId) => {
-    const condominio = (condominiVisibili || condomini || []).find((c) => String(c?.id) === String(condominioId));
-    const totale = Number(condominio?.famiglie || condominio?.numero_condomini || condominio?.numero_famiglie || condominio?.totale_famiglie || 0);
-    return Number.isFinite(totale) && totale > 0 ? totale : 0;
-  };
-
-  const registraVotoPromo = async (promoRecord = {}, condominioIdRichiesto = null, voto = '') => {
-    if (!promoRecord?.id) return null;
-    const condominioId = Number(condominioIdRichiesto || 0);
-    const votoNorm = String(voto || '').toLowerCase().includes('fav') ? 'favorevole' : 'contrario';
-    const email = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
-    if (!condominioId || !email) {
-      mostraToast('Voto non registrato', 'Non riesco a collegare il voto al condominio o al tuo profilo.', 'warning');
-      return null;
-    }
-    try {
-      const payload = {
-        promo_id: promoRecord.id,
-        condominio_id: condominioId,
-        email,
-        nome: userProfile?.nome || utente?.user_metadata?.name || '',
-        voto: votoNorm,
-      };
-      const { error } = await supabase
-        .from('promo_voti')
-        .upsert(payload, { onConflict: 'promo_id,condominio_id,email' });
-      if (error) throw error;
-
-      const { data: votiAggiornati, error: votiAggiornatiError } = await supabase
-        .from('promo_voti')
-        .select('*')
-        .eq('promo_id', promoRecord.id)
-        .eq('condominio_id', condominioId);
-      if (votiAggiornatiError && votiAggiornatiError.code !== 'PGRST116') throw votiAggiornatiError;
-
-      const votiUnici = Array.from(new Map((votiAggiornati || []).map((v) => [String(v?.email || '').toLowerCase().trim(), v])).values());
-      const emailVotantiAggiornati = new Set(votiUnici.map((v) => String(v?.email || '').toLowerCase().trim()).filter(Boolean));
-      const favorevoliEspliciti = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
-      const contrari = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
-      const { data: interessiAggiornati, error: interessiAggiornatiError } = await supabase
-        .from('promo_interessi')
-        .select('email, azione, stato')
-        .eq('promo_id', promoRecord.id)
-        .eq('condominio_id', condominioId);
-      if (interessiAggiornatiError && interessiAggiornatiError.code !== 'PGRST116') throw interessiAggiornatiError;
-      const interessiFavorevoliImpliciti = Array.from(new Map((interessiAggiornati || [])
-        .filter((r) =>
-          String(r?.azione || '').toLowerCase().includes('interesse') &&
-          String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
-        )
-        .map((r) => [String(r?.email || '').toLowerCase().trim(), r])
-        .filter(([email]) => email && !emailVotantiAggiornati.has(email))
-      ).values()).length;
-      const favorevoli = favorevoliEspliciti + interessiFavorevoliImpliciti;
-      const totaleFamiglieCondominio = Number(totaleCondominiPromo(condominioId) || 0);
-      const sogliaMaggioranza = totaleFamiglieCondominio ? Math.floor(totaleFamiglieCondominio / 2) + 1 : 1;
-      const maggioranzaAssolutaRaggiunta = favorevoli >= sogliaMaggioranza && favorevoli > contrari;
-      const unanimitaRaggiunta = totaleFamiglieCondominio > 0 && contrari === 0 && favorevoli >= totaleFamiglieCondominio;
-
-      mostraToast('Voto registrato', `Hai espresso voto ${votoNorm}.`, 'success');
-
-      if (unanimitaRaggiunta) {
-        try {
-          const deepLink = buildAppDeepLink({ fromPush: '1', section: 'promo', promo: promoRecord.id, promoCondominio: condominioId, evento: 'promo_votazione_approvata' });
-          const { data: autoData, error: autoError } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
-            body: {
-              promoId: promoRecord.id,
-              condominioId,
-              viaVotazione: true,
-              richiedenteEmail: email,
-              richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
-              ruolo: 'votazione',
-              deepLink,
-              url: deepLink,
-            },
-          });
-          if (autoError || autoData?.success === false) {
-            console.warn('Creazione pratica da votazione promo non completata:', autoError || autoData);
-          } else if (autoData?.segnalazione?.id || autoData?.segnalazione_id) {
-            mostraToast('Promo approvata all’unanimità', 'Tutti i pareri risultano favorevoli: è stata aperta automaticamente una pratica CSP.', 'success');
-          }
-        } catch (autoError) {
-          console.warn('Errore creazione automatica pratica promo:', autoError);
-        }
-      }
-
-      if (!unanimitaRaggiunta && maggioranzaAssolutaRaggiunta) {
-        mostraToast('Maggioranza raggiunta', 'La maggioranza favorevole è stata raggiunta. L’amministratore può procedere con Prenota intervento.', 'info');
-      }
-
-      await aggiornaPromoSenzaPensieriDati();
-      await carica();
-      return true;
-    } catch (error) {
-      console.error('Errore voto promo:', error);
-      mostraToast('Errore voto', error?.message || 'Non è stato possibile registrare il voto promo.', 'error');
-      return null;
-    }
-  };
-
 
   const carica = async () => {
     setLoading(true);
@@ -15570,27 +13632,13 @@ export default function App() {
       if (rivisteError && rivisteError.code !== 'PGRST116' && rivisteError.code !== '42P01') throw rivisteError;
       setRivisteCondominio(rivisteData || []);
 
-      const { data: promoData, error: promoError } = await supabase
-        .from('promo_senza_pensieri')
+      const { data: richiesteUpgradeData, error: richiesteUpgradeError } = await supabase
+        .from('richieste_upgrade_csp')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (promoError && promoError.code !== 'PGRST116' && promoError.code !== '42P01') throw promoError;
-      setPromoSenzaPensieri(promoData || []);
-
-      const { data: promoInteressiData, error: promoInteressiError } = await supabase
-        .from('promo_interessi')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (promoInteressiError && promoInteressiError.code !== 'PGRST116' && promoInteressiError.code !== '42P01') throw promoInteressiError;
-      setPromoInteressi(promoInteressiData || []);
-
-      const { data: promoVotiData, error: promoVotiError } = await supabase
-        .from('promo_voti')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (promoVotiError && promoVotiError.code !== 'PGRST116' && promoVotiError.code !== '42P01') throw promoVotiError;
-      setPromoVoti(promoVotiData || []);
+      if (richiesteUpgradeError && richiesteUpgradeError.code !== 'PGRST116' && richiesteUpgradeError.code !== '42P01') throw richiesteUpgradeError;
+      setRichiesteUpgradeCsp(richiesteUpgradeData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -15908,32 +13956,6 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, [utente?.email]);
-
-  useEffect(() => {
-    if (!utente) return undefined;
-
-    const channel = supabase
-      .channel('promo-senza-pensieri-live')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'promo_interessi' },
-        () => {
-          aggiornaPromoSenzaPensieriDati();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'promo_senza_pensieri' },
-        () => {
-          aggiornaPromoSenzaPensieriDati();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [utente]);
 
 
 
@@ -16900,8 +14922,6 @@ export default function App() {
           source: 'App.jsx',
           release: APP_VERSION,
           function_name: functionName,
-          actor_role: ruoloNormalizzato,
-          actor_email: userProfile?.email || utente?.email || '',
         },
       };
 
@@ -17033,14 +15053,6 @@ export default function App() {
           created_from_app: true,
         });
         console.log('[CaSeP notify] nuovo_capitolato result', notifyResult);
-        await registraNotificaCentro({
-          destinatari: destinatariCentroCasep(data, 'nuovo_capitolato'),
-          condominioId: data?.condominio_id,
-          titolo: 'CaSeP · Nuova pratica aperta',
-          messaggio: `Nuova pratica Capitolato Senza Pensieri per ${data?.condominio_nome || 'il condominio'}.`,
-          tipo: 'casep_nuovo_capitolato',
-          riferimentoId: data?.id,
-        });
       }
 
       setStatusMessage('Pratica Capitolato Senza Pensieri aperta correttamente.');
@@ -17126,7 +15138,12 @@ export default function App() {
         const messaggioCasep = `${titoloCasep} per ${data?.condominio_nome || 'il condominio'}.`;
 
         await registraNotificaCentro({
-          destinatari: destinatariCentroCasep(data, eventType),
+          destinatari: destinatariCentroPerCondominio(data?.condominio_id, [
+            data?.amministratore_email,
+            data?.collaboratore_email,
+            data?.richiedente_email,
+            userProfile?.email,
+          ]),
           condominioId: data?.condominio_id,
           titolo: titoloCasep,
           messaggio: messaggioCasep,
@@ -17591,8 +15608,6 @@ export default function App() {
           lavoroId: lavoro.id,
           lavoro,
           extra,
-          actorRole: ruoloNormalizzato,
-          actorEmail: utente?.email || userProfile?.email || '',
           deepLink: `${AUTH_REDIRECT_URL}/?fromPush=1&lavoroPrivato=${lavoro.id}`,
         },
       });
@@ -17617,7 +15632,13 @@ export default function App() {
             ? 'Lo stato della fattura del lavoro privato è stato aggiornato.'
             : `Aggiornamento sulla richiesta privata${lavoro?.titolo ? `: ${lavoro.titolo}` : ''}.`;
 
-      const destinatariLsp = destinatariCentroLsp(lavoro, eventType);
+      const destinatariLsp = destinatariCentroPerCondominio(lavoro?.condominio_id, [
+        lavoro?.email,
+        lavoro?.richiedente_email,
+        lavoro?.utente_email,
+        userProfile?.email,
+        utente?.email,
+      ]);
 
       await registraNotificaCentro({
         destinatari: destinatariLsp,
@@ -17841,7 +15862,6 @@ export default function App() {
     { id: 'guadagni', label: '💰 Guadagni', subtitle: 'Control Room economica' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
-    { id: 'promo', label: '💚 Promo Senza Pensieri', subtitle: 'Vetrina commerciale CSP' },
   ];
 
   const amministratoreSections = [
@@ -17852,7 +15872,6 @@ export default function App() {
     ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
-    { id: 'promo', label: '💚 Promo Senza Pensieri', subtitle: 'Vetrina commerciale CSP' },
   ];
 
   const condominoSections = [
@@ -17860,7 +15879,6 @@ export default function App() {
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
-    { id: 'promo', label: '💚 Promo Senza Pensieri', subtitle: 'Vetrina commerciale CSP' },
   ];
 
   const sezioniMenuLaterale = ruoloNormalizzato === 'gestore'
@@ -17933,6 +15951,26 @@ export default function App() {
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
       <NotifichePushBox utenteEmail={utente?.email} />
+      {showPianiCspModal && (
+        <PianoCspPremiumExperienceModal
+          piano={pianoAbbonamentoCorrente}
+          onClose={() => setShowPianiCspModal(false)}
+          onRequestUpgrade={(target) => {
+            setShowPianiCspModal(false);
+            apriRichiestaUpgradeDaPiano(target);
+          }}
+        />
+      )}
+      {upgradeRequestData && (
+        <RichiestaUpgradeCspModal
+          data={upgradeRequestData}
+          sending={sendingUpgradeRequest}
+          note={upgradeRequestNote}
+          onChangeNote={setUpgradeRequestNote}
+          onClose={() => setUpgradeRequestData(null)}
+          onSubmit={inviaRichiestaUpgradeCsp}
+        />
+      )}
       {showReportSemestrale && (
         <ReportSemestraleModal
           condomini={condominiVisibili}
@@ -17946,23 +15984,6 @@ export default function App() {
           onClose={() => setShowRivistaModal(false)}
           onPubblica={pubblicaRivistaCondominio}
           saving={sendingRivista}
-        />
-      )}
-      {showPromoModal && (
-        <NuovaPromoModal
-          onClose={() => setShowPromoModal(false)}
-          onCreate={creaPromoSenzaPensieri}
-          saving={savingPromo}
-        />
-      )}
-      {showPianiCspModal && (
-        <PianoCspExperienceModal
-          piano={pianoAbbonamentoCorrente}
-          onClose={() => setShowPianiCspModal(false)}
-          onInfo={() => {
-            setShowPianiCspModal(false);
-            setToastInterno({ tipo: 'info', titolo: 'Piani CSP', messaggio: 'Richiedi al tuo amministratore informazioni su CSP Plus e CSP Premium.' });
-          }}
         />
       )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
@@ -18077,6 +16098,8 @@ export default function App() {
 
         {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
+            <RichiesteUpgradeGestoreBox richieste={richiesteUpgradeCsp} onUpdateData={aggiornaDataPresentazioneUpgrade} />
+
             <ActionBar
               condomini={condominiVisibili}
               filtroCondominioId={filtroCondominioId}
@@ -18180,8 +16203,6 @@ export default function App() {
             <div className="-mt-2">
               <DashboardOperativa ruolo={ruoloNormalizzato} segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
             </div>
-
-            <NuovePraticheGestoreBox segnalazioni={segnalazioniVisualizzate} condomini={condominiVisibili} onOpen={setDettaglioAperto} />
 
             <DashboardStatiGestore segnalazioni={segnalazioniVisualizzate} onOpen={setDettaglioAperto} />
 
@@ -18311,8 +16332,6 @@ export default function App() {
               onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
               onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
               onUploadCapitolatoPdf={uploadCapitolatoPdf}
-              deeplinkCapitolatoId={capitolatoDeeplinkId}
-              onClearDeeplinkCapitolato={() => setCapitolatoDeeplinkId(null)}
             />
           </>
         )}
@@ -18386,33 +16405,6 @@ export default function App() {
           </>
         )}
 
-        {ruoloNormalizzato === 'gestore' && gestoreSection === 'promo' && (
-          <>
-            {renderGestoreSectionTitle('Promo Senza Pensieri', 'Vetrina commerciale CSP, promozioni stagionali e opportunità dedicate.')}
-            <PromoSenzaPensieriSuite
-              promo={promoSenzaPensieri}
-              promoInteressi={promoInteressi}
-              promoVoti={promoVoti}
-              condomini={condominiVisibili}
-              contratti={contratti}
-              utentiSistema={utentiSistema}
-              utentiCondomini={utentiCondomini}
-              ruolo={ruoloNormalizzato}
-              canCreate={true}
-              onOpenCreate={() => setShowPromoModal(true)}
-              onRiproponi={riproponiPromoSenzaPensieri}
-              onConfermaPrenotazione={confermaPrenotazionePromo}
-              onAvviaVotazionePromo={avviaVotazionePromo}
-              onVotaPromo={registraVotoPromo}
-              currentUserEmail={utente?.email || userProfile?.email || ''}
-              onRefreshPromo={aggiornaPromoSenzaPensieriDati}
-              promoEvidenzaId={promoDeeplinkId}
-              promoCondominioEvidenzaId={promoCondominioDeeplinkId}
-              promoDeeplinkTick={promoDeeplinkTick}
-            />
-          </>
-        )}
-
         {isAmministratoreOperativo && amministratoreSection === 'report' && (
           <ArchivioReportPremium
             reports={reportVisibili}
@@ -18426,28 +16418,6 @@ export default function App() {
             riviste={rivisteCondominio}
             ruolo={ruoloNormalizzato}
             canPublish={false}
-          />
-        )}
-
-        {isAmministratoreOperativo && amministratoreSection === 'promo' && (
-          <PromoSenzaPensieriSuite
-            promo={promoSenzaPensieri}
-            promoInteressi={promoInteressi}
-            promoVoti={promoVoti}
-            condomini={condominiVisibili}
-            contratti={contratti}
-            utentiSistema={utentiSistema}
-            utentiCondomini={utentiCondomini}
-            ruolo={ruoloNormalizzato}
-            canCreate={false}
-            promoEvidenzaId={promoDeeplinkId}
-            promoCondominioEvidenzaId={promoCondominioDeeplinkId}
-            promoDeeplinkTick={promoDeeplinkTick}
-            onPrenotaIntervento={prenotaInterventoPromo}
-            onAvviaVotazionePromo={avviaVotazionePromo}
-            onVotaPromo={registraVotoPromo}
-            currentUserEmail={utente?.email || userProfile?.email || ''}
-            onRefreshPromo={aggiornaPromoSenzaPensieriDati}
           />
         )}
 
@@ -18468,8 +16438,6 @@ export default function App() {
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
             onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
-            deeplinkCapitolatoId={capitolatoDeeplinkId}
-            onClearDeeplinkCapitolato={() => setCapitolatoDeeplinkId(null)}
           />
         )}
 
@@ -18520,39 +16488,13 @@ export default function App() {
               title="Servizio temporaneamente non attivo"
               text="Il contratto CSP del condominio risulta sospeso. La rivista tornerà disponibile alla riattivazione del servizio."
             />
-          ) : subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium ? (
+          ) : (
             <LaTuaRivistaSuite
               riviste={rivisteCondominio}
               ruolo={ruoloNormalizzato}
               canPublish={false}
             />
-          ) : (
-            <SubscriptionLockedCard
-              required="plus"
-              title="La tua rivista è disponibile con CSP Plus"
-              text="Il piano Base mantiene le funzioni operative essenziali. Con Plus e Premium il condominio accede anche all’archivio digitale della rivista Condominio Senza Pensieri."
-            />
           )
-        )}
-        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'promo' && (
-          <PromoSenzaPensieriSuite
-            promo={promoSenzaPensieri}
-            promoInteressi={promoInteressi}
-            promoVoti={promoVoti}
-            condomini={condominiVisibili}
-            contratti={contratti}
-            utentiSistema={utentiSistema}
-            utentiCondomini={utentiCondomini}
-            ruolo={ruoloNormalizzato}
-            canCreate={false}
-            promoEvidenzaId={promoDeeplinkId}
-            promoCondominioEvidenzaId={promoCondominioDeeplinkId}
-            promoDeeplinkTick={promoDeeplinkTick}
-            onRichiediAmministratore={richiediPromoAlTuoAmministratore}
-            onVotaPromo={registraVotoPromo}
-            currentUserEmail={utente?.email || userProfile?.email || ''}
-            onRefreshPromo={aggiornaPromoSenzaPensieriDati}
-          />
         )}
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'lavori-privati' && (
           contrattoCorrenteSospeso ? (
