@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.10';
-const APP_VERSION_LABEL = 'CSP v1.0.10';
+const APP_VERSION = '1.0.11';
+const APP_VERSION_LABEL = 'CSP v1.0.11';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12286,7 +12286,6 @@ function HomeIntelligenteCondomino({
       id: `csp-${item.id}`,
       tipo: 'CSP',
       icona: '🛠️',
-      appuntamentoLabel: 'Intervento programmato per',
       titolo: item.titolo || item.descrizione || 'Intervento programmato',
       sottotitolo: item.condominio || item.condominio_nome || primoCondominio,
       data: item.data_inizio_lavori_presunta,
@@ -12300,7 +12299,6 @@ function HomeIntelligenteCondomino({
       id: `lsp-${item.id}`,
       tipo: 'LSP',
       icona: '🏠',
-      appuntamentoLabel: String(item.stato || '').toLowerCase().includes('sopralluogo') ? 'Sopralluogo programmato per' : 'Intervento programmato per',
       titolo: item.titolo || item.descrizione || 'Appuntamento casa',
       sottotitolo: 'La tua casa Senza Pensieri',
       data: item.data_pianificazione,
@@ -12353,7 +12351,7 @@ function HomeIntelligenteCondomino({
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Home Intelligente</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{saluto}, {nome}</h1>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">Tutto ciò che conta, in un solo luogo.</p>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">Oggi nel tuo condominio: appuntamenti, aggiornamenti e opportunità raccolti in un’unica vista.</p>
           </div>
           <div className="hidden shrink-0 rounded-[2rem] border border-amber-200/10 bg-black/20 p-3 shadow-2xl shadow-amber-950/20 sm:block">
             <LogoMark src={SPLASH_LOGO_SRC} className="h-20 w-auto opacity-90" />
@@ -12388,8 +12386,7 @@ function HomeIntelligenteCondomino({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-black text-slate-900">{item.titolo}</p>
                     <p className="mt-1 text-xs font-bold text-slate-500">{item.sottotitolo}</p>
-                    <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.appuntamentoLabel || 'Appuntamento programmato per'}</p>
-                    <p className="mt-1 text-sm font-black text-emerald-700">{formatHomeIntelligenteDate(item.data)}{item.ora ? ` · ore ${formatHomeIntelligenteTime(item.ora)}` : ''}</p>
+                    <p className="mt-2 text-sm font-black text-emerald-700">{formatHomeIntelligenteDate(item.data)}{item.ora ? ` · ore ${formatHomeIntelligenteTime(item.ora)}` : ''}</p>
                   </div>
                   <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Apri →</span>
                 </div>
@@ -12433,8 +12430,8 @@ function HomeIntelligenteCondomino({
             <span className="text-2xl">🎁</span>
           </div>
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Consulta le promo attive e le opportunità riservate agli utenti CSP.</p>
-          <button type="button" onClick={onOpenPiano} className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5">
-            Apri la scheda dei piani →
+          <button type="button" onClick={() => onGoToSection?.('promo')} className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5">
+            Visualizza Promo →
           </button>
         </section>
 
