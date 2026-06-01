@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.13';
-const APP_VERSION_LABEL = 'CSP v1.0.13';
+const APP_VERSION = '1.0.14';
+const APP_VERSION_LABEL = 'CSP v1.0.14';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -226,7 +226,7 @@ function subscriptionPlanCardClass(piano = 'base') {
 
 
 
-function TopbarPlanTextLabel({ piano = 'base' }) {
+function TopbarPlanTextLabel({ piano = 'base', onClick = null }) {
   const pianoNorm = normalizzaPianoAbbonamento(piano);
   const label = pianoNorm === 'premium'
     ? 'CSP PREMIUM'
@@ -240,12 +240,215 @@ function TopbarPlanTextLabel({ piano = 'base' }) {
       ? 'text-sky-100'
       : 'text-white/80';
 
+  if (typeof onClick === 'function') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] ${cls} shadow-sm transition hover:bg-white/15 active:scale-95`}
+        title="Scopri il tuo piano CSP"
+      >
+        {label}
+      </button>
+    );
+  }
+
   return (
     <span className={`text-xs font-black uppercase tracking-[0.16em] ${cls}`}>
       {label}
     </span>
   );
 }
+
+
+function PianoCspExperienceModal({ piano = 'base', onClose, onOpenUpgrade }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const cards = [
+    {
+      id: 'base',
+      title: 'CSP Base',
+      tone: 'border-white/10 bg-white/[0.06] text-slate-100',
+      badge: pianoNorm === 'base' ? 'ATTIVO' : 'Disponibile',
+      items: ['Segnalazioni condominiali', 'Monitoraggio pratiche', 'Notifiche in tempo reale', 'Documentazione condivisa'],
+    },
+    {
+      id: 'plus',
+      title: 'CSP Plus',
+      tone: 'border-sky-300/30 bg-sky-300/[0.10] text-sky-50',
+      badge: pianoNorm === 'plus' ? 'ATTIVO' : 'Disponibile',
+      items: ['Tutto il Base', 'La tua casa Senza Pensieri', 'Votazioni Promo Senza Pensieri', 'Accesso completo alla rivista', 'Promozioni dedicate'],
+    },
+    {
+      id: 'premium',
+      title: 'CSP Premium',
+      tone: 'border-amber-300/40 bg-amber-300/[0.11] text-amber-50',
+      badge: pianoNorm === 'premium' ? 'ATTIVO' : 'Disponibile',
+      items: ['Tutto il Plus', 'Gestione emergenze prioritaria', 'Priorità sugli interventi', 'Accesso anticipato alle opportunità', 'Esperienza completa CSP'],
+    },
+  ];
+
+  const ctaText = pianoNorm === 'premium'
+    ? 'Piano Premium attivo'
+    : pianoNorm === 'plus'
+      ? 'Scopri come attivare Premium'
+      : 'Scopri come attivare Plus o Premium';
+
+  return (
+    <div className="fixed inset-0 z-[260] overflow-y-auto bg-black text-white csp-enter">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.18),transparent_34%),linear-gradient(135deg,#020617,#020617_45%,#064e3b)] px-4 py-6">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/70">
+            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+            Stai utilizzando: CSP {pianoNorm.toUpperCase()}
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white/80 transition hover:bg-white/15">✕</button>
+        </div>
+
+        <div className="mx-auto mt-8 max-w-3xl text-center">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] border border-amber-300/25 bg-black/55 shadow-2xl shadow-amber-900/30">
+            <img src={SPLASH_LOGO_SRC} alt="CSP" className="h-20 w-20 object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.42)]" />
+          </div>
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-amber-200/80">Condominio Senza Pensieri</p>
+          <h2 className="mt-2 text-3xl font-black leading-tight md:text-5xl">Il tuo piano CSP</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-white/68 md:text-base">
+            Scopri tutti i servizi disponibili e le opportunità riservate al tuo condominio.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-7 grid max-w-3xl gap-4 md:grid-cols-3">
+          {cards.map((card) => (
+            <div key={card.id} className={`rounded-[2rem] border p-5 text-left shadow-2xl shadow-black/25 ${card.tone} ${pianoNorm === card.id ? 'ring-2 ring-amber-300/55' : ''}`}>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-black">{card.title}</h3>
+                <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${pianoNorm === card.id ? 'bg-amber-300 text-slate-950' : 'bg-white/10 text-white/70'}`}>{card.badge}</span>
+              </div>
+              <div className="mt-4 space-y-2">
+                {card.items.map((item) => (
+                  <p key={item} className="flex gap-2 text-sm font-semibold leading-6 text-white/78"><span className="text-emerald-300">✓</span>{item}</p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mx-auto mt-7 max-w-3xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 text-center shadow-2xl shadow-black/20">
+          <p className="text-sm font-semibold leading-7 text-white/70">
+            Ogni piano è pensato per offrire un livello diverso di assistenza, servizi e opportunità. Scopri quale soluzione è più adatta al tuo condominio.
+          </p>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+            {pianoNorm === 'premium' ? (
+              <div className="rounded-2xl border border-amber-300/30 bg-amber-300/15 px-5 py-3 text-sm font-black text-amber-100">✓ Piano Premium attivo</div>
+            ) : (
+              <button type="button" onClick={() => onOpenUpgrade?.()} className="rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 px-5 py-3 text-sm font-black text-slate-950 shadow-xl shadow-amber-950/30 transition hover:-translate-y-0.5 active:translate-y-0">
+                {ctaText}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white/85 transition hover:bg-white/15">Torna all'app</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RichiestaUpgradeCspModal({ pianoAttuale = 'base', condominio = null, userProfile = null, utentiCondomini = [], onClose, onSubmitted }) {
+  const pianoNorm = normalizzaPianoAbbonamento(pianoAttuale);
+  const [pianoRichiesto, setPianoRichiesto] = useState(pianoNorm === 'plus' ? 'premium' : 'plus');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const email = normalizeEmail(userProfile?.email);
+  const collegamento = (utentiCondomini || []).find((u) => normalizeEmail(u.email) === email && (!condominio?.id || Number(u.condominio_id) === Number(condominio.id))) || {};
+  const nome = userProfile?.nome || '';
+  const cognome = collegamento?.cognome || userProfile?.cognome || '';
+  const telefono = userProfile?.telefono || collegamento?.telefono || '';
+  const condominioNome = condominio?.nome || userProfile?.condominio || 'Condominio';
+  const pianoLabel = String(pianoRichiesto || '').toUpperCase();
+
+  const invia = async () => {
+    try {
+      setSaving(true);
+      const messaggio = `Se desiderate passare al piano ${pianoLabel} saremo lieti di organizzare un breve incontro presso il vostro condominio per illustrarvi tutti i vantaggi, i servizi e le opportunità disponibili.`;
+      const payload = {
+        condominioId: condominio?.id || userProfile?.condominiIds?.[0] || null,
+        condominioNome,
+        pianoAttuale: pianoNorm,
+        pianoRichiesto,
+        richiedenteNome: nome,
+        richiedenteCognome: cognome,
+        richiedenteTelefono: telefono,
+        richiedenteEmail: email,
+        messaggio,
+        note,
+      };
+      const { data, error } = await supabase.functions.invoke('request-upgrade-csp', { body: payload });
+      if (error || data?.success === false) throw new Error(error?.message || data?.error || 'Invio non completato');
+      onSubmitted?.();
+    } catch (error) {
+      alert('Errore invio richiesta upgrade: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[270] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-sm md:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl csp-enter">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Richiesta informazioni</p>
+            <h3 className="mt-1 text-2xl font-black text-slate-900">Upgrade piano CSP</h3>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-500 shadow-sm">✕</button>
+        </div>
+
+        <div className="mt-5 rounded-[1.7rem] border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-950">
+          Se desiderate passare al piano {pianoLabel} saremo lieti di organizzare un breve incontro presso il vostro condominio per illustrarvi tutti i vantaggi, i servizi e le opportunità disponibili.
+        </div>
+
+        {pianoNorm === 'base' && (
+          <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Piano da approfondire</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {['plus', 'premium'].map((p) => (
+                <button key={p} type="button" onClick={() => setPianoRichiesto(p)} className={`rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.12em] transition ${pianoRichiesto === p ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'border-slate-200 bg-white text-slate-700'}`}>
+                  CSP {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <InfoBoxCsp label="Richiedente" value={`${nome || '—'} ${cognome || ''}`.trim()} />
+          <InfoBoxCsp label="Telefono" value={telefono || '—'} />
+          <InfoBoxCsp label="Email" value={email || '—'} />
+          <InfoBoxCsp label="Condominio" value={condominioNome || '—'} />
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-sm font-black text-slate-900">Note aggiuntive</span>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Puoi aggiungere preferenze su giorni, orari o informazioni utili." className="mt-2 min-h-[110px] w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
+        </label>
+
+        <button type="button" onClick={invia} disabled={saving} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white shadow-xl shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:opacity-60">
+          {saving && <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {saving ? 'Invio richiesta...' : 'Invia richiesta'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InfoBoxCsp({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-900">{value || '—'}</p>
+    </div>
+  );
+}
+
 
 function buildPublicUrl(fileName) {
   if (!fileName) return '';
@@ -256,206 +459,6 @@ function formatEuro(value) {
   const numero = Math.round(Number(value || 0));
   const formattato = numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return '€ ' + formattato;
-}
-
-
-function normalizzaTelefonoItaliaCsp(phone) {
-  const raw = String(phone || '').replace(/\D/g, '');
-  if (!raw) return '';
-  if (raw.startsWith('39')) return raw;
-  return `39${raw}`;
-}
-
-function formatTelefonoCsp(phone) {
-  const raw = String(phone || '').replace(/\D/g, '');
-  if (!raw) return 'Telefono non indicato';
-  return raw.replace(/(\d{3})(?=\d)/, '$1 ').replace(/(\d{3}\s\d{3})(?=\d)/, '$1 ');
-}
-
-function getNomeCompletoCsp(profile = {}, utentiCondomini = [], email = '', condominioId = null) {
-  const mail = String(email || profile?.email || '').toLowerCase().trim();
-  const id = Number(condominioId || 0);
-  const row = (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail && (!id || Number(u.condominio_id || 0) === id))
-    || (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail)
-    || {};
-  return [profile?.nome || row.nome, profile?.cognome || row.cognome].filter(Boolean).join(' ').trim() || mail || 'Utente CSP';
-}
-
-function getCognomeCsp(profile = {}, utentiCondomini = [], email = '', condominioId = null) {
-  const mail = String(email || profile?.email || '').toLowerCase().trim();
-  const id = Number(condominioId || 0);
-  const row = (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail && (!id || Number(u.condominio_id || 0) === id))
-    || (utentiCondomini || []).find((u) => String(u.email || '').toLowerCase().trim() === mail)
-    || {};
-  return String(profile?.cognome || row.cognome || '').trim();
-}
-
-function PianoCspPremiumExperienceModal({ piano = 'base', onClose, onRequestUpgrade }) {
-  const pianoNorm = normalizzaPianoAbbonamento(piano);
-  const cards = [
-    {
-      key: 'base',
-      title: 'CSP Base',
-      eyebrow: 'Essenziale',
-      text: 'La base operativa per restare aggiornati sulle pratiche del condominio.',
-      items: ['Segnalazioni condominiali', 'Monitoraggio pratiche', 'Notifiche in tempo reale', 'Documentazione condivisa'],
-      cls: 'border-white/10 bg-white/6 text-slate-100',
-    },
-    {
-      key: 'plus',
-      title: 'CSP Plus',
-      eyebrow: 'Più comodità',
-      text: 'Automazioni e servizi evoluti per rendere il condominio più semplice da gestire.',
-      items: ['Tutto il Base', 'La tua casa Senza Pensieri', 'Votazioni Promo Senza Pensieri', 'Promozioni dedicate', 'Maggiore coinvolgimento dei condòmini'],
-      cls: 'border-sky-300/30 bg-sky-400/10 text-sky-50 shadow-sky-950/20',
-    },
-    {
-      key: 'premium',
-      title: 'CSP Premium',
-      eyebrow: 'Esperienza completa',
-      text: 'Il livello più completo per assistenza, priorità e opportunità dedicate.',
-      items: ['Tutto il Plus', 'Gestione emergenze prioritaria', 'Priorità sugli interventi', 'Accesso anticipato alle opportunità', 'Servizi esclusivi Premium'],
-      cls: 'border-amber-300/35 bg-amber-300/10 text-amber-50 shadow-amber-950/20',
-    },
-  ];
-  const ctaLabel = pianoNorm === 'premium'
-    ? 'Piano Premium attivo'
-    : pianoNorm === 'plus'
-      ? 'Scopri come attivare Premium'
-      : 'Scopri come attivare Plus o Premium';
-  return (
-    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950 text-white csp-enter">
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),transparent_32%),linear-gradient(145deg,#020617,#020617_45%,#111827)] px-4 py-6 md:px-8">
-        <div className="mx-auto flex max-w-4xl justify-end">
-          <button type="button" onClick={onClose} className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/80 transition hover:bg-white/15">Torna all'app</button>
-        </div>
-        <div className="mx-auto mt-5 max-w-4xl text-center">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-emerald-300/20 bg-white/8 shadow-2xl shadow-emerald-950/40">
-            <LogoMark className="h-16 w-auto" />
-          </div>
-          <p className="mt-6 text-[10px] font-black uppercase tracking-[0.32em] text-emerald-300">Condominio Senza Pensieri</p>
-          <h2 className="mt-2 text-4xl font-black leading-tight md:text-5xl">Il tuo piano CSP</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/65">
-            Scopri tutti i servizi disponibili e le opportunità riservate al tuo condominio.
-          </p>
-          <div className="mt-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-white/75">
-            Stai utilizzando: <span className="ml-2 text-emerald-200">CSP {pianoNorm}</span>
-          </div>
-        </div>
-        <div className="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-3">
-          {cards.map((card) => {
-            const active = card.key === pianoNorm;
-            return (
-              <article key={card.key} className={`rounded-[2rem] border p-5 shadow-2xl ${card.cls} ${active ? 'ring-2 ring-emerald-300/70' : ''}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">{card.eyebrow}</p>
-                    <h3 className="mt-2 text-2xl font-black">{card.title}</h3>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${active ? 'bg-emerald-300 text-emerald-950' : 'bg-white/10 text-white/55'}`}>{active ? 'Attivo' : 'Disponibile'}</span>
-                </div>
-                <p className="mt-3 min-h-[3rem] text-sm font-semibold leading-6 text-white/65">{card.text}</p>
-                <ul className="mt-5 space-y-3 text-left text-sm font-bold text-white/80">
-                  {card.items.map((item) => <li key={item} className="flex gap-2"><span className="text-emerald-300">✓</span><span>{item}</span></li>)}
-                </ul>
-              </article>
-            );
-          })}
-        </div>
-        <div className="mx-auto mt-8 max-w-3xl rounded-[2rem] border border-white/10 bg-white/8 p-5 text-center shadow-2xl shadow-slate-950/40">
-          <p className="text-sm font-semibold leading-6 text-white/70">
-            Ogni piano è pensato per offrire un livello diverso di assistenza, servizi e opportunità.
-            Scopri quale soluzione è più adatta al tuo condominio.
-          </p>
-          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-            {pianoNorm === 'premium' ? (
-              <span className="rounded-2xl border border-amber-300/35 bg-amber-300/15 px-5 py-3 text-sm font-black text-amber-100">✓ Piano Premium attivo</span>
-            ) : (
-              <button type="button" onClick={() => onRequestUpgrade?.(pianoNorm === 'plus' ? 'premium' : 'plus_premium')} className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 shadow-xl shadow-emerald-950/30 transition hover:-translate-y-0.5 hover:bg-emerald-300 active:translate-y-0">
-                {ctaLabel}
-              </button>
-            )}
-            <button type="button" onClick={onClose} className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white/80 transition hover:bg-white/15">Torna all'app</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RichiestaUpgradeCspModal({ data, sending = false, note = '', onChangeNote, onClose, onSubmit }) {
-  if (!data) return null;
-  return (
-    <div className="fixed inset-0 z-[230] flex items-end justify-center bg-slate-950/60 p-3 backdrop-blur-sm md:items-center">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-2xl csp-enter md:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Richiesta informazioni</p>
-            <h3 className="mt-1 text-2xl font-black text-slate-950">Piano CSP {data.pianoLabel}</h3>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-3 py-1 text-sm font-black text-slate-600">×</button>
-        </div>
-        <div className="mt-5 rounded-[1.5rem] border border-emerald-100 bg-emerald-50 p-4">
-          <p className="text-sm font-semibold leading-6 text-emerald-950">
-            Se desiderate passare al piano {data.pianoLabel} saremo lieti di organizzare un breve incontro presso il vostro condominio per illustrarvi tutti i vantaggi, i servizi e le opportunità disponibili.
-          </p>
-        </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Richiedente</p><p className="mt-1 font-black text-slate-900">{data.nomeCompleto}</p></div>
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Condominio</p><p className="mt-1 font-black text-slate-900">{data.condominioNome}</p></div>
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Telefono</p><p className="mt-1 font-black text-slate-900">{formatTelefonoCsp(data.telefono)}</p></div>
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Email</p><p className="mt-1 font-black text-slate-900">{data.email}</p></div>
-        </div>
-        <label className="mt-4 block text-sm font-black text-slate-700">Note aggiuntive
-          <textarea value={note} onChange={(e) => onChangeNote?.(e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" placeholder="Puoi aggiungere preferenze su giorni, orari o informazioni utili." />
-        </label>
-        <button type="button" onClick={onSubmit} disabled={sending} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70">
-          {sending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-          {sending ? 'Invio richiesta…' : 'Invia richiesta'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function RichiesteUpgradeGestoreBox({ richieste = [], onUpdateData }) {
-  const aperte = (richieste || []).filter((r) => String(r.stato || 'nuova') !== 'archiviata').slice(0, 8);
-  if (!aperte.length) return null;
-  return (
-    <section className="rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-5 shadow-sm">
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Upgrade CSP</p>
-          <h2 className="mt-1 text-xl font-black text-slate-900">Richieste Upgrade CSP</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Lead qualificati dai condòmini interessati a Plus e Premium.</p>
-        </div>
-        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{aperte.length} richieste</span>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {aperte.map((r) => {
-          const tel = normalizzaTelefonoItaliaCsp(r.telefono);
-          const waText = `Ciao ${r.nome || ''}, ti contatto per la richiesta informazioni CSP ${String(r.piano_richiesto || '').toUpperCase()} per ${r.condominio_nome || 'il tuo condominio'}.`;
-          return (
-            <article key={r.id} className="rounded-[1.5rem] border border-white bg-white p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Piano richiesto: {String(r.piano_richiesto || '').toUpperCase()}</p>
-              <h3 className="mt-1 text-base font-black text-slate-900">{[r.nome, r.cognome].filter(Boolean).join(' ') || r.email}</h3>
-              <p className="mt-1 text-xs font-bold text-slate-500">{r.condominio_nome || 'Condominio n.d.'}</p>
-              <p className="mt-2 text-xs font-semibold text-slate-500">{r.email || 'Email n.d.'} {r.telefono ? `• ${r.telefono}` : ''}</p>
-              {r.note && <p className="mt-2 rounded-2xl bg-slate-50 p-3 text-xs font-semibold text-slate-600">{r.note}</p>}
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                {tel && <a href={`tel:+${tel}`} className="rounded-xl bg-emerald-600 px-3 py-2 text-center text-xs font-black text-white">Chiama</a>}
-                {tel && <a href={`https://wa.me/${tel}?text=${encodeURIComponent(waText)}`} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-black text-white">WhatsApp</a>}
-                {r.email && <a href={`mailto:${r.email}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-xs font-black text-slate-700">Email</a>}
-              </div>
-              <label className="mt-3 block text-xs font-black text-slate-600">Data presentazione
-                <input type="datetime-local" value={r.data_presentazione ? String(r.data_presentazione).slice(0,16) : ''} onChange={(e) => onUpdateData?.(r, e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold" />
-              </label>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
 }
 
 function formatCurrency(value) {
@@ -669,7 +672,7 @@ async function loadUserProfile(email) {
 
   const { data: collegamenti, error: collegamentiError } = await supabase
     .from('utenti_condomini')
-    .select('condominio_id, condomini(id, nome, indirizzo)')
+    .select('condominio_id, cognome, condomini(id, nome, indirizzo)')
     .ilike('email', normalizedEmail);
 
   if (collegamentiError) throw collegamentiError;
@@ -684,7 +687,7 @@ async function loadUserProfile(email) {
     if (amministratoreCollegatoEmail) {
       const { data: collegamentiAmministratore, error: collegamentiAdminError } = await supabase
         .from('utenti_condomini')
-        .select('condominio_id, condomini(id, nome, indirizzo)')
+        .select('condominio_id, cognome, condomini(id, nome, indirizzo)')
         .ilike('email', amministratoreCollegatoEmail);
 
       if (collegamentiAdminError) throw collegamentiAdminError;
@@ -702,6 +705,7 @@ async function loadUserProfile(email) {
   return {
     ...utente,
     condominiIds: collegamentiFinali.map((item) => item.condominio_id),
+    cognome: collegamentiFinali.find((item) => item?.cognome)?.cognome || '',
     condomini,
     condominio: condomini[0]?.nome || utente.condominio || '',
   };
@@ -2533,14 +2537,7 @@ function LiveTopBar({
           </button>
           <div className="relative flex items-center justify-end gap-2 text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
             {isCondominoTopbar ? (
-              <button
-                type="button"
-                onClick={onOpenPianiCsp}
-                className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:bg-white/15 active:scale-95"
-                title="Scopri il tuo piano CSP"
-              >
-                <TopbarPlanTextLabel piano={pianoAbbonamento} />
-              </button>
+              <TopbarPlanTextLabel piano={pianoAbbonamento} onClick={onOpenPianiCsp} />
             ) : (
               <>
                 <span>{formattedDate}</span>
@@ -12714,11 +12711,10 @@ export default function App() {
   const [rivisteCondominio, setRivisteCondominio] = useState([]);
   const [showRivistaModal, setShowRivistaModal] = useState(false);
   const [sendingRivista, setSendingRivista] = useState(false);
-  const [richiesteUpgradeCsp, setRichiesteUpgradeCsp] = useState([]);
-  const [showPianiCspModal, setShowPianiCspModal] = useState(false);
-  const [upgradeRequestData, setUpgradeRequestData] = useState(null);
-  const [upgradeRequestNote, setUpgradeRequestNote] = useState('');
-  const [sendingUpgradeRequest, setSendingUpgradeRequest] = useState(false);
+  const [showPianiCspExperience, setShowPianiCspExperience] = useState(false);
+  const [showUpgradeCspRequest, setShowUpgradeCspRequest] = useState(false);
+  const [upgradeCspConfermato, setUpgradeCspConfermato] = useState(false);
+
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const isCollaboratore = ruoloNormalizzato === 'collaboratore';
@@ -13204,59 +13200,8 @@ export default function App() {
   const reportSemestraleAttivo = subscriptionFlagsCorrenti.isPremium;
   const contrattoCorrenteSospeso = ruoloNormalizzato !== 'gestore'
     && isContrattoSospesoCondominio(condominioIdPerAbbonamento, contratti);
+  const condominioCorrenteAbbonamento = condomini.find((c) => Number(c.id) === Number(condominioIdPerAbbonamento)) || userProfile?.condomini?.[0] || null;
 
-  const apriRichiestaUpgradeDaPiano = (target) => {
-    const pianoTarget = String(target || '').toLowerCase().includes('premium') ? 'premium' : 'plus';
-    const idCondominio = Number(condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
-    const condominio = (condomini || []).find((c) => Number(c.id) === idCondominio) || condominiVisibili?.[0] || {};
-    const email = utente?.email || userProfile?.email || '';
-    const cognome = getCognomeCsp(userProfile, utentiCondomini, email, condominio?.id || idCondominio);
-    const nomeCompleto = getNomeCompletoCsp(userProfile, utentiCondomini, email, condominio?.id || idCondominio);
-    setUpgradeRequestData({
-      piano: pianoTarget,
-      pianoLabel: pianoTarget.toUpperCase(),
-      condominioId: Number(condominio?.id || idCondominio || 0),
-      condominioNome: condominio?.nome || 'Condominio',
-      nome: userProfile?.nome || String(nomeCompleto || '').split(' ')[0] || '',
-      cognome,
-      nomeCompleto,
-      telefono: userProfile?.telefono || utentiCondomini.find((u) => String(u.email || '').toLowerCase() === String(email).toLowerCase())?.telefono || '',
-      email,
-    });
-    setUpgradeRequestNote('');
-  };
-
-  const inviaRichiestaUpgradeCsp = async () => {
-    if (!upgradeRequestData || sendingUpgradeRequest) return;
-    setSendingUpgradeRequest(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('request-upgrade-csp', {
-        body: { ...upgradeRequestData, note: upgradeRequestNote },
-      });
-      if (error) throw error;
-      setUpgradeRequestData(null);
-      setUpgradeRequestNote('');
-      await carica();
-      window.alert(data?.message || 'Richiesta inviata. Sarai contattato al più presto.');
-    } catch (error) {
-      console.error('[CSP upgrade request]', error);
-      alert('Errore invio richiesta upgrade: ' + (error?.message || 'sconosciuto'));
-    } finally {
-      setSendingUpgradeRequest(false);
-    }
-  };
-
-  const aggiornaDataPresentazioneUpgrade = async (richiesta, value) => {
-    try {
-      const payload = { data_presentazione: value ? new Date(value).toISOString() : null };
-      const { error } = await supabase.from('richieste_upgrade_csp').update(payload).eq('id', richiesta.id);
-      if (error) throw error;
-      await carica();
-      mostraToast('Presentazione aggiornata', 'Data presentazione salvata correttamente.', 'success');
-    } catch (error) {
-      alert('Errore salvataggio data presentazione: ' + (error?.message || 'sconosciuto'));
-    }
-  };
 
   const notificheCentroOrdinate = useMemo(() => {
     const map = new Map();
@@ -13631,14 +13576,6 @@ export default function App() {
 
       if (rivisteError && rivisteError.code !== 'PGRST116' && rivisteError.code !== '42P01') throw rivisteError;
       setRivisteCondominio(rivisteData || []);
-
-      const { data: richiesteUpgradeData, error: richiesteUpgradeError } = await supabase
-        .from('richieste_upgrade_csp')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (richiesteUpgradeError && richiesteUpgradeError.code !== 'PGRST116' && richiesteUpgradeError.code !== '42P01') throw richiesteUpgradeError;
-      setRichiesteUpgradeCsp(richiesteUpgradeData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -15951,26 +15888,6 @@ export default function App() {
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 px-3 py-4 md:p-6">
       <ToastInterno toast={toastInterno} onClose={() => setToastInterno(null)} />
       <NotifichePushBox utenteEmail={utente?.email} />
-      {showPianiCspModal && (
-        <PianoCspPremiumExperienceModal
-          piano={pianoAbbonamentoCorrente}
-          onClose={() => setShowPianiCspModal(false)}
-          onRequestUpgrade={(target) => {
-            setShowPianiCspModal(false);
-            apriRichiestaUpgradeDaPiano(target);
-          }}
-        />
-      )}
-      {upgradeRequestData && (
-        <RichiestaUpgradeCspModal
-          data={upgradeRequestData}
-          sending={sendingUpgradeRequest}
-          note={upgradeRequestNote}
-          onChangeNote={setUpgradeRequestNote}
-          onClose={() => setUpgradeRequestData(null)}
-          onSubmit={inviaRichiestaUpgradeCsp}
-        />
-      )}
       {showReportSemestrale && (
         <ReportSemestraleModal
           condomini={condominiVisibili}
@@ -15979,12 +15896,40 @@ export default function App() {
           saving={sendingReportSemestrale}
         />
       )}
-      {showRivistaModal && (
-        <PubblicaRivistaModal
-          onClose={() => setShowRivistaModal(false)}
-          onPubblica={pubblicaRivistaCondominio}
-          saving={sendingRivista}
+      {showPianiCspExperience && (
+        <PianoCspExperienceModal
+          piano={pianoAbbonamentoCorrente}
+          onClose={() => setShowPianiCspExperience(false)}
+          onOpenUpgrade={() => {
+            setShowPianiCspExperience(false);
+            setUpgradeCspConfermato(false);
+            setShowUpgradeCspRequest(true);
+          }}
         />
+      )}
+      {showUpgradeCspRequest && (
+        <RichiestaUpgradeCspModal
+          pianoAttuale={pianoAbbonamentoCorrente}
+          condominio={condominioCorrenteAbbonamento}
+          userProfile={userProfile}
+          utentiCondomini={utentiCondomini}
+          onClose={() => setShowUpgradeCspRequest(false)}
+          onSubmitted={() => {
+            setShowUpgradeCspRequest(false);
+            setUpgradeCspConfermato(true);
+            carica();
+          }}
+        />
+      )}
+      {upgradeCspConfermato && (
+        <div className="fixed inset-0 z-[275] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-6 text-center shadow-2xl csp-enter">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-100 text-3xl">✓</div>
+            <h3 className="mt-4 text-2xl font-black text-slate-900">Richiesta inviata</h3>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Grazie per il tuo interesse. Sarai contattato al più presto per ricevere tutte le informazioni sul piano richiesto.</p>
+            <button type="button" onClick={() => setUpgradeCspConfermato(false)} className="mt-5 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">Chiudi</button>
+          </div>
+        </div>
       )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         {sezioniMenuLaterale.length > 0 && (
@@ -16000,7 +15945,7 @@ export default function App() {
             onOpenNotifica={apriNotificaCentro}
             onRefreshNotifiche={aggiornaNotificheCentro}
             onClearEvidenzaNotifiche={pulisciEvidenzaNotifiche}
-            onOpenPianiCsp={() => setShowPianiCspModal(true)}
+            onOpenPianiCsp={() => setShowPianiCspExperience(true)}
           />
         )}
 
@@ -16098,8 +16043,6 @@ export default function App() {
 
         {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
-            <RichiesteUpgradeGestoreBox richieste={richiesteUpgradeCsp} onUpdateData={aggiornaDataPresentazioneUpgrade} />
-
             <ActionBar
               condomini={condominiVisibili}
               filtroCondominioId={filtroCondominioId}
