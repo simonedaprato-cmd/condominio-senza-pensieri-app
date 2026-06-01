@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.7';
-const APP_VERSION_LABEL = 'CSP v1.0.7';
+const APP_VERSION = '1.0.8';
+const APP_VERSION_LABEL = 'CSP v1.0.8';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -267,6 +267,40 @@ function formatEuro(value) {
 
 function formatCurrency(value) {
   return formatEuro(value);
+}
+
+function normalizeItalianPhone(phone) {
+  if (!phone) return '';
+  let raw = String(phone).trim();
+  if (!raw) return '';
+  raw = raw.replace(/[^\d+]/g, '');
+  if (raw.startsWith('00')) raw = raw.slice(2);
+  if (raw.startsWith('+')) raw = raw.slice(1);
+  raw = raw.replace(/\D/g, '');
+  if (!raw) return '';
+  if (raw.startsWith('39')) return raw;
+  return `39${raw}`;
+}
+
+function ContactActionButtons({ phone, label = 'contatto', compact = false }) {
+  const normalized = normalizeItalianPhone(phone);
+  if (!normalized || normalized.length < 8) return null;
+  const readable = `+${normalized}`;
+  const whatsappText = encodeURIComponent(`Ciao, ti contatto da Condominio Senza Pensieri per la tua richiesta.`);
+  const baseBtn = compact
+    ? 'inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-black shadow-sm transition active:scale-[0.98]'
+    : 'inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black shadow-sm transition active:scale-[0.98]';
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <a href={`tel:+${normalized}`} className={`${baseBtn} bg-emerald-600 text-white`} aria-label={`Chiama ${label}`}>
+        📞 Chiama
+      </a>
+      <a href={`https://wa.me/${normalized}?text=${whatsappText}`} target="_blank" rel="noreferrer" className={`${baseBtn} bg-[#25D366] text-white`} aria-label={`Scrivi su WhatsApp a ${label}`}>
+        💬 WhatsApp
+      </a>
+      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-500">{readable}</span>
+    </div>
+  );
 }
 
 function formatPromoPrezzo(value) {
@@ -12059,6 +12093,22 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
     condominioPratica?.nome,
   ];
 
+  const emailRichiedentePratica = [
+    segnalazione.email,
+    segnalazione.richiedente_email,
+    segnalazione.email_condomino,
+    segnalazione.utente_email,
+    segnalazione.created_by,
+    segnalazione.creato_da_email,
+    segnalazione.segnalatore_email,
+  ].map((value) => String(value || '').toLowerCase().trim()).find(Boolean);
+  const utenteRichiedentePratica = emailRichiedentePratica
+    ? (utentiSistema || []).find((utente) => String(utente.email || '').toLowerCase().trim() === emailRichiedentePratica)
+    : null;
+  const telefonoRichiedentePratica = segnalazione.telefono || utenteRichiedentePratica?.telefono || '';
+  const nomeRichiedentePratica = segnalazione.referente || utenteRichiedentePratica?.nome || emailRichiedentePratica || 'richiedente';
+  const mostraAzioniContattoPratica = (ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && telefonoRichiedentePratica;
+
   const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazione.id));
   const votoUtente = votiPratica.find((v) => String(v.email || '').toLowerCase().trim() === String(utenteEmail || '').toLowerCase().trim());
   const votiFavorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
@@ -12230,7 +12280,10 @@ function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNot
             <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
             <GoogleMapsButton parts={mapsCspParts} className="mt-1" />
             <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
-            <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
+            <p><span className="text-slate-500">Telefono:</span> {telefonoRichiedentePratica || segnalazione.telefono || 'n.d.'}</p>
+            {mostraAzioniContattoPratica && (
+              <ContactActionButtons phone={telefonoRichiedentePratica} label={nomeRichiedentePratica} compact />
+            )}
             {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
               <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
             )}
@@ -13258,6 +13311,9 @@ function LavoriPrivatiSuite({
                 <h3 className="text-xl font-black text-slate-900">{lavoroAperto.titolo}</h3>
                 <p className="text-sm font-semibold text-slate-500">{getCondominioNome(lavoroAperto.condominio_id)} • {lavoroAperto.stato}</p>
                 <GoogleMapsButton parts={[getCondominioInfo(lavoroAperto.condominio_id)?.indirizzo, getCondominioInfo(lavoroAperto.condominio_id)?.citta, getCondominioNome(lavoroAperto.condominio_id)]} className="mt-3" />
+                {isGestore && (lavoroAperto.condomino_telefono || lavoroAperto.telefono) && (
+                  <ContactActionButtons phone={lavoroAperto.condomino_telefono || lavoroAperto.telefono} label={lavoroAperto.condomino_nome || lavoroAperto.condomino_email || 'cliente'} compact />
+                )}
               </div>
               <button onClick={() => setLavoroAperto(null)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
             </div>
