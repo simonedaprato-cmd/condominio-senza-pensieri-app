@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.5';
-const APP_VERSION_LABEL = 'CSP v1.0.5';
+const APP_VERSION = '1.0.6';
+const APP_VERSION_LABEL = 'CSP v1.0.6';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -15034,7 +15034,7 @@ export default function App() {
         evento: 'promo_prenotazione_amministratore',
       });
 
-      const { data, error } = await supabase.functions.invoke('notify-promo-prenotazione-amministratore', {
+      const { data, error } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
         body: {
           promoId: promoRecord.id,
           condominioId,
@@ -15235,7 +15235,7 @@ export default function App() {
       if (unanimitaRaggiunta) {
         try {
           const deepLink = buildAppDeepLink({ fromPush: '1', section: 'promo', promo: promoRecord.id, promoCondominio: condominioId, evento: 'promo_votazione_approvata' });
-          const { data: autoData, error: autoError } = await supabase.functions.invoke('notify-promo-prenotazione-amministratore', {
+          const { data: autoData, error: autoError } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
             body: {
               promoId: promoRecord.id,
               condominioId,
