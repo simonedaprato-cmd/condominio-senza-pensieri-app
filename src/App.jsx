@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.21';
-const APP_VERSION_LABEL = 'CSP v1.0.21';
+const APP_VERSION = '1.0.22';
+const APP_VERSION_LABEL = 'CSP v1.0.22';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -267,6 +267,26 @@ function formatEuro(value) {
 
 function formatCurrency(value) {
   return formatEuro(value);
+}
+
+function formatPromoPrezzo(value) {
+  if (value === null || value === undefined) return 'Su richiesta';
+  const raw = String(value).trim();
+  if (!raw) return 'Su richiesta';
+  if (raw.includes('€')) return raw;
+  const parseNumber = (text) => {
+    const cleaned = String(text || '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+  if (/^[0-9\s.,]+$/.test(raw)) {
+    const n = parseNumber(raw);
+    return n === null ? raw : formatEuro(n);
+  }
+  return raw.replace(/([0-9][0-9\s.,]*)/, (match) => {
+    const n = parseNumber(match);
+    return n === null ? match : formatEuro(n);
+  });
 }
 
 function formatNotificaTempo(value) {
@@ -10936,7 +10956,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
                     {item.prezzo && (
                       <div className="mt-3 w-fit rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Prezzo promo</p>
-                        <p className="mt-1 text-xl font-black text-slate-900">{item.prezzo}</p>
+                        <p className="mt-1 text-xl font-black text-slate-900">{formatPromoPrezzo(item.prezzo)}</p>
                       </div>
                     )}
                     {votoGiaDato ? (
@@ -10956,7 +10976,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Offerta</p>
-              <p className="mt-1 text-2xl font-black text-slate-900">{item.prezzo || 'Su richiesta'}</p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{formatPromoPrezzo(item.prezzo)}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validità</p>
@@ -11176,7 +11196,7 @@ function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], c
                       {residua !== null && <p className="mt-2 text-xs font-black text-slate-500">Disponibilità residue: {residua}</p>}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <p className="rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{item.prezzo || 'Promo'}</p>
+                      <p className="rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{formatPromoPrezzo(item.prezzo)}</p>
                       <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); apriPromoInEvidenza(item); }}
@@ -15149,6 +15169,12 @@ export default function App() {
       mostraToast('Errore votazione', error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
       return null;
     }
+  };
+
+  const totaleCondominiPromo = (condominioId) => {
+    const condominio = (condominiVisibili || condomini || []).find((c) => String(c?.id) === String(condominioId));
+    const totale = Number(condominio?.famiglie || condominio?.numero_condomini || condominio?.numero_famiglie || condominio?.totale_famiglie || 0);
+    return Number.isFinite(totale) && totale > 0 ? totale : 0;
   };
 
   const registraVotoPromo = async (promoRecord = {}, condominioIdRichiesto = null, voto = '') => {
