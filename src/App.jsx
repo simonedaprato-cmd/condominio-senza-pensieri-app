@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.17';
+const APP_VERSION_LABEL = 'CSP v1.0.17';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12257,6 +12257,101 @@ function formatHomeIntelligenteTime(value) {
   return data.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 }
 
+
+function PianiCspCondomino({ pianoAbbonamento = 'base', condomini = [], onBackHome }) {
+  const pianoCorrente = normalizzaPianoAbbonamento(pianoAbbonamento);
+  const primoCondominio = condomini?.[0]?.nome || 'il tuo condominio';
+
+  const cards = [
+    {
+      id: 'base',
+      nome: 'CSP Base',
+      prezzo: 'Incluso',
+      badge: 'Operatività essenziale',
+      testo: 'Segnalazioni condominiali e tracciamento delle pratiche principali.',
+      punti: ['Apertura e consultazione pratiche CSP', 'Aggiornamenti di stato', 'Comunicazioni operative essenziali'],
+    },
+    {
+      id: 'plus',
+      nome: 'CSP Plus',
+      prezzo: '2,99 € / mese',
+      badge: 'Più servizi, più controllo',
+      testo: 'Sblocca servizi evoluti, report e strumenti utili alla vita condominiale.',
+      punti: ['La tua casa Senza Pensieri', 'Report semestrali', 'Votazioni e funzioni evolute'],
+    },
+    {
+      id: 'premium',
+      nome: 'CSP Premium',
+      prezzo: '9,99 € / mese',
+      badge: 'Esperienza completa',
+      testo: 'La versione più completa per chi vuole massima priorità, contenuti e vantaggi.',
+      punti: ['Priorità sugli interventi', 'Rivista e contenuti premium', 'Servizi ad alto valore CSP'],
+    },
+  ];
+
+  const cardClass = (id) => {
+    if (id === 'premium') return 'border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50';
+    if (id === 'plus') return 'border-sky-200 bg-gradient-to-br from-sky-50 via-white to-cyan-50';
+    return 'border-slate-200 bg-white';
+  };
+
+  return (
+    <section className="space-y-5 pb-36 md:pb-8">
+      <div className="relative overflow-hidden rounded-[2.4rem] bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20 md:p-8">
+        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Il tuo piano CSP</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Piani e servizi disponibili</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">
+              Qui trovi il riepilogo del piano attivo per {primoCondominio} e le funzioni disponibili nelle versioni CSP.
+            </p>
+          </div>
+          <button type="button" onClick={onBackHome} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/15">
+            ← Home
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {cards.map((card) => {
+          const attivo = pianoCorrente === card.id;
+          return (
+            <article key={card.id} className={`rounded-[2rem] border p-5 shadow-sm ${cardClass(card.id)} ${attivo ? 'ring-4 ring-emerald-100' : ''}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{card.badge}</p>
+                  <h2 className="mt-2 text-2xl font-black text-slate-900">{card.nome}</h2>
+                </div>
+                {attivo && <span className="rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">Attivo</span>}
+              </div>
+              <p className="mt-3 text-xl font-black text-slate-900">{card.prezzo}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{card.testo}</p>
+              <ul className="mt-4 space-y-2">
+                {card.punti.map((punto) => (
+                  <li key={punto} className="flex items-start gap-2 text-sm font-bold text-slate-700">
+                    <span className="mt-0.5 text-emerald-600">✓</span>
+                    <span>{punto}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Nota operativa</p>
+        <h3 className="mt-1 text-lg font-black">Per modificare il piano</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900/75">
+          L’attivazione o il cambio piano viene gestito dall’amministratore del condominio insieme al gestore CSP.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function HomeIntelligenteCondomino({
   userProfile = {},
   condomini = [],
@@ -15830,6 +15925,7 @@ export default function App() {
 
   const condominoSections = [
     { id: 'home-intelligente', label: '⭐ Home Intelligente', subtitle: 'La tua vista riepilogativa' },
+    { id: 'piani-csp', label: '💎 Il tuo piano', subtitle: 'Piani e servizi CSP' },
     { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
@@ -16386,8 +16482,17 @@ export default function App() {
             onOpenLavoroPrivato={(lavoro) => { setLavoroPrivatoApertoId(lavoro?.id || null); setCondominoSection('lavori-privati'); }}
             onOpenReport={(report) => { if (report?.file_url) window.open(report.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('report'); }}
             onOpenRivista={(rivista) => { if (rivista?.file_url) window.open(rivista.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('rivista'); }}
-            onOpenPiano={() => setStatusMessage('Apri il badge CSP nella barra superiore per consultare i piani del tuo condominio.')}
+            onOpenPiano={() => { setStatusMessage(''); setCondominoSection('piani-csp'); }}
             onGoToSection={setCondominoSection}
+          />
+        )}
+
+
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'piani-csp' && (
+          <PianiCspCondomino
+            pianoAbbonamento={pianoAbbonamentoCorrente}
+            condomini={condominiVisibili}
+            onBackHome={() => setCondominoSection('home-intelligente')}
           />
         )}
 
