@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.8';
-const APP_VERSION_LABEL = 'CSP v1.0.8';
+const APP_VERSION = '1.0.9';
+const APP_VERSION_LABEL = 'CSP v1.0.9';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -251,6 +251,160 @@ function TopbarPlanTextLabel({ piano = 'base' }) {
     <span className={`text-xs font-black uppercase tracking-[0.16em] ${cls}`}>
       {label}
     </span>
+  );
+}
+
+
+
+function PianoCspExperienceModal({ piano = 'base', onClose, onInfo }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const pianoLabel = pianoNorm === 'premium' ? 'CSP Premium' : pianoNorm === 'plus' ? 'CSP Plus' : 'CSP Base';
+  const piani = [
+    {
+      id: 'base',
+      nome: 'CSP Base',
+      payoff: 'Il punto di partenza per gestire il condominio con ordine e tracciabilità.',
+      badge: 'Incluso',
+      tone: 'slate',
+      items: [
+        'Segnalazioni condominiali',
+        'Monitoraggio pratiche',
+        'Notifiche in tempo reale',
+        'Documentazione condivisa',
+      ],
+    },
+    {
+      id: 'plus',
+      nome: 'CSP Plus',
+      payoff: 'Più servizi, più coinvolgimento e meno passaggi manuali per il condominio.',
+      badge: 'Upgrade naturale',
+      tone: 'sky',
+      items: [
+        'Tutto il piano Base',
+        'La Tua Casa Senza Pensieri',
+        'Votazioni Promo Senza Pensieri',
+        'Accesso completo alla Rivista CSP',
+        'Promozioni dedicate',
+      ],
+    },
+    {
+      id: 'premium',
+      nome: 'CSP Premium',
+      payoff: 'L’esperienza completa per vivere il condominio con priorità, servizi e opportunità esclusive.',
+      badge: 'Esperienza completa',
+      tone: 'amber',
+      items: [
+        'Tutto il piano Plus',
+        'Gestione emergenze prioritaria',
+        'Priorità sugli interventi',
+        'Accesso anticipato alle opportunità',
+        'Servizi esclusivi Premium',
+      ],
+    },
+  ];
+
+  const toneClass = (id) => {
+    if (id === 'premium') return 'border-amber-300/70 bg-gradient-to-br from-amber-300/15 via-yellow-200/10 to-white/5 shadow-amber-500/10';
+    if (id === 'plus') return 'border-sky-300/70 bg-gradient-to-br from-sky-300/15 via-cyan-200/10 to-white/5 shadow-sky-500/10';
+    return 'border-white/15 bg-white/7 shadow-black/20';
+  };
+
+  return (
+    <div className="fixed inset-0 z-[260] overflow-y-auto bg-black text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.30),transparent_32%),radial-gradient(circle_at_75%_20%,rgba(245,158,11,0.22),transparent_28%),linear-gradient(135deg,#020617,#030712_45%,#022c22)]" />
+      <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
+      <div className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 md:px-8 md:py-8">
+        <div className="flex items-center justify-between gap-4">
+          <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-white/80 shadow-lg shadow-black/20 backdrop-blur-xl">
+            <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-lg shadow-emerald-300/50" />
+            Stai utilizzando: {pianoLabel}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xl font-black text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-white/15 active:translate-y-0 active:scale-95"
+            aria-label="Chiudi"
+          >
+            ×
+          </button>
+        </div>
+
+        <header className="mx-auto mt-8 max-w-3xl text-center md:mt-12">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-amber-200/25 bg-black/35 p-3 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl">
+            <img src={SPLASH_LOGO_SRC} alt="CSP" className="h-full w-full object-contain drop-shadow-[0_0_22px_rgba(16,185,129,0.45)]" />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.32em] text-emerald-200">Premium Experience</p>
+          <h2 className="mt-3 text-4xl font-black tracking-tight text-white md:text-6xl">
+            Il tuo piano<br />Condominio Senza Pensieri
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-sm font-semibold leading-7 text-white/70 md:text-base">
+            Scopri tutti i servizi disponibili e le opportunità riservate al tuo condominio.
+          </p>
+        </header>
+
+        <section className="mt-8 grid gap-4 md:mt-10 md:grid-cols-3">
+          {piani.map((item) => {
+            const isActive = pianoNorm === item.id;
+            const isAvailable = getLivelloPianoAbbonamento(item.id) > getLivelloPianoAbbonamento(pianoNorm);
+            return (
+              <article
+                key={item.id}
+                className={`relative overflow-hidden rounded-[2rem] border p-5 shadow-2xl backdrop-blur-xl ${toneClass(item.id)} ${isActive ? 'ring-2 ring-emerald-300/70' : ''}`}
+              >
+                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                <div className="relative">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">{item.badge}</p>
+                      <h3 className="mt-2 text-2xl font-black text-white">{item.nome}</h3>
+                    </div>
+                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${isActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-white/15 bg-white/10 text-white/60'}`}>
+                      {isActive ? 'Attivo' : isAvailable ? 'Disponibile' : 'Incluso'}
+                    </span>
+                  </div>
+                  <p className="mt-4 min-h-[4rem] text-sm font-semibold leading-6 text-white/70">{item.payoff}</p>
+                  <ul className="mt-5 space-y-3">
+                    {item.items.map((feature) => (
+                      <li key={feature} className="flex gap-3 text-sm font-bold leading-5 text-white/82">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-300/18 text-xs text-emerald-100 ring-1 ring-emerald-200/30">✓</span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+
+        <section className="mx-auto mt-8 w-full max-w-3xl rounded-[2rem] border border-white/15 bg-white/10 p-5 text-center shadow-2xl shadow-black/25 backdrop-blur-xl md:mt-10 md:p-6">
+          <p className="text-sm font-semibold leading-7 text-white/76">
+            Ogni piano è pensato per offrire un livello diverso di assistenza, servizi e opportunità.
+            <br className="hidden md:block" />
+            Scopri quale soluzione è più adatta al tuo condominio.
+          </p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={onInfo}
+              className="rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-emerald-950 shadow-xl shadow-emerald-950/30 transition hover:-translate-y-0.5 hover:shadow-2xl active:translate-y-0 active:scale-[0.98]"
+            >
+              Scopri come attivare Plus o Premium
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/18 bg-white/10 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-white/75 transition hover:-translate-y-0.5 hover:bg-white/15 active:translate-y-0 active:scale-[0.98]"
+            >
+              Torna all’app
+            </button>
+          </div>
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-white/35">
+            Predisposto per il riepilogo servizi attivi nelle prossime evoluzioni CSP
+          </p>
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -2382,6 +2536,7 @@ function LiveTopBar({
   onOpenNotifica,
   onRefreshNotifiche,
   onClearEvidenzaNotifiche,
+  onOpenPianiCsp,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [showNotifiche, setShowNotifiche] = useState(false);
@@ -2449,7 +2604,15 @@ function LiveTopBar({
           </button>
           <div className="relative flex items-center justify-end gap-2 text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
             {isCondominoTopbar ? (
-              <TopbarPlanTextLabel piano={pianoAbbonamento} />
+              <button
+                type="button"
+                onClick={onOpenPianiCsp}
+                className="group rounded-full border border-white/20 bg-white/10 px-2.5 py-1 shadow-sm shadow-emerald-950/10 transition hover:-translate-y-0.5 hover:bg-white/15 active:translate-y-0 active:scale-[0.98]"
+                title="Scopri il tuo piano CSP"
+                aria-label="Scopri il tuo piano Condominio Senza Pensieri"
+              >
+                <TopbarPlanTextLabel piano={pianoAbbonamento} />
+              </button>
             ) : (
               <>
                 <span>{formattedDate}</span>
@@ -13738,6 +13901,7 @@ export default function App() {
   const [promoDeeplinkTick, setPromoDeeplinkTick] = useState(0);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [savingPromo, setSavingPromo] = useState(false);
+  const [showPianiCspModal, setShowPianiCspModal] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
   const isCollaboratore = ruoloNormalizzato === 'collaboratore';
@@ -17791,6 +17955,16 @@ export default function App() {
           saving={savingPromo}
         />
       )}
+      {showPianiCspModal && (
+        <PianoCspExperienceModal
+          piano={pianoAbbonamentoCorrente}
+          onClose={() => setShowPianiCspModal(false)}
+          onInfo={() => {
+            setShowPianiCspModal(false);
+            setToastInterno({ tipo: 'info', titolo: 'Piani CSP', messaggio: 'Richiedi al tuo amministratore informazioni su CSP Plus e CSP Premium.' });
+          }}
+        />
+      )}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         {sezioniMenuLaterale.length > 0 && (
           <LiveTopBar
@@ -17805,6 +17979,7 @@ export default function App() {
             onOpenNotifica={apriNotificaCentro}
             onRefreshNotifiche={aggiornaNotificheCentro}
             onClearEvidenzaNotifiche={pulisciEvidenzaNotifiche}
+            onOpenPianiCsp={() => setShowPianiCspModal(true)}
           />
         )}
 
