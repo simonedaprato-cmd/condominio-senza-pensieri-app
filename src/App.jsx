@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.20';
-const APP_VERSION_LABEL = 'CSP v1.0.20';
+const APP_VERSION = '1.0.21';
+const APP_VERSION_LABEL = 'CSP v1.0.21';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -251,6 +251,214 @@ function buildPublicUrl(fileName) {
   if (!fileName) return '';
   return SUPABASE_URL + '/storage/v1/object/public/allegati/' + encodeURIComponent(fileName);
 }
+
+function PianoCspExperienceModal({ piano = 'base', richiestaUpgradeAttiva = null, currentUserEmail = '', onClose, onOpenUpgrade, onOpenHomeIntelligente }) {
+  const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const richiestaAttiva = richiestaUpgradeAttiva && String(richiestaUpgradeAttiva.stato || '').toLowerCase() !== 'chiusa' ? richiestaUpgradeAttiva : null;
+  const statoRichiesta = String(richiestaAttiva?.stato || '').toLowerCase();
+  const richiestaInAppuntamento = statoRichiesta === 'appuntamento';
+  const richiestaUtenteCorrente = richiestaAttiva && normalizeEmail(richiestaAttiva.richiedente_email) === normalizeEmail(currentUserEmail);
+  const richiestaLabel = richiestaInAppuntamento
+    ? 'Appuntamento fissato'
+    : richiestaAttiva
+      ? (richiestaUtenteCorrente ? 'Richiesta inviata' : 'Già richiesto')
+      : '';
+  const cards = [
+    {
+      id: 'base',
+      title: 'CSP Base',
+      tone: 'border-white/10 bg-white/[0.06] text-slate-100',
+      badge: pianoNorm === 'base' ? 'ATTIVO' : 'Disponibile',
+      items: ['Segnalazioni condominiali', 'Monitoraggio pratiche', 'Notifiche in tempo reale', 'Documentazione condivisa'],
+    },
+    {
+      id: 'plus',
+      title: 'CSP Plus',
+      tone: 'border-sky-300/30 bg-sky-300/[0.10] text-sky-50',
+      badge: pianoNorm === 'plus' ? 'ATTIVO' : 'Disponibile',
+      items: ['Tutto il Base', 'La tua casa Senza Pensieri', 'Votazioni Promo Senza Pensieri', 'Accesso completo alla rivista', 'Promozioni dedicate'],
+    },
+    {
+      id: 'premium',
+      title: 'CSP Premium',
+      tone: 'border-amber-300/40 bg-amber-300/[0.11] text-amber-50',
+      badge: pianoNorm === 'premium' ? 'ATTIVO' : 'Disponibile',
+      items: ['Tutto il Plus', 'Gestione emergenze prioritaria', 'Priorità sugli interventi', 'Accesso anticipato alle opportunità', 'Esperienza completa CSP'],
+    },
+  ];
+
+  const ctaText = pianoNorm === 'premium'
+    ? 'Piano Premium attivo'
+    : pianoNorm === 'plus'
+      ? 'Scopri come attivare Premium'
+      : 'Scopri come attivare Plus o Premium';
+
+  return (
+    <div className="fixed inset-0 z-[260] overflow-y-auto bg-black text-white csp-enter">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.18),transparent_34%),linear-gradient(135deg,#020617,#020617_45%,#064e3b)] px-4 py-6">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/70">
+            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+            Stai utilizzando: CSP {pianoNorm.toUpperCase()}
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white/80 transition hover:bg-white/15">✕</button>
+        </div>
+
+        <div className="mx-auto mt-8 max-w-3xl text-center">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] border border-amber-300/25 bg-black/55 shadow-2xl shadow-amber-900/30">
+            <img src={SPLASH_LOGO_SRC} alt="CSP" className="h-20 w-20 object-contain drop-shadow-[0_0_18px_rgba(251,191,36,0.42)]" />
+          </div>
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-amber-200/80">Condominio Senza Pensieri</p>
+          <h2 className="mt-2 text-3xl font-black leading-tight md:text-5xl">Il tuo piano CSP</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-white/68 md:text-base">
+            Scopri tutti i servizi disponibili e le opportunità riservate al tuo condominio.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-7 grid max-w-3xl gap-4 md:grid-cols-3">
+          {cards.map((card) => (
+            <div key={card.id} className={`rounded-[2rem] border p-5 text-left shadow-2xl shadow-black/25 ${card.tone} ${pianoNorm === card.id ? 'ring-2 ring-amber-300/55' : ''}`}>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-black">{card.title}</h3>
+                <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${pianoNorm === card.id ? 'bg-amber-300 text-slate-950' : 'bg-white/10 text-white/70'}`}>{card.badge}</span>
+              </div>
+              <div className="mt-4 space-y-2">
+                {card.items.map((item) => (
+                  <p key={item} className="flex gap-2 text-sm font-semibold leading-6 text-white/78"><span className="text-emerald-300">✓</span>{item}</p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mx-auto mt-7 max-w-3xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 text-center shadow-2xl shadow-black/20">
+          <p className="text-sm font-semibold leading-7 text-white/70">
+            Ogni piano è pensato per offrire un livello diverso di assistenza, servizi e opportunità. Scopri quale soluzione è più adatta al tuo condominio.
+          </p>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+            {pianoNorm === 'premium' ? (
+              <div className="rounded-2xl border border-amber-300/30 bg-amber-300/15 px-5 py-3 text-sm font-black text-amber-100">✓ Piano Premium attivo</div>
+            ) : richiestaAttiva ? (
+              <button
+                type="button"
+                onClick={richiestaInAppuntamento ? () => onOpenHomeIntelligente?.() : undefined}
+                disabled={!richiestaInAppuntamento}
+                className={`rounded-2xl px-5 py-3 text-sm font-black shadow-xl transition ${richiestaInAppuntamento ? 'bg-emerald-300 text-slate-950 shadow-emerald-950/30 hover:-translate-y-0.5 active:translate-y-0' : 'cursor-not-allowed border border-white/15 bg-white/10 text-white/72 shadow-black/20'}`}
+              >
+                {richiestaLabel}{richiestaInAppuntamento ? ' → Home Intelligente' : ''}
+              </button>
+            ) : (
+              <button type="button" onClick={() => onOpenUpgrade?.()} className="rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 px-5 py-3 text-sm font-black text-slate-950 shadow-xl shadow-amber-950/30 transition hover:-translate-y-0.5 active:translate-y-0">
+                {ctaText}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white/85 transition hover:bg-white/15">Torna all'app</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RichiestaUpgradeCspModal({ pianoAttuale = 'base', condominio = null, userProfile = null, utentiCondomini = [], onClose, onSubmitted }) {
+  const pianoNorm = normalizzaPianoAbbonamento(pianoAttuale);
+  const [pianoRichiesto, setPianoRichiesto] = useState(pianoNorm === 'plus' ? 'premium' : 'plus');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const email = normalizeEmail(userProfile?.email);
+  const collegamento = (utentiCondomini || []).find((u) => normalizeEmail(u.email) === email && (!condominio?.id || Number(u.condominio_id) === Number(condominio.id))) || {};
+  const nome = userProfile?.nome || '';
+  const cognome = collegamento?.cognome || userProfile?.cognome || '';
+  const telefono = userProfile?.telefono || collegamento?.telefono || '';
+  const condominioNome = condominio?.nome || userProfile?.condominio || 'Condominio';
+  const pianoLabel = String(pianoRichiesto || '').toUpperCase();
+
+  const invia = async () => {
+    try {
+      setSaving(true);
+      const messaggio = `Se desiderate passare al piano ${pianoLabel} saremo lieti di organizzare un breve incontro presso il vostro condominio per illustrarvi tutti i vantaggi, i servizi e le opportunità disponibili.`;
+      const payload = {
+        condominioId: condominio?.id || userProfile?.condominiIds?.[0] || null,
+        condominioNome,
+        pianoAttuale: pianoNorm,
+        pianoRichiesto,
+        richiedenteNome: nome,
+        richiedenteCognome: cognome,
+        richiedenteTelefono: telefono,
+        richiedenteEmail: email,
+        messaggio,
+        note,
+      };
+      const { data, error } = await supabase.functions.invoke('request-upgrade-csp', { body: payload });
+      if (error || data?.success === false) throw new Error(error?.message || data?.error || 'Invio non completato');
+      onSubmitted?.();
+    } catch (error) {
+      alert('Errore invio richiesta upgrade: ' + (error.message || 'sconosciuto'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[270] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-sm md:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl csp-enter">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Richiesta informazioni</p>
+            <h3 className="mt-1 text-2xl font-black text-slate-900">Upgrade piano CSP</h3>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-500 shadow-sm">✕</button>
+        </div>
+
+        <div className="mt-5 rounded-[1.7rem] border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-950">
+          Se desiderate passare al piano {pianoLabel} saremo lieti di organizzare un breve incontro presso il vostro condominio per illustrarvi tutti i vantaggi, i servizi e le opportunità disponibili.
+        </div>
+
+        {pianoNorm === 'base' && (
+          <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Piano da approfondire</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {['plus', 'premium'].map((p) => (
+                <button key={p} type="button" onClick={() => setPianoRichiesto(p)} className={`rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.12em] transition ${pianoRichiesto === p ? 'border-emerald-300 bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'border-slate-200 bg-white text-slate-700'}`}>
+                  CSP {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <InfoBoxCsp label="Richiedente" value={`${nome || '—'} ${cognome || ''}`.trim()} />
+          <InfoBoxCsp label="Telefono" value={telefono || '—'} />
+          <InfoBoxCsp label="Email" value={email || '—'} />
+          <InfoBoxCsp label="Condominio" value={condominioNome || '—'} />
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-sm font-black text-slate-900">Note aggiuntive</span>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Puoi aggiungere preferenze su giorni, orari o informazioni utili." className="mt-2 min-h-[110px] w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
+        </label>
+
+        <button type="button" onClick={invia} disabled={saving} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white shadow-xl shadow-emerald-900/20 transition hover:bg-emerald-700 disabled:opacity-60">
+          {saving && <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {saving ? 'Invio richiesta...' : 'Invia richiesta'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InfoBoxCsp({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-900">{value || '—'}</p>
+    </div>
+  );
+}
+
+
 
 function formatEuro(value) {
   const numero = Math.round(Number(value || 0));
@@ -2265,6 +2473,7 @@ function LiveTopBar({
   onOpenNotifica,
   onRefreshNotifiche,
   onClearEvidenzaNotifiche,
+  onOpenPiano,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [showNotifiche, setShowNotifiche] = useState(false);
@@ -2332,7 +2541,14 @@ function LiveTopBar({
           </button>
           <div className="relative flex items-center justify-end gap-2 text-right text-xs font-black uppercase tracking-[0.16em] text-white/80 md:text-sm">
             {isCondominoTopbar ? (
-              <TopbarPlanTextLabel piano={pianoAbbonamento} />
+              <button
+                type="button"
+                onClick={onOpenPiano}
+                className="rounded-full border border-white/15 bg-white/10 px-2 py-1 transition hover:bg-white/15 active:scale-95"
+                title="Apri scheda piani CSP"
+              >
+                <TopbarPlanTextLabel piano={pianoAbbonamento} />
+              </button>
             ) : (
               <>
                 <span>{formattedDate}</span>
@@ -10179,7 +10395,7 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
           return (
             <div key={stato} className="flex h-96 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className={'rounded-full border px-3 py-1 text-xs font-black ' + badgeClass(stato)}>{stato}</span>
+                <span className={'rounded-full border px-3 py-1 text-xs font-black ' + badgeClass(stato)}>{String(stato).toLowerCase() === 'appuntamento' ? 'appuntamento fissato' : stato}</span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 border border-slate-200">{items.length}</span>
               </div>
 
@@ -12240,6 +12456,150 @@ function LavoriPrivatiSuite({
 
 
 
+
+function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRefresh, onUpdateStato }) {
+  const [filtroStato, setFiltroStato] = useState('tutte');
+  const [search, setSearch] = useState('');
+
+  const lista = Array.isArray(richieste) ? richieste : [];
+  const normalizza = (value) => String(value || '').toLowerCase().trim();
+  const getCondominioNome = (item) => {
+    if (item?.condominio_nome) return item.condominio_nome;
+    const found = (condomini || []).find((c) => Number(c.id) === Number(item?.condominio_id));
+    return found?.nome || 'Condominio non indicato';
+  };
+  const formatDateTime = (value) => {
+    if (!value) return 'Data non disponibile';
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return String(value);
+    return data.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const filtrate = lista.filter((item) => {
+    const stato = normalizza(item.stato || 'nuova');
+    const query = normalizza(search);
+    const matchStato = filtroStato === 'tutte' || stato === filtroStato;
+    const haystack = normalizza([
+      item.richiedente_nome,
+      item.richiedente_cognome,
+      item.richiedente_email,
+      item.richiedente_telefono,
+      item.piano_attuale,
+      item.piano_richiesto,
+      item.condominio_nome,
+      getCondominioNome(item),
+      item.note,
+    ].filter(Boolean).join(' '));
+    return matchStato && (!query || haystack.includes(query));
+  });
+
+  const nuove = lista.filter((item) => normalizza(item.stato || 'nuova') === 'nuova').length;
+  const plus = lista.filter((item) => normalizza(item.piano_richiesto) === 'plus').length;
+  const premium = lista.filter((item) => normalizza(item.piano_richiesto) === 'premium').length;
+
+  const statoBadgeClass = (statoRaw) => {
+    const stato = normalizza(statoRaw || 'nuova');
+    if (stato === 'nuova') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (stato === 'contattata') return 'bg-sky-100 text-sky-800 border-sky-200';
+    if (stato === 'appuntamento') return 'bg-amber-100 text-amber-800 border-amber-200';
+    if (stato === 'chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
+
+  return (
+    <section className="space-y-4 pb-8">
+      <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-5 text-white shadow-2xl shadow-slate-950/20 md:p-6">
+        <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-20 left-8 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200/80">Suite gestore</p>
+            <h2 className="mt-2 text-2xl font-black md:text-3xl">Richieste upgrade CSP</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">
+              Qui arrivano le manifestazioni di interesse inviate dai condòmini dalla scheda fullscreen dei piani.
+            </p>
+          </div>
+          <button type="button" onClick={onRefresh} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/15">
+            Aggiorna lista
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <DashboardStat label="Nuove" value={nuove} tone="emerald" />
+        <DashboardStat label="Richieste Plus" value={plus} tone="sky" />
+        <DashboardStat label="Richieste Premium" value={premium} tone="amber" />
+      </div>
+
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cerca per nome, email, condominio, telefono..."
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          />
+          <select
+            value={filtroStato}
+            onChange={(e) => setFiltroStato(e.target.value)}
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          >
+            <option value="tutte">Tutti gli stati</option>
+            <option value="nuova">Nuove</option>
+            <option value="contattata">Contattate</option>
+            <option value="appuntamento">Appuntamento fissato</option>
+            <option value="chiusa">Chiuse</option>
+          </select>
+        </div>
+      </div>
+
+      {filtrate.length === 0 ? (
+        <EmptyState icon="💎" title="Nessuna richiesta upgrade" text="Quando un condòmino manifesterà interesse per CSP Plus o Premium, la richiesta comparirà qui." action="Pipeline pulita" tone="emerald" />
+      ) : (
+        <div className="space-y-3">
+          {filtrate.map((item) => {
+            const nome = [item.richiedente_nome, item.richiedente_cognome].filter(Boolean).join(' ') || item.richiedente_email || 'Richiedente non indicato';
+            const pianoRichiesto = String(item.piano_richiesto || '').toUpperCase() || 'UPGRADE';
+            const stato = item.stato || 'nuova';
+            const telDigits = String(item.richiedente_telefono || '').replace(/\D/g, '');
+            const telHref = telDigits ? `tel:${telDigits}` : '';
+            const mailHref = item.richiedente_email ? `mailto:${item.richiedente_email}` : '';
+            return (
+              <article key={item.id || `${item.richiedente_email}-${item.created_at}`} className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-950/5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">CSP {pianoRichiesto}</span>
+                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>{String(stato).toLowerCase() === 'appuntamento' ? 'appuntamento fissato' : stato}</span>
+                    </div>
+                    <h3 className="mt-3 text-xl font-black text-slate-900">{nome}</h3>
+                    <p className="mt-1 text-sm font-bold text-slate-500">{getCondominioNome(item)}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-slate-600">
+                      {item.piano_attuale && <span className="rounded-full bg-slate-100 px-3 py-1">Da CSP {String(item.piano_attuale).toUpperCase()}</span>}
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">Richiesta: {formatDateTime(item.created_at)}</span>
+                    </div>
+                    {item.note && <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{item.note}</p>}
+                  </div>
+                  <div className="flex min-w-[220px] flex-col gap-2">
+                    {item.richiedente_telefono && <a href={telHref} className="rounded-2xl bg-emerald-600 px-4 py-3 text-center text-sm font-black text-white shadow-lg shadow-emerald-900/20">Chiama</a>}
+                    {item.richiedente_email && <a href={mailHref} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-700">Scrivi email</a>}
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'contattata')} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'appuntamento')} className="rounded-xl bg-amber-50 px-2 py-2 text-[10px] font-black text-amber-700">Appuntamento</button>
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'chiusa')} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function formatHomeIntelligenteDate(value) {
   if (!value) return '';
   const data = new Date(value);
@@ -12256,6 +12616,118 @@ function formatHomeIntelligenteTime(value) {
   if (Number.isNaN(data.getTime())) return '';
   return data.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 }
+
+function PianiCspCondomino({ pianoAbbonamento = 'base', condomini = [], onBackHome, onRichiediUpgrade }) {
+  const pianoCorrente = normalizzaPianoAbbonamento(pianoAbbonamento);
+  const primoCondominio = condomini?.[0]?.nome || 'il tuo condominio';
+
+  const cards = [
+    {
+      id: 'base',
+      nome: 'CSP Base',
+      prezzo: 'Incluso',
+      badge: 'Operatività essenziale',
+      testo: 'Segnalazioni condominiali e tracciamento delle pratiche principali.',
+      punti: ['Apertura e consultazione pratiche CSP', 'Aggiornamenti di stato', 'Comunicazioni operative essenziali'],
+      cta: null,
+    },
+    {
+      id: 'plus',
+      nome: 'CSP Plus',
+      prezzo: '2,99 € / mese',
+      badge: 'Più servizi, più controllo',
+      testo: 'Sblocca servizi evoluti, report e strumenti utili alla vita condominiale.',
+      punti: ['La tua casa Senza Pensieri', 'Report semestrali', 'Votazioni e funzioni evolute'],
+      cta: 'Manifesta interesse per CSP Plus',
+    },
+    {
+      id: 'premium',
+      nome: 'CSP Premium',
+      prezzo: '9,99 € / mese',
+      badge: 'Esperienza completa',
+      testo: 'La versione più completa per chi vuole massima priorità, contenuti e vantaggi.',
+      punti: ['Priorità sugli interventi', 'Rivista e contenuti premium', 'Servizi ad alto valore CSP'],
+      cta: 'Manifesta interesse per CSP Premium',
+    },
+  ];
+
+  const cardClass = (id) => {
+    if (id === 'premium') return 'border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50';
+    if (id === 'plus') return 'border-sky-200 bg-gradient-to-br from-sky-50 via-white to-cyan-50';
+    return 'border-slate-200 bg-white';
+  };
+
+  return (
+    <section className="fixed inset-0 z-[175] overflow-y-auto bg-slate-100 p-4 pb-24 md:p-6">
+      <div className="relative overflow-hidden rounded-[2.4rem] bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20 md:p-8">
+        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Il tuo piano CSP</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Piani e servizi disponibili</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">
+              Qui trovi il riepilogo del piano attivo per {primoCondominio} e le funzioni disponibili nelle versioni CSP.
+            </p>
+          </div>
+          <button type="button" onClick={onBackHome} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/15">
+            ← Home
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {cards.map((card) => {
+          const attivo = pianoCorrente === card.id;
+          return (
+            <article key={card.id} className={`rounded-[2rem] border p-5 shadow-sm ${cardClass(card.id)} ${attivo ? 'ring-4 ring-emerald-100' : ''}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{card.badge}</p>
+                  <h2 className="mt-2 text-2xl font-black text-slate-900">{card.nome}</h2>
+                </div>
+                {attivo && <span className="rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">Attivo</span>}
+              </div>
+              <p className="mt-3 text-xl font-black text-slate-900">{card.prezzo}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{card.testo}</p>
+              <ul className="mt-4 space-y-2">
+                {card.punti.map((punto) => (
+                  <li key={punto} className="flex items-start gap-2 text-sm font-bold text-slate-700">
+                    <span className="mt-0.5 text-emerald-600">✓</span>
+                    <span>{punto}</span>
+                  </li>
+                ))}
+              </ul>
+              {card.cta && !attivo && (
+                <button
+                  type="button"
+                  onClick={() => onRichiediUpgrade?.(card.id)}
+                  className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 ${card.id === 'premium' ? 'bg-amber-500 shadow-amber-900/20' : 'bg-sky-600 shadow-sky-900/20'}`}
+                >
+                  {card.cta}
+                </button>
+              )}
+              {attivo && (
+                <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
+                  Piano attualmente attivo per questo condominio.
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Nota operativa</p>
+        <h3 className="mt-1 text-lg font-black">Per modificare il piano</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900/75">
+          L’attivazione o il cambio piano viene gestito dall’amministratore del condominio insieme al gestore CSP.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 
 function HomeIntelligenteCondomino({
   userProfile = {},
@@ -12870,6 +13342,10 @@ export default function App() {
   const [gestoreSection, setGestoreSection] = useState('pratiche');
   const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
   const [condominoSection, setCondominoSection] = useState('home-intelligente');
+  const [showPianiCspExperience, setShowPianiCspExperience] = useState(false);
+  const [showUpgradeCspRequest, setShowUpgradeCspRequest] = useState(false);
+  const [upgradeCspConfermato, setUpgradeCspConfermato] = useState(false);
+  const [richiesteUpgradeCsp, setRichiesteUpgradeCsp] = useState([]);
   const [menuLateraleAperto, setMenuLateraleAperto] = useState(false);
   const [menuLateraleInChiusura, setMenuLateraleInChiusura] = useState(false);
   const [contratti, setContratti] = useState([]);
@@ -13376,10 +13852,85 @@ export default function App() {
   }, [ruoloNormalizzato, condomini, userProfile]);
 
   const condominioIdPerAbbonamento = filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || '';
+  const condominioCorrenteAbbonamento = condomini.find((c) => Number(c.id) === Number(condominioIdPerAbbonamento)) || userProfile?.condomini?.[0] || null;
   const pianoAbbonamentoCorrente = ruoloNormalizzato === 'gestore'
     ? 'premium'
     : getPianoAbbonamentoCondominio(condominioIdPerAbbonamento, contratti);
   const subscriptionFlagsCorrenti = getSubscriptionFlags(pianoAbbonamentoCorrente);
+
+  const richiestaUpgradeCspAttivaCorrente = (richiesteUpgradeCsp || []).find((item) => {
+    const stato = String(item?.stato || '').toLowerCase();
+    if (stato === 'chiusa') return false;
+    return Number(item?.condominio_id) === Number(condominioIdPerAbbonamento);
+  }) || null;
+
+
+  const apriFullscreenPianiCsp = () => {
+    setStatusMessage('');
+    setShowPianiCspExperience(true);
+  };
+
+  const richiediUpgradeCspCondomino = async (pianoRichiesto) => {
+    const pianoPulito = normalizzaPianoAbbonamento(pianoRichiesto);
+    if (!['plus', 'premium'].includes(pianoPulito)) return;
+
+    const condominioId = Number(condominioIdPerAbbonamento || condominiVisibili?.[0]?.id || 0);
+    const condominio = condomini.find((item) => Number(item.id) === condominioId) || condominiVisibili?.[0] || null;
+    const condominioNome = condominio?.nome || condominio?.denominazione || userProfile?.condominio || 'il tuo condominio';
+
+    if (!condominioId) {
+      alert('Non riesco a identificare il condominio collegato alla richiesta.');
+      return;
+    }
+
+    const richiestaGiaAttiva = (richiesteUpgradeCsp || []).find((item) => {
+      const stato = String(item?.stato || '').toLowerCase();
+      if (stato === 'chiusa') return false;
+      return Number(item?.condominio_id) === Number(condominioId);
+    });
+
+    if (richiestaGiaAttiva) {
+      const stato = String(richiestaGiaAttiva.stato || '').toLowerCase();
+      if (stato === 'appuntamento') {
+        setShowPianiCspExperience(false);
+        setCondominoSection('home-intelligente');
+        setStatusMessage('Appuntamento upgrade già fissato e visibile nella Home Intelligente.');
+      } else {
+        const stessaPersona = normalizeEmail(richiestaGiaAttiva.richiedente_email) === normalizeEmail(utente?.email || userProfile?.email);
+        setStatusMessage(stessaPersona ? 'Richiesta upgrade già inviata.' : 'Upgrade già richiesto per questo condominio.');
+        alert(stessaPersona ? 'Hai già inviato una richiesta upgrade per questo condominio.' : 'Una richiesta upgrade è già stata inviata per questo condominio.');
+      }
+      return;
+    }
+
+    const pianoLabel = pianoPulito.toUpperCase();
+    const conferma = window.confirm(`Vuoi manifestare interesse per CSP ${pianoLabel} per ${condominioNome}?
+
+Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento visibile nella Home Intelligente.`);
+    if (!conferma) return;
+
+    const payload = {
+      piano: pianoPulito,
+      condominioId,
+      condominioNome,
+      famiglie: getNumeroFamiglieCondominio(condominio),
+      richiedenteEmail: utente?.email || userProfile?.email || '',
+      richiedenteNome: userProfile?.nome || userProfile?.nome_cognome || '',
+      origine: 'home_intelligente_condomino',
+    };
+
+    try {
+      const { data, error } = await supabase.functions.invoke('request-upgrade-csp', { body: payload });
+      if (error) throw error;
+      alert(data?.message || `Interesse per CSP ${pianoLabel} inviato al gestore.`);
+      setShowPianiCspExperience(false);
+      setStatusMessage(`Interesse per CSP ${pianoLabel} inviato al gestore.`);
+      await carica();
+    } catch (error) {
+      console.error('[CSP request-upgrade condòmino] errore', error);
+      alert('Errore invio interesse piano: ' + (error?.message || 'sconosciuto'));
+    }
+  };
   const reportAnnualeAttivo = subscriptionFlagsCorrenti.isPlus || subscriptionFlagsCorrenti.isPremium;
   const reportSemestraleAttivo = subscriptionFlagsCorrenti.isPremium;
   const contrattoCorrenteSospeso = ruoloNormalizzato !== 'gestore'
@@ -13742,6 +14293,14 @@ export default function App() {
 
       if (contrattiError && contrattiError.code !== 'PGRST116') throw contrattiError;
       setContratti(contrattiData || []);
+
+      const { data: richiesteUpgradeData, error: richiesteUpgradeError } = await supabase
+        .from('richieste_upgrade_csp')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (richiesteUpgradeError && richiesteUpgradeError.code !== 'PGRST116' && richiesteUpgradeError.code !== '42P01') throw richiesteUpgradeError;
+      setRichiesteUpgradeCsp(richiesteUpgradeData || []);
 
       const { data: reportData, error: reportError } = await supabase
         .from('report_condominio')
@@ -15869,6 +16428,23 @@ export default function App() {
   };
 
 
+  const aggiornaRichiestaUpgradeCsp = async (richiestaId, nuovoStato) => {
+    if (!richiestaId || !nuovoStato) return;
+    try {
+      const { error } = await supabase
+        .from('richieste_upgrade_csp')
+        .update({ stato: nuovoStato, updated_at: new Date().toISOString() })
+        .eq('id', richiestaId);
+
+      if (error) throw error;
+      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => Number(item.id) === Number(richiestaId) ? { ...item, stato: nuovoStato, updated_at: new Date().toISOString() } : item));
+      mostraToast('Richiesta aggiornata', `Stato impostato su ${nuovoStato}.`, 'success');
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore richiesta upgrade', error.message || 'Aggiornamento non riuscito.', 'error');
+    }
+  };
+
   const logout = async () => {
     try {
       setStatusMessage('Uscita in corso. Pulizia sessione dispositivo...');
@@ -15971,6 +16547,7 @@ export default function App() {
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche e contratti' },
     { id: 'condomini-registrati', label: '🏢 Condomini registrati', subtitle: 'Piani, filtri e upgrade' },
+    { id: 'richieste-upgrade-csp', label: '💎 Richieste upgrade', subtitle: 'Interessi Plus e Premium' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
     { id: 'tecnici', label: 'Tecnici', subtitle: 'CRM tecnico CaSP' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
@@ -16086,6 +16663,48 @@ export default function App() {
           saving={sendingRivista}
         />
       )}
+      {showPianiCspExperience && ['condominio', 'condomino'].includes(ruoloNormalizzato) && (
+        <PianoCspExperienceModal
+          piano={pianoAbbonamentoCorrente}
+          richiestaUpgradeAttiva={richiestaUpgradeCspAttivaCorrente}
+          currentUserEmail={utente?.email || userProfile?.email || ''}
+          onClose={() => setShowPianiCspExperience(false)}
+          onOpenHomeIntelligente={() => {
+            setShowPianiCspExperience(false);
+            setCondominoSection('home-intelligente');
+          }}
+          onOpenUpgrade={() => {
+            setShowPianiCspExperience(false);
+            setUpgradeCspConfermato(false);
+            setShowUpgradeCspRequest(true);
+          }}
+        />
+      )}
+      {showUpgradeCspRequest && ['condominio', 'condomino'].includes(ruoloNormalizzato) && (
+        <RichiestaUpgradeCspModal
+          pianoAttuale={pianoAbbonamentoCorrente}
+          condominio={condominioCorrenteAbbonamento}
+          userProfile={userProfile}
+          utentiCondomini={utentiCondomini}
+          onClose={() => setShowUpgradeCspRequest(false)}
+          onSubmitted={() => {
+            setShowUpgradeCspRequest(false);
+            setUpgradeCspConfermato(true);
+            carica();
+          }}
+        />
+      )}
+      {upgradeCspConfermato && ['condominio', 'condomino'].includes(ruoloNormalizzato) && (
+        <div className="fixed inset-0 z-[275] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-6 text-center shadow-2xl csp-enter">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-100 text-3xl">✓</div>
+            <h3 className="mt-4 text-2xl font-black text-slate-900">Richiesta inviata</h3>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Grazie per il tuo interesse. Sarai contattato al più presto per ricevere tutte le informazioni sul piano richiesto.</p>
+            <button type="button" onClick={() => setUpgradeCspConfermato(false)} className="mt-5 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">Chiudi</button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 overflow-x-hidden">
         {sezioniMenuLaterale.length > 0 && (
           <LiveTopBar
@@ -16100,6 +16719,7 @@ export default function App() {
             onOpenNotifica={apriNotificaCentro}
             onRefreshNotifiche={aggiornaNotificheCentro}
             onClearEvidenzaNotifiche={pulisciEvidenzaNotifiche}
+            onOpenPiano={apriFullscreenPianiCsp}
           />
         )}
 
@@ -16192,6 +16812,15 @@ export default function App() {
             utentiCondomini={utentiCondomini}
             segnalazioni={segnalazioni}
             capitolati={capitolatiSenzaPensieri}
+          />
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'richieste-upgrade-csp' && (
+          <GestoreRichiesteUpgradeCspSuite
+            richieste={richiesteUpgradeCsp}
+            condomini={condomini}
+            onRefresh={carica}
+            onUpdateStato={aggiornaRichiestaUpgradeCsp}
           />
         )}
 
@@ -16547,11 +17176,18 @@ export default function App() {
             lavoriPrivati={lavoriPrivati}
             reports={reportVisibili}
             riviste={rivisteCondominio}
+            richiesteUpgradeCsp={richiesteUpgradeCsp.filter((item) => {
+              const ids = (condominiVisibili || []).map((c) => Number(c.id));
+              return ids.includes(Number(item?.condominio_id));
+            })}
+            utentiCondomini={utentiCondomini}
+            selectedCondominioId={condominioIdPerAbbonamento}
+            currentUserEmail={utente?.email || userProfile?.email || ''}
             onOpenSegnalazione={setDettaglioAperto}
             onOpenLavoroPrivato={(lavoro) => { setLavoroPrivatoApertoId(lavoro?.id || null); setCondominoSection('lavori-privati'); }}
             onOpenReport={(report) => { if (report?.file_url) window.open(report.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('report'); }}
             onOpenRivista={(rivista) => { if (rivista?.file_url) window.open(rivista.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('rivista'); }}
-            onOpenPiano={() => setStatusMessage('Apri il badge CSP nella barra superiore per consultare i piani del tuo condominio.')}
+            onOpenPiano={apriFullscreenPianiCsp}
             onGoToSection={setCondominoSection}
           />
         )}
