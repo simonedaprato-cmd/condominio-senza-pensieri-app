@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.17';
-const APP_VERSION_LABEL = 'CSP v1.0.17';
+const APP_VERSION = '1.0.18';
+const APP_VERSION_LABEL = 'CSP v1.0.18';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12738,6 +12738,8 @@ function HomeIntelligenteCondomino({
   reports = [],
   riviste = [],
   richiesteUpgradeCsp = [],
+  utentiCondomini = [],
+  selectedCondominioId = '',
   currentUserEmail = '',
   onOpenSegnalazione,
   onOpenLavoroPrivato,
@@ -12751,8 +12753,19 @@ function HomeIntelligenteCondomino({
   const saluto = ora < 12 ? 'Buongiorno' : ora < 18 ? 'Buon pomeriggio' : 'Buonasera';
   const piano = normalizzaPianoAbbonamento(pianoAbbonamento);
   const pianoLabel = piano === 'premium' ? 'CSP Premium' : piano === 'plus' ? 'CSP Plus' : 'CSP Base';
-  const primoCondominio = condomini?.[0]?.nome || userProfile?.condominio || 'il tuo condominio';
+  const condominioCorrente = (condomini || []).find((item) => Number(item.id) === Number(selectedCondominioId)) || condomini?.[0] || null;
+  const primoCondominio = condominioCorrente?.nome || userProfile?.condominio || 'il tuo condominio';
   const oggi = new Date();
+  const emailCorrente = normalizeEmail(currentUserEmail || userProfile?.email || '');
+  const collegamentoCondominioCorrente = (utentiCondomini || []).find((item) => {
+    const emailOk = normalizeEmail(item?.email || '') === emailCorrente;
+    const condominioOk = !condominioCorrente?.id || Number(item?.condominio_id) === Number(condominioCorrente.id);
+    return emailOk && condominioOk;
+  }) || null;
+  const millesimiProprieta = collegamentoCondominioCorrente?.millesimi ?? userProfile?.millesimi ?? null;
+  const millesimiLabel = millesimiProprieta !== null && millesimiProprieta !== undefined && String(millesimiProprieta).trim() !== ''
+    ? `${String(millesimiProprieta).replace('.', ',')} / 1000`
+    : 'Dato in aggiornamento';
 
   const prossimiCsp = (segnalazioni || [])
     .filter((item) => String(item.stato || '').toLowerCase().includes('pianific') && item.data_inizio_lavori_presunta)
@@ -12821,6 +12834,10 @@ function HomeIntelligenteCondomino({
 
   const ultimoReport = [...(reports || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
   const ultimaRivista = [...(riviste || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+  const bolleAttiveCount = prossimiAppuntamenti.length + attivitaRecenti.length + (ultimoReport ? 1 : 0) + (ultimaRivista ? 1 : 0);
+  const statoHomeLabel = bolleAttiveCount > 0
+    ? `Hai ${bolleAttiveCount} ${bolleAttiveCount === 1 ? 'elemento che richiede' : 'elementi che richiedono'} attenzione`
+    : 'Tutto sotto controllo';
 
   const pianoCls = piano === 'premium'
     ? 'border-amber-300/40 bg-gradient-to-br from-amber-400/20 via-yellow-500/10 to-white/5 text-amber-50'
@@ -12828,11 +12845,6 @@ function HomeIntelligenteCondomino({
       ? 'border-sky-300/30 bg-gradient-to-br from-sky-400/20 via-cyan-500/10 to-white/5 text-sky-50'
       : 'border-white/10 bg-white/5 text-white';
 
-  const renderEmpty = (text) => (
-    <div className="rounded-[1.6rem] border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm font-semibold text-slate-500">
-      {text}
-    </div>
-  );
 
   return (
     <section className="space-y-5 pb-36 md:pb-8">
@@ -12843,12 +12855,13 @@ function HomeIntelligenteCondomino({
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Home Intelligente</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{saluto}, {nome}</h1>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">Tutto ciò che conta, in un solo luogo.</p>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">Il tuo segretario condominiale: mostra solo ciò che serve, quando serve.</p>
           </div>
           <div className="hidden shrink-0 rounded-[2rem] border border-amber-200/10 bg-black/20 p-3 shadow-2xl shadow-amber-950/20 sm:block">
             <LogoMark src={SPLASH_LOGO_SRC} className="h-20 w-auto opacity-90" />
           </div>
         </div>
+
         <button type="button" onClick={onOpenPiano} className={`relative mt-6 w-full rounded-[2rem] border p-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl ${pianoCls}`}>
           <p className="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">Il tuo piano</p>
           <div className="mt-2 flex items-center justify-between gap-3">
@@ -12859,99 +12872,114 @@ function HomeIntelligenteCondomino({
             <span className="rounded-full bg-white/12 px-4 py-2 text-xs font-black uppercase tracking-[0.14em]">Apri →</span>
           </div>
         </button>
+
+        <div className="relative mt-4 grid gap-4 lg:grid-cols-2">
+          <div className={`rounded-[2rem] border p-4 shadow-lg ${bolleAttiveCount > 0 ? 'border-amber-200/20 bg-amber-300/10' : 'border-emerald-200/15 bg-emerald-400/10'}`}>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">Stato generale</p>
+            <p className="mt-2 text-lg font-black text-white">{bolleAttiveCount > 0 ? '🟠' : '🟢'} {statoHomeLabel}</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-white/60">Le bolle compaiono solo quando c’è qualcosa da ricordare o consultare.</p>
+          </div>
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-lg">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200/80">La tua posizione nel condominio</p>
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-white/55">{primoCondominio}</p>
+                <p className="mt-1 text-3xl font-black tracking-tight text-white">{millesimiLabel}</p>
+              </div>
+              <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100">Quota proprietà</span>
+            </div>
+            <p className="mt-2 text-xs font-bold leading-5 text-white/60">La tua quota di partecipazione all’interno del condominio selezionato.</p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Prossimi appuntamenti</p>
-              <h2 className="mt-1 text-xl font-black text-slate-900">Cosa succede nei prossimi giorni</h2>
-            </div>
-            <span className="text-2xl">📅</span>
-          </div>
-          <div className="mt-4 space-y-3">
-            {prossimiAppuntamenti.length === 0 ? renderEmpty('Nessun appuntamento programmato al momento.') : prossimiAppuntamenti.map((item) => (
-              <button key={item.id} type="button" onClick={item.onClick} className="w-full rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-md">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">{item.icona}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-slate-900">{item.titolo}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{item.sottotitolo}</p>
-                    <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.appuntamentoLabel || 'Appuntamento programmato per'}</p>
-                    <p className="mt-1 text-sm font-black text-emerald-700">{formatHomeIntelligenteDate(item.data)}{item.ora ? ` · ore ${formatHomeIntelligenteTime(item.ora)}` : ''}</p>
-                  </div>
-                  <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Apri →</span>
+      {(prossimiAppuntamenti.length > 0 || attivitaRecenti.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {prossimiAppuntamenti.length > 0 && (
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Bolla intelligente</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-900">Prossimi appuntamenti</h2>
                 </div>
-              </button>
-            ))}
-          </div>
-        </section>
+                <span className="text-2xl">📅</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {prossimiAppuntamenti.map((item) => (
+                  <button key={item.id} type="button" onClick={item.onClick} className="w-full rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-md">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">{item.icona}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-slate-900">{item.titolo}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-500">{item.sottotitolo}</p>
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.appuntamentoLabel || 'Appuntamento programmato per'}</p>
+                        <p className="mt-1 text-sm font-black text-emerald-700">{formatHomeIntelligenteDate(item.data)}{item.ora ? ` · ore ${formatHomeIntelligenteTime(item.ora)}` : ''}</p>
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Apri →</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700">Attività recenti</p>
-              <h2 className="mt-1 text-xl font-black text-slate-900">Aggiornamenti importanti</h2>
-            </div>
-            <span className="text-2xl">🔔</span>
-          </div>
-          <div className="mt-4 space-y-3">
-            {attivitaRecenti.length === 0 ? renderEmpty('Nessuna attività recente da mostrare.') : attivitaRecenti.map((item) => (
-              <button key={item.id} type="button" onClick={item.onClick} className="w-full rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-sky-50/60 hover:shadow-md">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">{item.icona}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-slate-900">{item.titolo}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{item.sottotitolo}</p>
-                  </div>
-                  <span className="text-xs font-black text-slate-400">{item.tempo || 'Apri →'}</span>
+          {attivitaRecenti.length > 0 && (
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700">Bolla intelligente</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-900">Aggiornamenti importanti</h2>
                 </div>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
+                <span className="text-2xl">🔔</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {attivitaRecenti.map((item) => (
+                  <button key={item.id} type="button" onClick={item.onClick} className="w-full rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-sky-50/60 hover:shadow-md">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">{item.icona}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-slate-900">{item.titolo}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-500">{item.sottotitolo}</p>
+                      </div>
+                      <span className="text-xs font-black text-slate-400">{item.tempo || 'Apri →'}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">Opportunità</p>
-              <h2 className="mt-1 text-xl font-black text-slate-900">Servizi e vantaggi disponibili</h2>
-            </div>
-            <span className="text-2xl">🎁</span>
-          </div>
-          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Consulta le promo attive e le opportunità riservate agli utenti CSP.</p>
-          <button type="button" onClick={onOpenPiano} className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5">
-            Apri la scheda dei piani →
-          </button>
-        </section>
-
+      {(ultimoReport || ultimaRivista) && (
         <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Documenti e comunicazioni</p>
-              <h2 className="mt-1 text-xl font-black text-slate-900">Le ultime novità</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Bolla intelligente</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Documenti e comunicazioni</h2>
             </div>
             <span className="text-2xl">📄</span>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => ultimoReport?.file_url ? onOpenReport?.(ultimoReport) : onGoToSection?.('report')} className="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/60">
-              <p className="text-lg">📄</p>
-              <p className="mt-2 text-sm font-black text-slate-900">Ultimo report</p>
-              <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-500">{ultimoReport?.titolo || 'Vai ai tuoi report'}</p>
-              <p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Apri →</p>
-            </button>
-            <button type="button" onClick={() => ultimaRivista?.file_url ? onOpenRivista?.(ultimaRivista) : onGoToSection?.('rivista')} className="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/60">
-              <p className="text-lg">📰</p>
-              <p className="mt-2 text-sm font-black text-slate-900">Ultima rivista</p>
-              <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-500">{ultimaRivista?.titolo || 'Vai alla tua rivista'}</p>
-              <p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-amber-700">Apri →</p>
-            </button>
+            {ultimoReport && (
+              <button type="button" onClick={() => ultimoReport?.file_url ? onOpenReport?.(ultimoReport) : onGoToSection?.('report')} className="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/60">
+                <p className="text-lg">📄</p>
+                <p className="mt-2 text-sm font-black text-slate-900">Nuovo report disponibile</p>
+                <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-500">{ultimoReport?.titolo || 'Vai ai tuoi report'}</p>
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Apri →</p>
+              </button>
+            )}
+            {ultimaRivista && (
+              <button type="button" onClick={() => ultimaRivista?.file_url ? onOpenRivista?.(ultimaRivista) : onGoToSection?.('rivista')} className="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/60">
+                <p className="text-lg">📰</p>
+                <p className="mt-2 text-sm font-black text-slate-900">Nuova rivista disponibile</p>
+                <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-500">{ultimaRivista?.titolo || 'Vai alla tua rivista'}</p>
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-amber-700">Apri →</p>
+              </button>
+            )}
           </div>
         </section>
-      </div>
+      )}
     </section>
   );
 }
@@ -17033,6 +17061,8 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
               const ids = (condominiVisibili || []).map((c) => Number(c.id));
               return ids.includes(Number(item?.condominio_id));
             })}
+            utentiCondomini={utentiCondomini}
+            selectedCondominioId={condominioIdPerAbbonamento}
             currentUserEmail={utente?.email || userProfile?.email || ''}
             onOpenSegnalazione={setDettaglioAperto}
             onOpenLavoroPrivato={(lavoro) => { setLavoroPrivatoApertoId(lavoro?.id || null); setCondominoSection('lavori-privati'); }}
