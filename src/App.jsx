@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.16';
-const APP_VERSION_LABEL = 'CSP v1.0.16';
+const APP_VERSION = '1.0.17';
+const APP_VERSION_LABEL = 'CSP v1.0.17';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -252,8 +252,17 @@ function buildPublicUrl(fileName) {
   return SUPABASE_URL + '/storage/v1/object/public/allegati/' + encodeURIComponent(fileName);
 }
 
-function PianoCspExperienceModal({ piano = 'base', onClose, onOpenUpgrade }) {
+function PianoCspExperienceModal({ piano = 'base', richiestaUpgradeAttiva = null, currentUserEmail = '', onClose, onOpenUpgrade, onOpenHomeIntelligente }) {
   const pianoNorm = normalizzaPianoAbbonamento(piano);
+  const richiestaAttiva = richiestaUpgradeAttiva && String(richiestaUpgradeAttiva.stato || '').toLowerCase() !== 'chiusa' ? richiestaUpgradeAttiva : null;
+  const statoRichiesta = String(richiestaAttiva?.stato || '').toLowerCase();
+  const richiestaInAppuntamento = statoRichiesta === 'appuntamento';
+  const richiestaUtenteCorrente = richiestaAttiva && normalizeEmail(richiestaAttiva.richiedente_email) === normalizeEmail(currentUserEmail);
+  const richiestaLabel = richiestaInAppuntamento
+    ? 'Appuntamento fissato'
+    : richiestaAttiva
+      ? (richiestaUtenteCorrente ? 'Richiesta inviata' : 'Già richiesto')
+      : '';
   const cards = [
     {
       id: 'base',
@@ -329,6 +338,15 @@ function PianoCspExperienceModal({ piano = 'base', onClose, onOpenUpgrade }) {
           <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
             {pianoNorm === 'premium' ? (
               <div className="rounded-2xl border border-amber-300/30 bg-amber-300/15 px-5 py-3 text-sm font-black text-amber-100">✓ Piano Premium attivo</div>
+            ) : richiestaAttiva ? (
+              <button
+                type="button"
+                onClick={richiestaInAppuntamento ? () => onOpenHomeIntelligente?.() : undefined}
+                disabled={!richiestaInAppuntamento}
+                className={`rounded-2xl px-5 py-3 text-sm font-black shadow-xl transition ${richiestaInAppuntamento ? 'bg-emerald-300 text-slate-950 shadow-emerald-950/30 hover:-translate-y-0.5 active:translate-y-0' : 'cursor-not-allowed border border-white/15 bg-white/10 text-white/72 shadow-black/20'}`}
+              >
+                {richiestaLabel}{richiestaInAppuntamento ? ' → Home Intelligente' : ''}
+              </button>
             ) : (
               <button type="button" onClick={() => onOpenUpgrade?.()} className="rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 px-5 py-3 text-sm font-black text-slate-950 shadow-xl shadow-amber-950/30 transition hover:-translate-y-0.5 active:translate-y-0">
                 {ctaText}
@@ -10377,7 +10395,7 @@ function DashboardStatiGestore({ segnalazioni, onOpen }) {
           return (
             <div key={stato} className="flex h-96 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className={'rounded-full border px-3 py-1 text-xs font-black ' + badgeClass(stato)}>{stato}</span>
+                <span className={'rounded-full border px-3 py-1 text-xs font-black ' + badgeClass(stato)}>{String(stato).toLowerCase() === 'appuntamento' ? 'appuntamento fissato' : stato}</span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 border border-slate-200">{items.length}</span>
               </div>
 
@@ -12530,7 +12548,7 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
             <option value="tutte">Tutti gli stati</option>
             <option value="nuova">Nuove</option>
             <option value="contattata">Contattate</option>
-            <option value="appuntamento">Appuntamento</option>
+            <option value="appuntamento">Appuntamento fissato</option>
             <option value="chiusa">Chiuse</option>
           </select>
         </div>
@@ -12553,7 +12571,7 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">CSP {pianoRichiesto}</span>
-                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>{stato}</span>
+                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>{String(stato).toLowerCase() === 'appuntamento' ? 'appuntamento fissato' : stato}</span>
                     </div>
                     <h3 className="mt-3 text-xl font-black text-slate-900">{nome}</h3>
                     <p className="mt-1 text-sm font-bold text-slate-500">{getCondominioNome(item)}</p>
@@ -12568,7 +12586,7 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                     {item.richiedente_email && <a href={mailHref} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-700">Scrivi email</a>}
                     <div className="grid grid-cols-3 gap-2 pt-1">
                       <button type="button" onClick={() => onUpdateStato?.(item.id, 'contattata')} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
-                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'appuntamento')} className="rounded-xl bg-amber-50 px-2 py-2 text-[10px] font-black text-amber-700">App.to</button>
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'appuntamento')} className="rounded-xl bg-amber-50 px-2 py-2 text-[10px] font-black text-amber-700">Appuntamento</button>
                       <button type="button" onClick={() => onUpdateStato?.(item.id, 'chiusa')} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
                     </div>
                   </div>
@@ -12719,6 +12737,8 @@ function HomeIntelligenteCondomino({
   lavoriPrivati = [],
   reports = [],
   riviste = [],
+  richiesteUpgradeCsp = [],
+  currentUserEmail = '',
   onOpenSegnalazione,
   onOpenLavoroPrivato,
   onOpenReport,
@@ -12762,9 +12782,25 @@ function HomeIntelligenteCondomino({
       onClick: () => onOpenLavoroPrivato?.(item),
     }));
 
-  const prossimiAppuntamenti = [...prossimiCsp, ...prossimiLsp]
+  const prossimiUpgrade = (richiesteUpgradeCsp || [])
+    .filter((item) => String(item.stato || '').toLowerCase() === 'appuntamento')
+    .map((item) => ({
+      id: `upgrade-${item.id}`,
+      tipo: 'CSP',
+      icona: '💎',
+      appuntamentoLabel: 'Appuntamento fissato per upgrade piano',
+      titolo: `Approfondimento CSP ${String(item.piano_richiesto || 'upgrade').toUpperCase()}`,
+      sottotitolo: item.condominio_nome || primoCondominio,
+      data: item.data_appuntamento || item.appuntamento_at || item.updated_at || item.created_at,
+      ora: item.ora_appuntamento || '',
+      onClick: () => onGoToSection?.('home-intelligente'),
+      isUpgradeAppointment: true,
+    }));
+
+  const prossimiAppuntamenti = [...prossimiCsp, ...prossimiLsp, ...prossimiUpgrade]
     .filter((item) => {
       const data = new Date(item.data);
+      if (item.isUpgradeAppointment) return true;
       return !Number.isNaN(data.getTime()) && data >= new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() - 1);
     })
     .sort((a, b) => new Date(a.data) - new Date(b.data))
@@ -13675,6 +13711,12 @@ export default function App() {
     : getPianoAbbonamentoCondominio(condominioIdPerAbbonamento, contratti);
   const subscriptionFlagsCorrenti = getSubscriptionFlags(pianoAbbonamentoCorrente);
 
+  const richiestaUpgradeCspAttivaCorrente = (richiesteUpgradeCsp || []).find((item) => {
+    const stato = String(item?.stato || '').toLowerCase();
+    if (stato === 'chiusa') return false;
+    return Number(item?.condominio_id) === Number(condominioIdPerAbbonamento);
+  }) || null;
+
 
   const apriFullscreenPianiCsp = () => {
     setStatusMessage('');
@@ -13691,6 +13733,26 @@ export default function App() {
 
     if (!condominioId) {
       alert('Non riesco a identificare il condominio collegato alla richiesta.');
+      return;
+    }
+
+    const richiestaGiaAttiva = (richiesteUpgradeCsp || []).find((item) => {
+      const stato = String(item?.stato || '').toLowerCase();
+      if (stato === 'chiusa') return false;
+      return Number(item?.condominio_id) === Number(condominioId);
+    });
+
+    if (richiestaGiaAttiva) {
+      const stato = String(richiestaGiaAttiva.stato || '').toLowerCase();
+      if (stato === 'appuntamento') {
+        setShowPianiCspExperience(false);
+        setCondominoSection('home-intelligente');
+        setStatusMessage('Appuntamento upgrade già fissato e visibile nella Home Intelligente.');
+      } else {
+        const stessaPersona = normalizeEmail(richiestaGiaAttiva.richiedente_email) === normalizeEmail(utente?.email || userProfile?.email);
+        setStatusMessage(stessaPersona ? 'Richiesta upgrade già inviata.' : 'Upgrade già richiesto per questo condominio.');
+        alert(stessaPersona ? 'Hai già inviato una richiesta upgrade per questo condominio.' : 'Una richiesta upgrade è già stata inviata per questo condominio.');
+      }
       return;
     }
 
@@ -16457,7 +16519,13 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
       {showPianiCspExperience && ['condominio', 'condomino'].includes(ruoloNormalizzato) && (
         <PianoCspExperienceModal
           piano={pianoAbbonamentoCorrente}
+          richiestaUpgradeAttiva={richiestaUpgradeCspAttivaCorrente}
+          currentUserEmail={utente?.email || userProfile?.email || ''}
           onClose={() => setShowPianiCspExperience(false)}
+          onOpenHomeIntelligente={() => {
+            setShowPianiCspExperience(false);
+            setCondominoSection('home-intelligente');
+          }}
           onOpenUpgrade={() => {
             setShowPianiCspExperience(false);
             setUpgradeCspConfermato(false);
@@ -16961,6 +17029,11 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             lavoriPrivati={lavoriPrivati}
             reports={reportVisibili}
             riviste={rivisteCondominio}
+            richiesteUpgradeCsp={richiesteUpgradeCsp.filter((item) => {
+              const ids = (condominiVisibili || []).map((c) => Number(c.id));
+              return ids.includes(Number(item?.condominio_id));
+            })}
+            currentUserEmail={utente?.email || userProfile?.email || ''}
             onOpenSegnalazione={setDettaglioAperto}
             onOpenLavoroPrivato={(lavoro) => { setLavoroPrivatoApertoId(lavoro?.id || null); setCondominoSection('lavori-privati'); }}
             onOpenReport={(report) => { if (report?.file_url) window.open(report.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('report'); }}
