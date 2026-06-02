@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.22';
-const APP_VERSION_LABEL = 'CSP v1.0.22';
+const APP_VERSION = '1.0.23';
+const APP_VERSION_LABEL = 'CSP v1.0.23';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12738,6 +12738,7 @@ function HomeIntelligenteCondomino({
   reports = [],
   riviste = [],
   richiesteUpgradeCsp = [],
+  ripartoRate = [],
   utentiCondomini = [],
   selectedCondominioId = '',
   currentUserEmail = '',
@@ -13002,7 +13003,53 @@ function HomeIntelligenteCondomino({
     }) : null,
   ].filter(Boolean);
 
+  const canSeePromemoriaRiparto = piano === 'plus' || piano === 'premium';
+  const prossimaRataRiparto = canSeePromemoriaRiparto
+    ? [...(ripartoRate || [])]
+      .filter((item) => normalizeEmail(item?.email || '') === emailCorrente)
+      .filter(isStessoCondominio)
+      .filter((item) => String(item?.stato || 'attiva').toLowerCase() === 'attiva')
+      .map((item) => ({ ...item, giorniAllaScadenza: giorniDaOggi(item?.scadenza) }))
+      .filter((item) => item.giorniAllaScadenza !== null && item.giorniAllaScadenza >= 0 && item.giorniAllaScadenza <= 7)
+      .sort((a, b) => (a.giorniAllaScadenza - b.giorniAllaScadenza) || Number(a.numero_rata || 0) - Number(b.numero_rata || 0))[0] || null
+    : null;
+
+  const bollaRiparto = prossimaRataRiparto ? (() => {
+    const giorni = Number(prossimaRataRiparto.giorniAllaScadenza || 0);
+    const importo = formatEuro(prossimaRataRiparto.importo_rata || 0);
+    const numeroRata = prossimaRataRiparto.numero_rata && prossimaRataRiparto.numero_rate
+      ? `Rata ${prossimaRataRiparto.numero_rata} di ${prossimaRataRiparto.numero_rate}`
+      : 'Rata condominiale';
+    const titolo = giorni === 0
+      ? 'Promemoria: scadenza oggi'
+      : giorni <= 2
+        ? `Promemoria: scadenza tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`
+        : 'Promemoria rata condominiale';
+    const dettaglio = giorni === 0
+      ? `Oggi scade una rata condominiale di ${importo}.`
+      : giorni <= 2
+        ? `Tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'} scade una rata condominiale di ${importo}.`
+        : `Il ${formatHomeIntelligenteDate(prossimaRataRiparto.scadenza)} scade una rata condominiale di ${importo}.`;
+    const praticaRiparto = (segnalazioni || []).find((item) => Number(item?.id) === Number(prossimaRataRiparto.segnalazione_id));
+    return creaBolla({
+      id: `riparto-${prossimaRataRiparto.id || `${prossimaRataRiparto.segnalazione_id}-${prossimaRataRiparto.numero_rata}`}`,
+      priorita: giorni <= 2 ? 1 : 2,
+      tono: giorni <= 2 ? 'rosso' : 'arancio',
+      icona: giorni <= 2 ? '🔴' : '🟠',
+      categoria: 'Promemoria riparto',
+      titolo,
+      sottotitolo: `${numeroRata} · ${primoCondominio}`,
+      dettaglio,
+      cta: 'Apri riparto →',
+      onClick: () => {
+        if (praticaRiparto) onOpenSegnalazione?.(praticaRiparto);
+        else onGoToSection?.('segnalazioni');
+      },
+    });
+  })() : null;
+
   const tutteLeBolleAttenzione = [
+    bollaRiparto,
     bollaUpgrade,
     ...bolleAssemblee,
     ...bolleAppuntamenti,
@@ -13353,6 +13400,7 @@ export default function App() {
   const [showUpgradeCspRequest, setShowUpgradeCspRequest] = useState(false);
   const [upgradeCspConfermato, setUpgradeCspConfermato] = useState(false);
   const [richiesteUpgradeCsp, setRichiesteUpgradeCsp] = useState([]);
+  const [ripartoRate, setRipartoRate] = useState([]);
   const [menuLateraleAperto, setMenuLateraleAperto] = useState(false);
   const [menuLateraleInChiusura, setMenuLateraleInChiusura] = useState(false);
   const [contratti, setContratti] = useState([]);
@@ -14308,6 +14356,19 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
 
       if (richiesteUpgradeError && richiesteUpgradeError.code !== 'PGRST116' && richiesteUpgradeError.code !== '42P01') throw richiesteUpgradeError;
       setRichiesteUpgradeCsp(richiesteUpgradeData || []);
+
+      let ripartoRateQuery = supabase
+        .from('riparto_rate')
+        .select('*')
+        .order('scadenza', { ascending: true });
+
+      if (String(profile.ruolo || '').toLowerCase().trim() !== 'gestore') {
+        ripartoRateQuery = ripartoRateQuery.eq('email', normalizeEmail(currentUser.email || ''));
+      }
+
+      const { data: ripartoRateData, error: ripartoRateError } = await ripartoRateQuery;
+      if (ripartoRateError && ripartoRateError.code !== 'PGRST116' && ripartoRateError.code !== '42P01') throw ripartoRateError;
+      setRipartoRate(ripartoRateData || []);
 
       const { data: reportData, error: reportError } = await supabase
         .from('report_condominio')
@@ -17187,6 +17248,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
               const ids = (condominiVisibili || []).map((c) => Number(c.id));
               return ids.includes(Number(item?.condominio_id));
             })}
+            ripartoRate={ripartoRate}
             utentiCondomini={utentiCondomini}
             selectedCondominioId={condominioIdPerAbbonamento}
             currentUserEmail={utente?.email || userProfile?.email || ''}
