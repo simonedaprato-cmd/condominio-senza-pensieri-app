@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.24';
-const APP_VERSION_LABEL = 'CSP v1.0.24';
+const APP_VERSION = '1.0.25';
+const APP_VERSION_LABEL = 'CSP v1.0.25';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12470,9 +12470,9 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
     const note = String(item?.note || '');
     const match = note.match(/APPUNTAMENTO_CSP:([^|\n]*)\|([^|\n]*)\|([^\n]*)/);
     return {
-      data: item?.data_appuntamento || item?.appuntamento_data || item?.appuntamento_at || (match?.[1] || ''),
-      ora: item?.ora_appuntamento || item?.appuntamento_ora || (match?.[2] || ''),
-      luogo: item?.luogo_appuntamento || item?.appuntamento_luogo || (match?.[3] || ''),
+      data: item?.data_presentazione || item?.data_appuntamento || item?.appuntamento_data || item?.appuntamento_at || (match?.[1] || ''),
+      ora: item?.ora_presentazione || item?.ora_appuntamento || item?.appuntamento_ora || (match?.[2] || ''),
+      luogo: item?.luogo_presentazione || item?.luogo_appuntamento || item?.appuntamento_luogo || (match?.[3] || ''),
     };
   };
   const getCondominio = (item) => (condomini || []).find((c) => Number(c.id) === Number(item?.condominio_id)) || null;
@@ -12644,13 +12644,25 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                     </div>
                     {item.note && <p className="mt-3 line-clamp-2 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{String(item.note).replace(/APPUNTAMENTO_CSP:[^\n]*/g, '').trim() || 'Appuntamento salvato.'}</p>}
                   </button>
-                  <div className="flex min-w-[220px] flex-col gap-2">
-                    {item.richiedente_telefono && <a href={telHref} className="rounded-2xl bg-emerald-600 px-4 py-3 text-center text-sm font-black text-white shadow-lg shadow-emerald-900/20">Chiama</a>}
-                    {item.richiedente_email && <a href={mailHref} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-700">Scrivi email</a>}
-                    <button type="button" onClick={() => apriPopup(item)} className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white shadow-lg shadow-slate-950/15">Apri scheda</button>
+                  <div className="flex min-w-[220px] flex-col gap-2 rounded-3xl border border-slate-100 bg-slate-50/70 p-3">
+                    <div className={`self-start rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>
+                      {String(stato).toLowerCase() === 'appuntamento' ? 'Appuntamento fissato' : stato}
+                    </div>
+                    {item.richiedente_telefono && (
+                      <a href={telHref} className="group flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:text-emerald-700 hover:ring-emerald-200" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-base">📞</span>
+                        <span className="truncate">{item.richiedente_telefono}</span>
+                      </a>
+                    )}
+                    {item.richiedente_email && (
+                      <a href={mailHref} className="group flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:text-emerald-700 hover:ring-emerald-200" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-base">✉️</span>
+                        <span className="truncate">{item.richiedente_email}</span>
+                      </a>
+                    )}
                     <div className="grid grid-cols-2 gap-2 pt-1">
-                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'contattata')} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
-                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'chiusa')} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateStato?.(item.id, 'contattata'); }} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateStato?.(item.id, 'chiusa'); }} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
                     </div>
                   </div>
                 </div>
@@ -16626,11 +16638,11 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     try {
       const { error } = await supabase
         .from('richieste_upgrade_csp')
-        .update({ stato: nuovoStato, updated_at: new Date().toISOString() })
+        .update({ stato: nuovoStato })
         .eq('id', richiestaId);
 
       if (error) throw error;
-      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => Number(item.id) === Number(richiestaId) ? { ...item, stato: nuovoStato, updated_at: new Date().toISOString() } : item));
+      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => String(item.id) === String(richiestaId) ? { ...item, stato: nuovoStato } : item));
       mostraToast('Richiesta aggiornata', `Stato impostato su ${nuovoStato}.`, 'success');
     } catch (error) {
       console.error(error);
@@ -16654,8 +16666,9 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
         .from('richieste_upgrade_csp')
         .update({
           stato: 'appuntamento',
+          data_presentazione: dataAppuntamento,
+          ora_presentazione: oraAppuntamento,
           note: noteAggiornate,
-          updated_at: nowIso,
         })
         .eq('id', richiestaId);
 
@@ -16665,13 +16678,14 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
         ...richiesta,
         stato: 'appuntamento',
         note: noteAggiornate,
+        data_presentazione: dataAppuntamento,
+        ora_presentazione: oraAppuntamento,
         data_appuntamento: dataAppuntamento,
         ora_appuntamento: oraAppuntamento,
         luogo_appuntamento: luogoAppuntamento,
-        updated_at: nowIso,
       };
 
-      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => Number(item.id) === Number(richiestaId) ? { ...item, ...aggiornata } : item));
+      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => String(item.id) === String(richiestaId) ? { ...item, ...aggiornata } : item));
 
       await inviaNotificaCondominio({
         condominioId: richiesta?.condominio_id,
