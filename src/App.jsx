@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.18';
-const APP_VERSION_LABEL = 'CSP v1.0.18';
+const APP_VERSION = '1.0.19';
+const APP_VERSION_LABEL = 'CSP v1.0.19';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12854,11 +12854,11 @@ function HomeIntelligenteCondomino({
         <div className="relative flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Home Intelligente</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{saluto}, {nome}</h1>
+            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{saluto} {nome}</h1>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">Il tuo segretario condominiale: mostra solo ciò che serve, quando serve.</p>
           </div>
-          <div className="hidden shrink-0 rounded-[2rem] border border-amber-200/10 bg-black/20 p-3 shadow-2xl shadow-amber-950/20 sm:block">
-            <LogoMark src={SPLASH_LOGO_SRC} className="h-20 w-auto opacity-90" />
+          <div className="shrink-0 rounded-[1.6rem] border border-amber-200/10 bg-black/20 p-2 shadow-2xl shadow-amber-950/20">
+            <LogoMark src={SPLASH_LOGO_SRC} className="h-12 w-auto opacity-90 sm:h-16 md:h-20" />
           </div>
         </div>
 
@@ -12883,7 +12883,7 @@ function HomeIntelligenteCondomino({
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200/80">La tua posizione nel condominio</p>
             <div className="mt-2 flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-bold text-white/55">{primoCondominio}</p>
+                <p className="text-[14px] font-black text-white/75">{primoCondominio}</p>
                 <p className="mt-1 text-3xl font-black tracking-tight text-white">{millesimiLabel}</p>
               </div>
               <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100">Quota proprietà</span>
