@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.23';
-const APP_VERSION_LABEL = 'CSP v1.0.23';
+const APP_VERSION = '1.0.24';
+const APP_VERSION_LABEL = 'CSP v1.0.24';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12457,22 +12457,83 @@ function LavoriPrivatiSuite({
 
 
 
-function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRefresh, onUpdateStato }) {
+function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRefresh, onUpdateStato, onFissaAppuntamento }) {
   const [filtroStato, setFiltroStato] = useState('tutte');
   const [search, setSearch] = useState('');
+  const [richiestaAperta, setRichiestaAperta] = useState(null);
+  const [appForm, setAppForm] = useState({ data: '', ora: '18:00', luogo: '' });
+  const [savingAppuntamento, setSavingAppuntamento] = useState(false);
 
   const lista = Array.isArray(richieste) ? richieste : [];
   const normalizza = (value) => String(value || '').toLowerCase().trim();
-  const getCondominioNome = (item) => {
-    if (item?.condominio_nome) return item.condominio_nome;
-    const found = (condomini || []).find((c) => Number(c.id) === Number(item?.condominio_id));
-    return found?.nome || 'Condominio non indicato';
+  const parseAppuntamento = (item) => {
+    const note = String(item?.note || '');
+    const match = note.match(/APPUNTAMENTO_CSP:([^|\n]*)\|([^|\n]*)\|([^\n]*)/);
+    return {
+      data: item?.data_appuntamento || item?.appuntamento_data || item?.appuntamento_at || (match?.[1] || ''),
+      ora: item?.ora_appuntamento || item?.appuntamento_ora || (match?.[2] || ''),
+      luogo: item?.luogo_appuntamento || item?.appuntamento_luogo || (match?.[3] || ''),
+    };
+  };
+  const getCondominio = (item) => (condomini || []).find((c) => Number(c.id) === Number(item?.condominio_id)) || null;
+  const getCondominioNome = (item) => item?.condominio_nome || getCondominio(item)?.nome || 'Condominio non indicato';
+  const getLuogoDefault = (item) => {
+    const c = getCondominio(item);
+    const parti = [c?.nome, c?.indirizzo || c?.indirizzo_condominio, c?.citta || c?.comune || c?.provincia].filter(Boolean);
+    return parti.join(' · ') || getCondominioNome(item);
   };
   const formatDateTime = (value) => {
     if (!value) return 'Data non disponibile';
     const data = new Date(value);
     if (Number.isNaN(data.getTime())) return String(value);
     return data.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+  const formatDateOnly = (value) => {
+    if (!value) return '';
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return String(value);
+    return data.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+  };
+  const buildGoogleCalendarUrl = (item, form = appForm) => {
+    if (!form.data) return '';
+    const ora = form.ora || '18:00';
+    const [hh = '18', mm = '00'] = String(ora).split(':');
+    const start = new Date(`${form.data}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`);
+    if (Number.isNaN(start.getTime())) return '';
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const fmt = (d) => d.toISOString().replace(/[-:]|\.\d{3}/g, '');
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: 'Presentazione CSP',
+      dates: `${fmt(start)}/${fmt(end)}`,
+      location: form.luogo || getLuogoDefault(item),
+      details: `Presentazione dei servizi e dei vantaggi CSP per ${getCondominioNome(item)}.`,
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
+  const apriPopup = (item) => {
+    const appuntamento = parseAppuntamento(item);
+    setRichiestaAperta(item);
+    setAppForm({
+      data: appuntamento.data ? String(appuntamento.data).slice(0, 10) : '',
+      ora: appuntamento.ora ? String(appuntamento.ora).slice(0, 5) : '18:00',
+      luogo: appuntamento.luogo || getLuogoDefault(item),
+    });
+  };
+
+  const salvaAppuntamento = async () => {
+    if (!richiestaAperta || !appForm.data || !appForm.ora) {
+      alert('Inserisci almeno data e ora della presentazione.');
+      return;
+    }
+    setSavingAppuntamento(true);
+    try {
+      await onFissaAppuntamento?.(richiestaAperta, appForm);
+      setRichiestaAperta(null);
+    } finally {
+      setSavingAppuntamento(false);
+    }
   };
 
   const filtrate = lista.filter((item) => {
@@ -12516,7 +12577,7 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200/80">Suite gestore</p>
             <h2 className="mt-2 text-2xl font-black md:text-3xl">Richieste upgrade CSP</h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">
-              Qui arrivano le manifestazioni di interesse inviate dai condòmini dalla scheda fullscreen dei piani.
+              Apri la richiesta, chiama il condòmino e fissa subito la presentazione CSP per il condominio.
             </p>
           </div>
           <button type="button" onClick={onRefresh} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/15">
@@ -12565,10 +12626,11 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
             const telDigits = String(item.richiedente_telefono || '').replace(/\D/g, '');
             const telHref = telDigits ? `tel:${telDigits}` : '';
             const mailHref = item.richiedente_email ? `mailto:${item.richiedente_email}` : '';
+            const appuntamento = parseAppuntamento(item);
             return (
               <article key={item.id || `${item.richiedente_email}-${item.created_at}`} className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-950/5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
+                  <button type="button" onClick={() => apriPopup(item)} className="min-w-0 flex-1 text-left">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">CSP {pianoRichiesto}</span>
                       <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>{String(stato).toLowerCase() === 'appuntamento' ? 'appuntamento fissato' : stato}</span>
@@ -12578,15 +12640,16 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                     <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-slate-600">
                       {item.piano_attuale && <span className="rounded-full bg-slate-100 px-3 py-1">Da CSP {String(item.piano_attuale).toUpperCase()}</span>}
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">Richiesta: {formatDateTime(item.created_at)}</span>
+                      {appuntamento.data && <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">Presentazione: {formatDateOnly(appuntamento.data)}{appuntamento.ora ? ` · ore ${String(appuntamento.ora).slice(0, 5)}` : ''}</span>}
                     </div>
-                    {item.note && <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{item.note}</p>}
-                  </div>
+                    {item.note && <p className="mt-3 line-clamp-2 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{String(item.note).replace(/APPUNTAMENTO_CSP:[^\n]*/g, '').trim() || 'Appuntamento salvato.'}</p>}
+                  </button>
                   <div className="flex min-w-[220px] flex-col gap-2">
                     {item.richiedente_telefono && <a href={telHref} className="rounded-2xl bg-emerald-600 px-4 py-3 text-center text-sm font-black text-white shadow-lg shadow-emerald-900/20">Chiama</a>}
                     {item.richiedente_email && <a href={mailHref} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-700">Scrivi email</a>}
-                    <div className="grid grid-cols-3 gap-2 pt-1">
+                    <button type="button" onClick={() => apriPopup(item)} className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white shadow-lg shadow-slate-950/15">Apri scheda</button>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
                       <button type="button" onClick={() => onUpdateStato?.(item.id, 'contattata')} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
-                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'appuntamento')} className="rounded-xl bg-amber-50 px-2 py-2 text-[10px] font-black text-amber-700">Appuntamento</button>
                       <button type="button" onClick={() => onUpdateStato?.(item.id, 'chiusa')} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
                     </div>
                   </div>
@@ -12594,6 +12657,63 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
               </article>
             );
           })}
+        </div>
+      )}
+
+      {richiestaAperta && (
+        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-white/60 bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white/95 p-5 backdrop-blur-xl">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Scheda richiesta upgrade</p>
+                <h3 className="mt-1 text-2xl font-black text-slate-900">{[richiestaAperta.richiedente_nome, richiestaAperta.richiedente_cognome].filter(Boolean).join(' ') || richiestaAperta.richiedente_email}</h3>
+                <p className="mt-1 text-sm font-bold text-slate-500">{getCondominioNome(richiestaAperta)} · CSP {String(richiestaAperta.piano_richiesto || 'upgrade').toUpperCase()}</p>
+              </div>
+              <button type="button" onClick={() => setRichiestaAperta(null)} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Telefono</p>
+                  <p className="mt-1 text-sm font-black text-slate-800">{richiestaAperta.richiedente_telefono || 'Non indicato'}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Email</p>
+                  <p className="mt-1 break-all text-sm font-black text-slate-800">{richiestaAperta.richiedente_email || 'Non indicata'}</p>
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Presentazione CSP</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-emerald-950/70">Fissa data, ora e luogo durante la chiamata. Il luogo viene precompilato dal condominio ma resta modificabile.</p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <label className="text-sm font-black text-slate-700">Data
+                    <input type="date" value={appForm.data} onChange={(e) => setAppForm((prev) => ({ ...prev, data: e.target.value }))} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
+                  </label>
+                  <label className="text-sm font-black text-slate-700">Ora
+                    <input type="time" value={appForm.ora} onChange={(e) => setAppForm((prev) => ({ ...prev, ora: e.target.value }))} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" />
+                  </label>
+                  <label className="text-sm font-black text-slate-700 md:col-span-2">Luogo
+                    <input value={appForm.luogo} onChange={(e) => setAppForm((prev) => ({ ...prev, luogo: e.target.value }))} className="mt-1 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100" placeholder="Es. Sala condominiale, indirizzo condominio..." />
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button type="button" onClick={salvaAppuntamento} disabled={savingAppuntamento} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60">
+                    {savingAppuntamento ? 'Salvataggio...' : 'Fissa appuntamento'}
+                  </button>
+                  {buildGoogleCalendarUrl(richiestaAperta, appForm) && (
+                    <a href={buildGoogleCalendarUrl(richiestaAperta, appForm)} target="_blank" rel="noreferrer" className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-center text-sm font-black text-slate-800">
+                      Salva in Google Calendar
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-950">
+                <strong>Nota CSP:</strong> l’app mostrerà l’appuntamento nella Home Intelligente dei condòmini del condominio. Il reminder push delle 09:30 richiede la funzione programmata dedicata lato Supabase.
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </section>
@@ -12857,17 +12977,22 @@ function HomeIntelligenteCondomino({
     ? (() => {
       const pianoRichiesto = String(richiestaUpgradeAttiva?.piano_richiesto || 'upgrade').toUpperCase();
       if (statoUpgrade === 'appuntamento') {
-        const dataApp = richiestaUpgradeAttiva?.data_appuntamento || richiestaUpgradeAttiva?.appuntamento_at || richiestaUpgradeAttiva?.updated_at || richiestaUpgradeAttiva?.created_at;
-        const oraApp = richiestaUpgradeAttiva?.ora_appuntamento || '';
+        const noteApp = String(richiestaUpgradeAttiva?.note || '').match(/APPUNTAMENTO_CSP:([^|\n]*)\|([^|\n]*)\|([^\n]*)/);
+        const dataApp = richiestaUpgradeAttiva?.data_appuntamento || richiestaUpgradeAttiva?.appuntamento_at || noteApp?.[1] || richiestaUpgradeAttiva?.updated_at || richiestaUpgradeAttiva?.created_at;
+        const oraApp = richiestaUpgradeAttiva?.ora_appuntamento || noteApp?.[2] || '';
+        const luogoApp = richiestaUpgradeAttiva?.luogo_appuntamento || noteApp?.[3] || '';
+        const dettaglioApp = dataApp
+          ? `${formatHomeIntelligenteDate(dataApp)}${oraApp ? ` · ore ${formatHomeIntelligenteTime(oraApp)}` : ''}${luogoApp ? ` · ${luogoApp}` : ''}`
+          : 'L’incontro è stato programmato dal gestore CSP.';
         return creaBolla({
           id: `upgrade-${richiestaUpgradeAttiva.id}`,
           priorita: 2,
           tono: 'verde',
           icona: '💎',
           categoria: 'Upgrade CSP',
-          titolo: 'Appuntamento fissato',
+          titolo: 'Presentazione CSP programmata',
           sottotitolo: `${primoCondominio} · CSP ${pianoRichiesto}`,
-          dettaglio: dataApp ? `${formatHomeIntelligenteDate(dataApp)}${oraApp ? ` · ore ${formatHomeIntelligenteTime(oraApp)}` : ''}` : 'L’incontro è stato programmato dal gestore CSP.',
+          dettaglio: dettaglioApp,
           cta: 'Apri Home →',
           onClick: () => onGoToSection?.('home-intelligente'),
         });
@@ -16513,6 +16638,61 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     }
   };
 
+  const fissaAppuntamentoRichiestaUpgradeCsp = async (richiesta, appuntamento = {}) => {
+    const richiestaId = richiesta?.id;
+    if (!richiestaId || !appuntamento?.data || !appuntamento?.ora) return;
+    const dataAppuntamento = String(appuntamento.data || '').slice(0, 10);
+    const oraAppuntamento = String(appuntamento.ora || '18:00').slice(0, 5);
+    const luogoAppuntamento = String(appuntamento.luogo || '').trim();
+    const nowIso = new Date().toISOString();
+    const notaPulita = String(richiesta?.note || '').replace(/APPUNTAMENTO_CSP:[^\n]*/g, '').trim();
+    const markerAppuntamento = `APPUNTAMENTO_CSP:${dataAppuntamento}|${oraAppuntamento}|${luogoAppuntamento}`;
+    const noteAggiornate = [notaPulita, markerAppuntamento].filter(Boolean).join('\n');
+
+    try {
+      const { error } = await supabase
+        .from('richieste_upgrade_csp')
+        .update({
+          stato: 'appuntamento',
+          note: noteAggiornate,
+          updated_at: nowIso,
+        })
+        .eq('id', richiestaId);
+
+      if (error) throw error;
+
+      const aggiornata = {
+        ...richiesta,
+        stato: 'appuntamento',
+        note: noteAggiornate,
+        data_appuntamento: dataAppuntamento,
+        ora_appuntamento: oraAppuntamento,
+        luogo_appuntamento: luogoAppuntamento,
+        updated_at: nowIso,
+      };
+
+      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => Number(item.id) === Number(richiestaId) ? { ...item, ...aggiornata } : item));
+
+      await inviaNotificaCondominio({
+        condominioId: richiesta?.condominio_id,
+        destinatari: 'condomini',
+        title: 'Presentazione CSP programmata',
+        message: `Il ${formatHomeIntelligenteDate(dataAppuntamento)} alle ${oraAppuntamento} è programmata la presentazione dei servizi e dei vantaggi CSP per il tuo condominio.`,
+        tipo: 'upgrade_csp_appuntamento',
+        riferimentoId: richiestaId,
+        section: 'home-intelligente',
+        deepLink: '?section=home-intelligente&evento=upgrade_csp_appuntamento',
+        iconUrl: 'https://tqeiytzscddfgttgbsgx.supabase.co/storage/v1/object/public/brand-assets/push_icon3.png',
+      });
+
+      mostraToast('Appuntamento fissato', 'La presentazione CSP è visibile nella Home Intelligente del condominio.', 'success');
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore appuntamento upgrade', error.message || 'Salvataggio appuntamento non riuscito.', 'error');
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       setStatusMessage('Uscita in corso. Pulizia sessione dispositivo...');
@@ -16889,6 +17069,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             condomini={condomini}
             onRefresh={carica}
             onUpdateStato={aggiornaRichiestaUpgradeCsp}
+            onFissaAppuntamento={fissaAppuntamentoRichiestaUpgradeCsp}
           />
         )}
 
