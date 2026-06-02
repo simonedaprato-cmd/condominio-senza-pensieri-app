@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.15';
-const APP_VERSION_LABEL = 'CSP v1.0.15';
+const APP_VERSION = '1.0.16';
+const APP_VERSION_LABEL = 'CSP v1.0.16';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12438,6 +12438,150 @@ function LavoriPrivatiSuite({
 
 
 
+
+function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRefresh, onUpdateStato }) {
+  const [filtroStato, setFiltroStato] = useState('tutte');
+  const [search, setSearch] = useState('');
+
+  const lista = Array.isArray(richieste) ? richieste : [];
+  const normalizza = (value) => String(value || '').toLowerCase().trim();
+  const getCondominioNome = (item) => {
+    if (item?.condominio_nome) return item.condominio_nome;
+    const found = (condomini || []).find((c) => Number(c.id) === Number(item?.condominio_id));
+    return found?.nome || 'Condominio non indicato';
+  };
+  const formatDateTime = (value) => {
+    if (!value) return 'Data non disponibile';
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return String(value);
+    return data.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const filtrate = lista.filter((item) => {
+    const stato = normalizza(item.stato || 'nuova');
+    const query = normalizza(search);
+    const matchStato = filtroStato === 'tutte' || stato === filtroStato;
+    const haystack = normalizza([
+      item.richiedente_nome,
+      item.richiedente_cognome,
+      item.richiedente_email,
+      item.richiedente_telefono,
+      item.piano_attuale,
+      item.piano_richiesto,
+      item.condominio_nome,
+      getCondominioNome(item),
+      item.note,
+    ].filter(Boolean).join(' '));
+    return matchStato && (!query || haystack.includes(query));
+  });
+
+  const nuove = lista.filter((item) => normalizza(item.stato || 'nuova') === 'nuova').length;
+  const plus = lista.filter((item) => normalizza(item.piano_richiesto) === 'plus').length;
+  const premium = lista.filter((item) => normalizza(item.piano_richiesto) === 'premium').length;
+
+  const statoBadgeClass = (statoRaw) => {
+    const stato = normalizza(statoRaw || 'nuova');
+    if (stato === 'nuova') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (stato === 'contattata') return 'bg-sky-100 text-sky-800 border-sky-200';
+    if (stato === 'appuntamento') return 'bg-amber-100 text-amber-800 border-amber-200';
+    if (stato === 'chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
+
+  return (
+    <section className="space-y-4 pb-8">
+      <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-5 text-white shadow-2xl shadow-slate-950/20 md:p-6">
+        <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-20 left-8 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200/80">Suite gestore</p>
+            <h2 className="mt-2 text-2xl font-black md:text-3xl">Richieste upgrade CSP</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">
+              Qui arrivano le manifestazioni di interesse inviate dai condòmini dalla scheda fullscreen dei piani.
+            </p>
+          </div>
+          <button type="button" onClick={onRefresh} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/15">
+            Aggiorna lista
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <DashboardStat label="Nuove" value={nuove} tone="emerald" />
+        <DashboardStat label="Richieste Plus" value={plus} tone="sky" />
+        <DashboardStat label="Richieste Premium" value={premium} tone="amber" />
+      </div>
+
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cerca per nome, email, condominio, telefono..."
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          />
+          <select
+            value={filtroStato}
+            onChange={(e) => setFiltroStato(e.target.value)}
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          >
+            <option value="tutte">Tutti gli stati</option>
+            <option value="nuova">Nuove</option>
+            <option value="contattata">Contattate</option>
+            <option value="appuntamento">Appuntamento</option>
+            <option value="chiusa">Chiuse</option>
+          </select>
+        </div>
+      </div>
+
+      {filtrate.length === 0 ? (
+        <EmptyState icon="💎" title="Nessuna richiesta upgrade" text="Quando un condòmino manifesterà interesse per CSP Plus o Premium, la richiesta comparirà qui." action="Pipeline pulita" tone="emerald" />
+      ) : (
+        <div className="space-y-3">
+          {filtrate.map((item) => {
+            const nome = [item.richiedente_nome, item.richiedente_cognome].filter(Boolean).join(' ') || item.richiedente_email || 'Richiedente non indicato';
+            const pianoRichiesto = String(item.piano_richiesto || '').toUpperCase() || 'UPGRADE';
+            const stato = item.stato || 'nuova';
+            const telDigits = String(item.richiedente_telefono || '').replace(/\D/g, '');
+            const telHref = telDigits ? `tel:${telDigits}` : '';
+            const mailHref = item.richiedente_email ? `mailto:${item.richiedente_email}` : '';
+            return (
+              <article key={item.id || `${item.richiedente_email}-${item.created_at}`} className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-950/5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">CSP {pianoRichiesto}</span>
+                      <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>{stato}</span>
+                    </div>
+                    <h3 className="mt-3 text-xl font-black text-slate-900">{nome}</h3>
+                    <p className="mt-1 text-sm font-bold text-slate-500">{getCondominioNome(item)}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-slate-600">
+                      {item.piano_attuale && <span className="rounded-full bg-slate-100 px-3 py-1">Da CSP {String(item.piano_attuale).toUpperCase()}</span>}
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">Richiesta: {formatDateTime(item.created_at)}</span>
+                    </div>
+                    {item.note && <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{item.note}</p>}
+                  </div>
+                  <div className="flex min-w-[220px] flex-col gap-2">
+                    {item.richiedente_telefono && <a href={telHref} className="rounded-2xl bg-emerald-600 px-4 py-3 text-center text-sm font-black text-white shadow-lg shadow-emerald-900/20">Chiama</a>}
+                    {item.richiedente_email && <a href={mailHref} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-700">Scrivi email</a>}
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'contattata')} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'appuntamento')} className="rounded-xl bg-amber-50 px-2 py-2 text-[10px] font-black text-amber-700">App.to</button>
+                      <button type="button" onClick={() => onUpdateStato?.(item.id, 'chiusa')} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function formatHomeIntelligenteDate(value) {
   if (!value) return '';
   const data = new Date(value);
@@ -13018,6 +13162,7 @@ export default function App() {
   const [showPianiCspExperience, setShowPianiCspExperience] = useState(false);
   const [showUpgradeCspRequest, setShowUpgradeCspRequest] = useState(false);
   const [upgradeCspConfermato, setUpgradeCspConfermato] = useState(false);
+  const [richiesteUpgradeCsp, setRichiesteUpgradeCsp] = useState([]);
   const [menuLateraleAperto, setMenuLateraleAperto] = useState(false);
   const [menuLateraleInChiusura, setMenuLateraleInChiusura] = useState(false);
   const [contratti, setContratti] = useState([]);
@@ -13939,6 +14084,14 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
 
       if (contrattiError && contrattiError.code !== 'PGRST116') throw contrattiError;
       setContratti(contrattiData || []);
+
+      const { data: richiesteUpgradeData, error: richiesteUpgradeError } = await supabase
+        .from('richieste_upgrade_csp')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (richiesteUpgradeError && richiesteUpgradeError.code !== 'PGRST116' && richiesteUpgradeError.code !== '42P01') throw richiesteUpgradeError;
+      setRichiesteUpgradeCsp(richiesteUpgradeData || []);
 
       const { data: reportData, error: reportError } = await supabase
         .from('report_condominio')
@@ -16066,6 +16219,23 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
   };
 
 
+  const aggiornaRichiestaUpgradeCsp = async (richiestaId, nuovoStato) => {
+    if (!richiestaId || !nuovoStato) return;
+    try {
+      const { error } = await supabase
+        .from('richieste_upgrade_csp')
+        .update({ stato: nuovoStato, updated_at: new Date().toISOString() })
+        .eq('id', richiestaId);
+
+      if (error) throw error;
+      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => Number(item.id) === Number(richiestaId) ? { ...item, stato: nuovoStato, updated_at: new Date().toISOString() } : item));
+      mostraToast('Richiesta aggiornata', `Stato impostato su ${nuovoStato}.`, 'success');
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore richiesta upgrade', error.message || 'Aggiornamento non riuscito.', 'error');
+    }
+  };
+
   const logout = async () => {
     try {
       setStatusMessage('Uscita in corso. Pulizia sessione dispositivo...');
@@ -16168,6 +16338,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche e contratti' },
     { id: 'condomini-registrati', label: '🏢 Condomini registrati', subtitle: 'Piani, filtri e upgrade' },
+    { id: 'richieste-upgrade-csp', label: '💎 Richieste upgrade', subtitle: 'Interessi Plus e Premium' },
     { id: 'amministratori', label: 'Amministratori', subtitle: 'CRM e sviluppo rete' },
     { id: 'tecnici', label: 'Tecnici', subtitle: 'CRM tecnico CaSP' },
     { id: 'territorio', label: 'Territorio', subtitle: 'Marginalità e Toscana' },
@@ -16426,6 +16597,15 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             utentiCondomini={utentiCondomini}
             segnalazioni={segnalazioni}
             capitolati={capitolatiSenzaPensieri}
+          />
+        )}
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'richieste-upgrade-csp' && (
+          <GestoreRichiesteUpgradeCspSuite
+            richieste={richiesteUpgradeCsp}
+            condomini={condomini}
+            onRefresh={carica}
+            onUpdateStato={aggiornaRichiestaUpgradeCsp}
           />
         )}
 
