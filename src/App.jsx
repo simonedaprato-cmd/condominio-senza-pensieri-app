@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.21';
-const APP_VERSION_LABEL = 'CSP v1.0.21';
+const APP_VERSION = '1.0.22';
+const APP_VERSION_LABEL = 'CSP v1.0.22';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -261,7 +261,7 @@ function PianoCspExperienceModal({ piano = 'base', richiestaUpgradeAttiva = null
   const richiestaLabel = richiestaInAppuntamento
     ? 'Appuntamento fissato'
     : richiestaAttiva
-      ? (richiestaUtenteCorrente ? 'Richiesta inviata' : 'Già richiesto')
+      ? (richiestaUtenteCorrente ? 'Richiesta inviata' : 'Richiesto da un condòmino')
       : '';
   const cards = [
     {
@@ -13002,20 +13002,27 @@ function HomeIntelligenteCondomino({
     }) : null,
   ].filter(Boolean);
 
-  const bolleAttenzione = [
+  const tutteLeBolleAttenzione = [
     bollaUpgrade,
     ...bolleAssemblee,
     ...bolleAppuntamenti,
     ...bolleDocumenti,
   ]
     .filter(Boolean)
-    .sort((a, b) => (a.priorita - b.priorita) || String(a.titolo || '').localeCompare(String(b.titolo || '')))
-    .slice(0, 8);
+    .sort((a, b) => (a.priorita - b.priorita) || String(a.titolo || '').localeCompare(String(b.titolo || '')));
 
-  const bolleAttiveCount = bolleAttenzione.length;
-  const statoHomeLabel = bolleAttiveCount > 0
-    ? `Hai ${bolleAttiveCount} ${bolleAttiveCount === 1 ? 'elemento che richiede' : 'elementi che richiedono'} attenzione`
+  const bolleAttenzione = tutteLeBolleAttenzione.slice(0, 4);
+  const bolleAttiveCount = tutteLeBolleAttenzione.length;
+  const bolleNascosteCount = Math.max(0, bolleAttiveCount - bolleAttenzione.length);
+  const bollaPrioritaria = bolleAttenzione[0] || null;
+  const statoHomeLabel = bollaPrioritaria
+    ? bollaPrioritaria.titolo
     : 'Tutto sotto controllo';
+  const statoHomeDettaglio = bollaPrioritaria
+    ? (bolleAttiveCount === 1
+      ? 'Ho trovato un elemento che merita attenzione.'
+      : `Ho trovato ${bolleAttiveCount} elementi utili e ti mostro i più importanti.`)
+    : 'Nessun memo attivo: quando servirà, comparirà una bolla intelligente.';
 
   const pianoCls = piano === 'premium'
     ? 'border-amber-300/40 bg-gradient-to-br from-amber-400/20 via-yellow-500/10 to-white/5 text-amber-50'
@@ -13054,13 +13061,13 @@ function HomeIntelligenteCondomino({
           <div className={`rounded-[2rem] border p-4 shadow-lg ${bolleAttiveCount > 0 ? 'border-amber-200/20 bg-amber-300/10' : 'border-emerald-200/15 bg-emerald-400/10'}`}>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">Stato generale</p>
             <p className="mt-2 text-lg font-black text-white">{bolleAttiveCount > 0 ? '🟠' : '🟢'} {statoHomeLabel}</p>
-            <p className="mt-1 text-xs font-bold leading-5 text-white/60">{bolleAttiveCount > 0 ? 'Ho raccolto qui sotto solo le informazioni che meritano attenzione.' : 'Nessun memo attivo: quando servirà, comparirà una bolla intelligente.'}</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-white/60">{statoHomeDettaglio}</p>
           </div>
           <div className="rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-lg">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200/80">La tua posizione nel condominio</p>
             <div className="mt-2 flex items-end justify-between gap-3">
               <div>
-                <p className="text-[16px] font-black text-white/80">{primoCondominio}</p>
+                <p className="max-w-[14rem] break-words text-[16px] font-black leading-tight text-white/80 sm:max-w-none">{primoCondominio}</p>
                 <p className="mt-1 text-3xl font-black tracking-tight text-white">{millesimiLabel}</p>
               </div>
               <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100">Quota proprietà</span>
@@ -13076,9 +13083,9 @@ function HomeIntelligenteCondomino({
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Centro attenzione</p>
               <h2 className="mt-1 text-xl font-black text-slate-900">Bolle intelligenti</h2>
-              <p className="mt-1 text-xs font-bold text-slate-500">Compaiono quando servono e spariscono quando non c’è più nulla da ricordare.</p>
+              <p className="mt-1 text-xs font-bold text-slate-500">Mostro al massimo 4 bolle: prima urgenze, poi appuntamenti e contenuti disponibili.</p>
             </div>
-            <span className="text-2xl">🫧</span>
+            <span className="text-2xl">{bolleNascosteCount > 0 ? `+${bolleNascosteCount}` : '🫧'}</span>
           </div>
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {bolleAttenzione.map((item) => (
@@ -13897,8 +13904,8 @@ export default function App() {
         setStatusMessage('Appuntamento upgrade già fissato e visibile nella Home Intelligente.');
       } else {
         const stessaPersona = normalizeEmail(richiestaGiaAttiva.richiedente_email) === normalizeEmail(utente?.email || userProfile?.email);
-        setStatusMessage(stessaPersona ? 'Richiesta upgrade già inviata.' : 'Upgrade già richiesto per questo condominio.');
-        alert(stessaPersona ? 'Hai già inviato una richiesta upgrade per questo condominio.' : 'Una richiesta upgrade è già stata inviata per questo condominio.');
+        setStatusMessage(stessaPersona ? 'Richiesta upgrade già inviata.' : 'Upgrade richiesto da un condòmino per questo condominio.');
+        alert(stessaPersona ? 'Hai già inviato una richiesta upgrade per questo condominio.' : 'Una richiesta upgrade è già stata inviata da un condòmino per questo condominio.');
       }
       return;
     }
