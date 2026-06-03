@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.24';
-const APP_VERSION_LABEL = 'CSP v1.0.24';
+const APP_VERSION = '1.0.25';
+const APP_VERSION_LABEL = 'CSP v1.0.25';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13494,6 +13494,270 @@ function HomeIntelligenteCondomino({
 }
 
 
+
+function HomeIntelligenteGestore({
+  userProfile = {},
+  condomini = [],
+  contratti = [],
+  segnalazioni = [],
+  capitolati = [],
+  lavoriPrivati = [],
+  fatturePartner = [],
+  fattureLavoriPrivati = [],
+  richiesteUpgradeCsp = [],
+  onOpenPratica,
+  onOpenCapitolato,
+  onOpenLavoroPrivato,
+  onOpenFatturazione,
+  onOpenUpgrade,
+  onOpenCondomini,
+}) {
+  const nome = userProfile?.nome || 'Simone';
+  const ora = new Date().getHours();
+  const saluto = ora < 12 ? 'Buongiorno' : ora < 18 ? 'Buon pomeriggio' : 'Buonasera';
+  const oggi = new Date();
+  const inizioOggi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate());
+  const nomeCondominio = (id, fallback = 'Condominio') => (condomini || []).find((c) => Number(c.id) === Number(id))?.nome || fallback;
+  const isDataEntro = (value, giorni = 7) => {
+    if (!value) return false;
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return false;
+    const limite = new Date(inizioOggi);
+    limite.setDate(limite.getDate() + Number(giorni));
+    return data >= inizioOggi && data <= limite;
+  };
+  const giorniDa = (value) => {
+    if (!value) return null;
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return null;
+    return Math.ceil((new Date(data.getFullYear(), data.getMonth(), data.getDate()) - inizioOggi) / 86400000);
+  };
+  const statoNorm = (value) => String(value || '').toLowerCase().trim();
+  const isChiusa = (value) => ['chiusa', 'chiuso', 'rifiutata', 'rifiutato', 'archiviata', 'archiviato', 'annullata', 'annullato', 'convertita', 'convertito', 'completata', 'completato'].includes(statoNorm(value));
+  const contrattiAttivi = (contratti || []).filter((c) => !['sospeso', 'annullato', 'chiuso', 'scaduto'].includes(statoNorm(c.stato || c.status)));
+  const condominiCspCount = new Set(contrattiAttivi.map((c) => Number(c.condominio_id)).filter(Boolean)).size;
+  const praticheCspAttive = (segnalazioni || []).filter((s) => !isValoreVero(s.archiviata) && !isChiusa(s.stato));
+  const praticheCasepAttive = (capitolati || []).filter((c) => !isChiusa(c.stato));
+  const praticheLspAttive = (lavoriPrivati || []).filter((l) => !isChiusa(l.stato));
+  const nuoveCsp = praticheCspAttive.filter((s) => {
+    const st = statoNorm(s.stato);
+    return st === 'nuova' || st === 'aperta' || st.includes('nuova');
+  });
+  const nuoveCasep = praticheCasepAttive.filter((c) => {
+    const st = statoNorm(c.stato);
+    return st === 'nuova' || st.includes('nuova') || st.includes('caricato');
+  });
+  const nuoveLsp = praticheLspAttive.filter((l) => {
+    const st = statoNorm(l.stato);
+    return st.includes('nuova') || st.includes('richiesta');
+  });
+  const preventiviDaPreparare = praticheCspAttive.filter((s) => {
+    const st = statoNorm(s.stato);
+    const haPreventivo = Boolean(s.preventivo_url || s.preventivo_pdf_url || s.offerta_pdf_url || Number(s.importo_preventivo || s.importo || 0) > 0);
+    return !haPreventivo && (st.includes('presa') || st.includes('sopralluogo') || st.includes('preventivo') || st.includes('valutazione'));
+  });
+  const assembleeConOfferte = praticheCasepAttive
+    .filter((c) => c.data_assemblea && Number(c.valore_offerta || c.valore_aggiudicato || 0) > 0 && isDataEntro(c.data_assemblea, 21))
+    .sort((a, b) => new Date(a.data_assemblea) - new Date(b.data_assemblea));
+  const presenzeAssemblea = praticheCasepAttive
+    .filter((c) => c.data_assemblea && isDataEntro(c.data_assemblea, 14) && (statoNorm(c.stato).includes('assemblea') || statoNorm(c.stato).includes('presenza') || c.richiede_presenza || c.presenza_csp_richiesta))
+    .sort((a, b) => new Date(a.data_assemblea) - new Date(b.data_assemblea));
+  const richiesteUpgradeAttive = (richiesteUpgradeCsp || []).filter((r) => !['archiviata', 'archiviato', 'annullata', 'annullato', 'convertita', 'convertito', 'chiusa', 'chiuso'].includes(statoNorm(r.stato)));
+  const fattureApertePartner = (fatturePartner || []).filter((f) => !['pagata', 'pagato', 'annullata', 'annullato', 'stornata', 'stornato'].includes(statoNorm(f.stato)) && f.data_scadenza && isDataEntro(f.data_scadenza, 7));
+  const fattureAperteLsp = (fattureLavoriPrivati || []).filter((f) => !['pagata', 'pagato', 'annullata', 'annullato', 'stornata', 'stornato'].includes(statoNorm(f.stato)) && f.data_scadenza && isDataEntro(f.data_scadenza, 7));
+  const bolle = [];
+  fattureApertePartner.slice(0, 2).forEach((f) => {
+    const gd = giorniDa(f.data_scadenza);
+    bolle.push({
+      id: `fattura-partner-${f.id || f.numero || f.data_scadenza}`,
+      priorita: gd === 0 ? 4 : gd <= 2 ? 7 : 18,
+      tono: gd <= 2 ? 'red' : 'amber',
+      icona: gd <= 2 ? '🔴' : '🟠',
+      categoria: 'Fatturazione',
+      titolo: gd === 0 ? 'Fattura in scadenza oggi' : `Fattura in scadenza ${gd === 1 ? 'domani' : `tra ${gd} giorni`}`,
+      sottotitolo: f.condominio_nome || nomeCondominio(f.condominio_id, 'Fatturazione CSP'),
+      dettaglio: f.importo || f.totale ? formatEuro(f.importo || f.totale) : 'Apri fatturazione per il dettaglio.',
+      cta: 'Apri →',
+      onClick: () => onOpenFatturazione?.(f),
+    });
+  });
+  fattureAperteLsp.slice(0, 1).forEach((f) => {
+    const gd = giorniDa(f.data_scadenza);
+    bolle.push({
+      id: `fattura-lsp-${f.id || f.numero_fattura || f.data_scadenza}`,
+      priorita: gd === 0 ? 5 : gd <= 2 ? 8 : 19,
+      tono: gd <= 2 ? 'red' : 'amber',
+      icona: gd <= 2 ? '🔴' : '🟠',
+      categoria: 'La tua casa SP',
+      titolo: gd === 0 ? 'Fattura LSP in scadenza oggi' : `Fattura LSP in scadenza ${gd === 1 ? 'domani' : `tra ${gd} giorni`}`,
+      sottotitolo: f.condomino_email || 'Lavoro privato',
+      dettaglio: f.importo ? formatEuro(f.importo) : 'Apri La tua casa Senza Pensieri.',
+      cta: 'Apri →',
+      onClick: () => onOpenLavoroPrivato?.({ id: f.lavoro_privato_id }),
+    });
+  });
+  preventiviDaPreparare.slice(0, 3).forEach((p) => bolle.push({
+    id: `preventivo-da-preparare-${p.id}`,
+    priorita: 10,
+    tono: 'amber',
+    icona: '🟠',
+    categoria: 'Preventivo CSP',
+    titolo: 'Preventivo da preparare',
+    sottotitolo: nomeCondominio(p.condominio_id, p.condominio || p.condominio_nome),
+    dettaglio: p.titolo || p.descrizione || 'Pratica in attesa di valutazione economica.',
+    cta: 'Apri pratica →',
+    onClick: () => onOpenPratica?.(p),
+  }));
+  richiesteUpgradeAttive.slice(0, 3).forEach((r) => bolle.push({
+    id: `upgrade-${r.id}`,
+    priorita: 12,
+    tono: 'green',
+    icona: '💎',
+    categoria: 'Richiesta upgrade',
+    titolo: statoNorm(r.stato).includes('appuntamento') ? 'Presentazione CSP programmata' : 'Richiesta upgrade da gestire',
+    sottotitolo: nomeCondominio(r.condominio_id, r.condominio_nome || 'Condominio'),
+    dettaglio: r.data_presentazione ? `${formatHomeIntelligenteDate(r.data_presentazione)}${r.ora_presentazione ? ` · ore ${formatHomeIntelligenteTime(r.ora_presentazione)}` : ''}` : (r.richiedente_nome || r.email || 'Richiesta da contattare'),
+    cta: 'Apri richiesta →',
+    onClick: () => onOpenUpgrade?.(r),
+  }));
+  presenzeAssemblea.slice(0, 2).forEach((c) => bolle.push({
+    id: `presenza-assemblea-${c.id}`,
+    priorita: 14,
+    tono: 'purple',
+    icona: '🟣',
+    categoria: 'Assemblea',
+    titolo: 'Richiesta presenza in assemblea',
+    sottotitolo: nomeCondominio(c.condominio_id, c.condominio_nome),
+    dettaglio: `${formatHomeIntelligenteDate(c.data_assemblea)}${c.luogo_assemblea ? ` · ${c.luogo_assemblea}` : ''}`,
+    cta: 'Apri CaSeP →',
+    onClick: () => onOpenCapitolato?.(c),
+  }));
+  assembleeConOfferte.slice(0, 2).forEach((c) => bolle.push({
+    id: `assemblea-offerta-${c.id}`,
+    priorita: 16,
+    tono: 'purple',
+    icona: '🟣',
+    categoria: 'Offerta in assemblea',
+    titolo: 'Assemblea con offerta CSP/CaSeP',
+    sottotitolo: nomeCondominio(c.condominio_id, c.condominio_nome),
+    dettaglio: `${formatHomeIntelligenteDate(c.data_assemblea)} · ${formatEuro(c.valore_offerta || c.valore_aggiudicato || 0)}`,
+    cta: 'Apri CaSeP →',
+    onClick: () => onOpenCapitolato?.(c),
+  }));
+  nuoveCsp.slice(0, 2).forEach((p) => bolle.push({
+    id: `nuova-csp-${p.id}`,
+    priorita: 22,
+    tono: 'blue',
+    icona: '🔵',
+    categoria: 'Nuova richiesta CSP',
+    titolo: p.titolo || 'Nuova pratica CSP',
+    sottotitolo: nomeCondominio(p.condominio_id, p.condominio || p.condominio_nome),
+    dettaglio: p.descrizione || 'Pratica appena aperta.',
+    cta: 'Apri pratica →',
+    onClick: () => onOpenPratica?.(p),
+  }));
+  nuoveCasep.slice(0, 2).forEach((c) => bolle.push({
+    id: `nuova-casep-${c.id}`,
+    priorita: 24,
+    tono: 'purple',
+    icona: '🏗️',
+    categoria: 'Nuova richiesta CaSeP',
+    titolo: c.titolo || 'Nuova pratica CaSeP',
+    sottotitolo: nomeCondominio(c.condominio_id, c.condominio_nome),
+    dettaglio: c.stato || 'Pratica da prendere in carico.',
+    cta: 'Apri CaSeP →',
+    onClick: () => onOpenCapitolato?.(c),
+  }));
+  nuoveLsp.slice(0, 2).forEach((l) => bolle.push({
+    id: `nuova-lsp-${l.id}`,
+    priorita: 26,
+    tono: 'sky',
+    icona: '🏠',
+    categoria: 'Nuova richiesta LSP',
+    titolo: l.titolo || 'Nuova richiesta privata',
+    sottotitolo: l.condomino_nome || l.condomino_email || 'Condòmino',
+    dettaglio: l.descrizione || l.categoria || 'Richiesta da valutare.',
+    cta: 'Apri LSP →',
+    onClick: () => onOpenLavoroPrivato?.(l),
+  }));
+  const bolleOrdinate = bolle.sort((a, b) => a.priorita - b.priorita).slice(0, 6);
+  const statoLabel = bolleOrdinate.length ? `Hai ${bolleOrdinate.length} elementi da governare` : 'Tutto sotto controllo';
+  const statoDettaglio = bolleOrdinate[0]?.titolo || 'Nessuna urgenza operativa in questo momento.';
+  const cardTono = (tono) => {
+    if (tono === 'red') return 'border-red-100 bg-red-50 hover:border-red-200';
+    if (tono === 'amber') return 'border-amber-100 bg-amber-50 hover:border-amber-200';
+    if (tono === 'purple') return 'border-purple-100 bg-purple-50 hover:border-purple-200';
+    if (tono === 'blue' || tono === 'sky') return 'border-sky-100 bg-sky-50 hover:border-sky-200';
+    return 'border-emerald-100 bg-emerald-50 hover:border-emerald-200';
+  };
+  return (
+    <section className="space-y-5 pb-36 md:pb-8">
+      <div className="relative overflow-hidden rounded-[2.4rem] bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20 md:p-8">
+        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Home Intelligente Gestore</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{saluto} {nome}</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">La torre di controllo CSP: solo ciò che richiede una tua azione.</p>
+          </div>
+          <div className="shrink-0 rounded-[1.6rem] border border-amber-200/10 bg-black/20 p-2 shadow-2xl shadow-amber-950/20">
+            <LogoMark src={SPLASH_LOGO_SRC} className="h-12 w-auto opacity-90 sm:h-16 md:h-20" />
+          </div>
+        </div>
+        <div className="relative mt-5 rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-lg">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">Stato operativo</p>
+          <p className="mt-2 text-lg font-black text-white">{bolleOrdinate.length ? '🟠' : '🟢'} {statoLabel}</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-white/60">{statoDettaglio}</p>
+        </div>
+      </div>
+      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Ecosistema operativo</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Numeri di governo</h2>
+          </div>
+          <button type="button" onClick={() => onOpenCondomini?.()} className="rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700 ring-1 ring-emerald-100">Apri condomini →</button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Condomini CSP</p><p className="mt-2 text-3xl font-black text-slate-900">{condominiCspCount}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">CSP attive</p><p className="mt-2 text-3xl font-black text-slate-900">{praticheCspAttive.length}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">CaSeP attive</p><p className="mt-2 text-3xl font-black text-slate-900">{praticheCasepAttive.length}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">LSP attive</p><p className="mt-2 text-3xl font-black text-slate-900">{praticheLspAttive.length}</p></div>
+        </div>
+      </section>
+      {bolleOrdinate.length > 0 && (
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Centro comando</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Cosa governi oggi</h2>
+              <p className="mt-1 text-xs font-bold text-slate-500">Priorità a fatture, preventivi, upgrade, assemblee e nuove richieste. Niente promo, riviste o report.</p>
+            </div>
+            <span className="text-2xl">🎯</span>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {bolleOrdinate.map((item) => (
+              <button key={item.id} type="button" onClick={item.onClick} className={`rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${cardTono(item.tono)}`}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">{item.icona}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{item.categoria}</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{item.titolo}</p>
+                    {item.sottotitolo && <p className="mt-1 text-xs font-bold text-slate-600">{item.sottotitolo}</p>}
+                    {item.dettaglio && <p className="mt-2 text-xs font-black text-slate-700">{item.dettaglio}</p>}
+                  </div>
+                  <span className="shrink-0 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{item.cta}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </section>
+  );
+}
+
 function HomeIntelligenteAmministratoreCollaboratore({
   userProfile = {},
   ruolo = '',
@@ -15007,7 +15271,7 @@ export default function App() {
   const [votiPreventivi, setVotiPreventivi] = useState([]);
   const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
-  const [gestoreSection, setGestoreSection] = useState('pratiche');
+  const [gestoreSection, setGestoreSection] = useState('home-intelligente');
   const [amministratoreSection, setAmministratoreSection] = useState('home-intelligente');
   const [condominoSection, setCondominoSection] = useState('home-intelligente');
   const [showPianiCspExperience, setShowPianiCspExperience] = useState(false);
@@ -15064,7 +15328,7 @@ export default function App() {
   const lastCspHistoryRouteRef = useRef(null);
 
   const getCspHistoryRoute = () => {
-    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: gestoreSection || 'pratiche' };
+    if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: gestoreSection || 'home-intelligente' };
     if (isAmministratoreOperativo) return { role: 'amministratore', section: amministratoreSection || 'home-intelligente' };
     if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: condominoSection || 'segnalazioni' };
     return { role: ruoloNormalizzato || 'utente', section: 'home' };
@@ -18908,6 +19172,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
   }
 
   const gestoreSections = [
+    { id: 'home-intelligente', label: '⭐ Home Intelligente', subtitle: 'La tua torre di controllo CSP' },
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Operatività e segnalazioni' },
     { id: 'condominio', label: 'Condominio', subtitle: 'Anagrafiche e contratti' },
     { id: 'condomini-registrati', label: '🏢 Condomini registrati', subtitle: 'Piani, filtri e upgrade' },
@@ -19180,6 +19445,27 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
         )}
 
 
+
+
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'home-intelligente' && (
+          <HomeIntelligenteGestore
+            userProfile={userProfile}
+            condomini={condomini}
+            contratti={contratti}
+            segnalazioni={segnalazioni}
+            capitolati={capitolatiSenzaPensieri}
+            lavoriPrivati={lavoriPrivati}
+            fatturePartner={fatturePartner}
+            fattureLavoriPrivati={fattureLavoriPrivati}
+            richiesteUpgradeCsp={richiesteUpgradeCsp}
+            onOpenPratica={(pratica) => { setGestoreSection('pratiche'); setDettaglioAperto(pratica); registraNavigazioneCsp({ role: 'gestore', section: 'pratiche', id: pratica?.id }); }}
+            onOpenCapitolato={(capitolato) => { setCapitolatoSmartTargetId(capitolato?.id || null); setGestoreSection('capitolato'); registraNavigazioneCsp({ role: 'gestore', section: 'capitolato', id: capitolato?.id }); }}
+            onOpenLavoroPrivato={(lavoro) => { setLavoroPrivatoApertoId(lavoro?.id || lavoro?.lavoro_privato_id || null); setGestoreSection('lavori-privati'); registraNavigazioneCsp({ role: 'gestore', section: 'lavori-privati', id: lavoro?.id || lavoro?.lavoro_privato_id }); }}
+            onOpenFatturazione={() => { setGestoreSection('fatturazione'); registraNavigazioneCsp({ role: 'gestore', section: 'fatturazione' }); }}
+            onOpenUpgrade={(richiesta) => { setGestoreSection('richieste-upgrade-csp'); registraNavigazioneCsp({ role: 'gestore', section: 'richieste-upgrade-csp', id: richiesta?.id }); }}
+            onOpenCondomini={() => { setGestoreSection('condomini-registrati'); registraNavigazioneCsp({ role: 'gestore', section: 'condomini-registrati' }); }}
+          />
+        )}
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'promo' && (
           <>
