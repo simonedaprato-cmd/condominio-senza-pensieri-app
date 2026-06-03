@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.29';
-const APP_VERSION_LABEL = 'CSP v1.0.29';
+const APP_VERSION = '1.0.20';
+const APP_VERSION_LABEL = 'CSP v1.0.20';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12464,6 +12464,7 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
   const [richiestaAperta, setRichiestaAperta] = useState(null);
   const [appForm, setAppForm] = useState({ data: '', ora: '18:00', luogo: '' });
   const [savingAppuntamento, setSavingAppuntamento] = useState(false);
+  const [azioneUpgradeFeedback, setAzioneUpgradeFeedback] = useState({ key: '', stato: '', label: '' });
 
   const normalizza = (value) => String(value || '').toLowerCase().trim();
   const statiOperativiUpgrade = ['nuova', 'contattata', 'appuntamento'];
@@ -12536,6 +12537,35 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
     } finally {
       setSavingAppuntamento(false);
     }
+  };
+
+  const eseguiConversionePiano = async (piano) => {
+    if (!richiestaAperta || !['plus', 'premium'].includes(String(piano || '').toLowerCase())) return;
+    const pianoNorm = String(piano).toLowerCase();
+    const label = pianoNorm === 'premium' ? 'Premium' : 'Plus';
+    const workingLabel = pianoNorm === 'premium' ? 'Attivazione Premium...' : 'Conversione Plus...';
+    setAzioneUpgradeFeedback({ key: pianoNorm, stato: 'loading', label: workingLabel });
+    try {
+      await onConvertiPiano?.(richiestaAperta, pianoNorm);
+      setAzioneUpgradeFeedback({ key: pianoNorm, stato: 'success', label: `CSP ${label} attivato` });
+      window.setTimeout(() => {
+        setRichiestaAperta(null);
+        setAzioneUpgradeFeedback({ key: '', stato: '', label: '' });
+      }, 950);
+    } catch (error) {
+      console.error(error);
+      setAzioneUpgradeFeedback({ key: pianoNorm, stato: 'error', label: 'Riprova' });
+      window.setTimeout(() => setAzioneUpgradeFeedback({ key: '', stato: '', label: '' }), 1800);
+    }
+  };
+
+  const azioneInCorsoUpgrade = azioneUpgradeFeedback.stato === 'loading';
+  const getConversioneLabel = (piano, fallback) => {
+    if (azioneUpgradeFeedback.key !== piano) return fallback;
+    if (azioneUpgradeFeedback.stato === 'loading') return `⏳ ${azioneUpgradeFeedback.label}`;
+    if (azioneUpgradeFeedback.stato === 'success') return `✅ ${azioneUpgradeFeedback.label}`;
+    if (azioneUpgradeFeedback.stato === 'error') return `⚠️ ${azioneUpgradeFeedback.label}`;
+    return fallback;
   };
 
   const filtrate = lista.filter((item) => {
@@ -12696,8 +12726,22 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Azioni CRM</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <button type="button" onClick={async () => { await onUpdateStato?.(richiestaAperta.id, 'contattata'); setRichiestaAperta((prev) => prev ? { ...prev, stato: 'contattata' } : prev); }} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700 ring-1 ring-sky-100">Contattato</button>
-                  <button type="button" onClick={async () => { await onConvertiPiano?.(richiestaAperta, 'plus'); setRichiestaAperta(null); }} className="rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-sky-900/20">Converti Plus</button>
-                  <button type="button" onClick={async () => { await onConvertiPiano?.(richiestaAperta, 'premium'); setRichiestaAperta(null); }} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-900/20">Converti Premium</button>
+                  <button
+                    type="button"
+                    onClick={() => eseguiConversionePiano('plus')}
+                    disabled={azioneInCorsoUpgrade}
+                    className={`rounded-2xl px-4 py-3 text-sm font-black text-white shadow-lg shadow-sky-900/20 transition disabled:cursor-wait disabled:opacity-75 ${azioneUpgradeFeedback.key === 'plus' && azioneUpgradeFeedback.stato === 'success' ? 'bg-emerald-600' : 'bg-sky-600 hover:bg-sky-700'}`}
+                  >
+                    {getConversioneLabel('plus', 'Converti Plus')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => eseguiConversionePiano('premium')}
+                    disabled={azioneInCorsoUpgrade}
+                    className={`rounded-2xl px-4 py-3 text-sm font-black shadow-lg shadow-amber-900/20 transition disabled:cursor-wait disabled:opacity-75 ${azioneUpgradeFeedback.key === 'premium' && azioneUpgradeFeedback.stato === 'success' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}
+                  >
+                    {getConversioneLabel('premium', 'Converti Premium')}
+                  </button>
                   <button type="button" onClick={async () => { const ok = window.confirm('Archiviare la richiesta upgrade? Sparirà dalla lista operativa ma resterà in memoria storica e il condominio potrà inviarne una nuova in futuro.'); if (!ok) return; await onAnnullaRichiesta?.(richiestaAperta); setRichiestaAperta(null); }} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 ring-1 ring-slate-200">Archivia richiesta</button>
                 </div>
               </div>
@@ -16231,6 +16275,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
       condominioId: id,
       piano: pianoNorm,
       contrattoId: contratto?.id || null,
+      contratto: contratto || null,
     };
 
     console.log('[CSP abbonamento] invoke notify-abbonamento-attivato', payload);
