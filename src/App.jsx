@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.23';
-const APP_VERSION_LABEL = 'CSP v1.0.23';
+const APP_VERSION = '1.0.24';
+const APP_VERSION_LABEL = 'CSP v1.0.24';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12949,6 +12949,9 @@ function HomeIntelligenteCondomino({
   riviste = [],
   richiesteUpgradeCsp = [],
   ripartoRate = [],
+  promo = [],
+  promoInteressi = [],
+  promoVoti = [],
   utentiCondomini = [],
   selectedCondominioId = '',
   currentUserEmail = '',
@@ -12957,6 +12960,7 @@ function HomeIntelligenteCondomino({
   onOpenReport,
   onOpenRivista,
   onOpenPiano,
+  onOpenPromo,
   onGoToSection,
 }) {
   const nome = userProfile?.nome || 'benvenuto';
@@ -13193,6 +13197,115 @@ function HomeIntelligenteCondomino({
   const reportKey = ultimoReport ? `report-${ultimoReport.id || ultimoReport.file_url || ultimoReport.created_at}` : '';
   const rivistaKey = ultimaRivista ? `rivista-${ultimaRivista.id || ultimaRivista.file_url || ultimaRivista.created_at}` : '';
 
+
+  const promoNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const statoPromoHome = (item) => {
+    if (!item) return 'bozza';
+    const statoManuale = String(item.stato || '').toLowerCase().trim();
+    if (['bozza', 'chiusa'].includes(statoManuale)) return statoManuale;
+    const limite = promoNumber(item.limite_quantita);
+    const prenotate = promoNumber(item.prenotazioni_attuali);
+    if (limite > 0 && prenotate >= limite) return 'esaurita';
+    const fine = item?.validita_al ? new Date(item.validita_al) : null;
+    if (fine && !Number.isNaN(fine.getTime()) && fine < inizioOggi) return 'scaduta';
+    if (statoManuale === 'esaurita' || statoManuale === 'scaduta') return statoManuale;
+    if (statoManuale === 'attiva' || item.attiva !== false) return 'attiva';
+    return 'bozza';
+  };
+
+  const promoAttiveHome = [...(promo || [])]
+    .filter((item) => statoPromoHome(item) === 'attiva')
+    .sort((a, b) => new Date(b.validita_dal || b.inviata_at || b.created_at || 0) - new Date(a.validita_dal || a.inviata_at || a.created_at || 0));
+  const promoByIdHome = (id) => promoAttiveHome.find((item) => String(item.id) === String(id)) || (promo || []).find((item) => String(item.id) === String(id));
+  const interessiPromoCondominio = (promoInteressi || []).filter((row) => {
+    const condOk = !condominioCorrente?.id || Number(row?.condominio_id) === Number(condominioCorrente.id);
+    const stato = String(row?.stato || '').toLowerCase().trim();
+    return condOk && !['annullato', 'archiviato', 'archiviata', 'chiuso', 'chiusa'].includes(stato);
+  });
+  const interessePromoAltroCondomino = interessiPromoCondominio.find((row) => {
+    const azione = String(row?.azione || '').toLowerCase().trim();
+    const email = normalizeEmail(row?.email || '');
+    return azione === 'interesse' && email && email !== emailCorrente;
+  });
+  const votazionePromoCondominio = interessiPromoCondominio.find((row) => {
+    const azione = String(row?.azione || '').toLowerCase().trim();
+    const stato = String(row?.stato || '').toLowerCase().trim();
+    return azione === 'votazione' || stato.includes('votazione');
+  });
+  const prenotazionePromoCondominio = interessiPromoCondominio.find((row) => {
+    const azione = String(row?.azione || '').toLowerCase().trim();
+    const stato = String(row?.stato || '').toLowerCase().trim();
+    return azione === 'prenotazione' || stato === 'confermato' || row?.segnalazione_id;
+  });
+  const promoAttivaHome = promoAttiveHome[0] || null;
+
+  const bollePromo = [
+    votazionePromoCondominio ? (() => {
+      const promoItem = promoByIdHome(votazionePromoCondominio.promo_id);
+      if (!promoItem || statoPromoHome(promoItem) !== 'attiva') return null;
+      return creaBolla({
+        id: `promo-votazione-${votazionePromoCondominio.id || promoItem.id}`,
+        priorita: 2,
+        tono: 'viola',
+        icona: '🗳️',
+        categoria: 'Promo Senza Pensieri',
+        titolo: 'Promo in votazione',
+        sottotitolo: promoItem.titolo || 'Promo Senza Pensieri',
+        dettaglio: 'Il tuo condominio sta valutando questa opportunità.',
+        cta: 'Vota →',
+        onClick: () => onOpenPromo?.(promoItem.id, condominioCorrente?.id),
+      });
+    })() : null,
+    prenotazionePromoCondominio ? (() => {
+      const promoItem = promoByIdHome(prenotazionePromoCondominio.promo_id);
+      if (!promoItem) return null;
+      return creaBolla({
+        id: `promo-prenotata-${prenotazionePromoCondominio.id || promoItem.id}`,
+        priorita: 3,
+        tono: 'verde',
+        icona: '✅',
+        categoria: 'Promo Senza Pensieri',
+        titolo: 'Promo prenotata',
+        sottotitolo: promoItem.titolo || 'Promo Senza Pensieri',
+        dettaglio: 'La promo è stata prenotata per il tuo condominio.',
+        cta: 'Apri promo →',
+        onClick: () => onOpenPromo?.(promoItem.id, condominioCorrente?.id),
+      });
+    })() : null,
+    interessePromoAltroCondomino ? (() => {
+      const promoItem = promoByIdHome(interessePromoAltroCondomino.promo_id);
+      if (!promoItem || statoPromoHome(promoItem) !== 'attiva') return null;
+      return creaBolla({
+        id: `promo-richiesta-${interessePromoAltroCondomino.id || promoItem.id}`,
+        priorita: 4,
+        tono: 'blu',
+        icona: '🔵',
+        categoria: 'Promo Senza Pensieri',
+        titolo: 'Promo richiesta da un condòmino',
+        sottotitolo: promoItem.titolo || 'Promo Senza Pensieri',
+        dettaglio: 'Un condòmino ha già manifestato interesse per questa opportunità.',
+        cta: 'Apri promo →',
+        onClick: () => onOpenPromo?.(promoItem.id, condominioCorrente?.id),
+      });
+    })() : null,
+    promoAttivaHome ? creaBolla({
+      id: `promo-attiva-${promoAttivaHome.id}`,
+      priorita: 5,
+      tono: 'verde',
+      icona: '🎁',
+      categoria: 'Promo Senza Pensieri',
+      titolo: 'Nuova promo disponibile',
+      sottotitolo: promoAttivaHome.titolo || 'Promo Senza Pensieri',
+      dettaglio: promoAttivaHome.validita_al ? `Disponibile fino al ${formatHomeIntelligenteDate(promoAttivaHome.validita_al)}.` : 'Una nuova opportunità è disponibile nella sezione Promo.',
+      cta: 'Scopri →',
+      onClick: () => onOpenPromo?.(promoAttivaHome.id, condominioCorrente?.id),
+    }) : null,
+  ].filter(Boolean);
+
   const bolleDocumenti = [
     ultimoReport && !documentiAperti?.[reportKey] ? creaBolla({
       id: reportKey,
@@ -13276,6 +13389,7 @@ function HomeIntelligenteCondomino({
     bollaUpgrade,
     ...bolleAssemblee,
     ...bolleAppuntamenti,
+    ...bollePromo,
     ...bolleDocumenti,
   ]
     .filter(Boolean)
@@ -13389,10 +13503,14 @@ function HomeIntelligenteAmministratoreCollaboratore({
   capitolati = [],
   fatturePartner = [],
   riviste = [],
+  promo = [],
+  promoInteressi = [],
+  promoVoti = [],
   onOpenPratica,
   onOpenCapitolato,
   onOpenFatturazione,
   onOpenRivista,
+  onOpenPromo,
   onOpenCondomini,
 }) {
   const nome = userProfile?.nome || 'benvenuto';
@@ -13452,6 +13570,46 @@ function HomeIntelligenteAmministratoreCollaboratore({
     })
     .sort((a, b) => new Date(b.created_at || b.data_pubblicazione || 0) - new Date(a.created_at || a.data_pubblicazione || 0))[0];
 
+
+  const promoNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const statoPromoHome = (item) => {
+    if (!item) return 'bozza';
+    const statoManuale = String(item.stato || '').toLowerCase().trim();
+    if (['bozza', 'chiusa'].includes(statoManuale)) return statoManuale;
+    const limite = promoNumber(item.limite_quantita);
+    const prenotate = promoNumber(item.prenotazioni_attuali);
+    if (limite > 0 && prenotate >= limite) return 'esaurita';
+    const fine = item?.validita_al ? new Date(item.validita_al) : null;
+    if (fine && !Number.isNaN(fine.getTime()) && fine < inizioOggi) return 'scaduta';
+    if (statoManuale === 'esaurita' || statoManuale === 'scaduta') return statoManuale;
+    if (statoManuale === 'attiva' || item.attiva !== false) return 'attiva';
+    return 'bozza';
+  };
+  const promoAttiveHome = [...(promo || [])]
+    .filter((item) => statoPromoHome(item) === 'attiva')
+    .sort((a, b) => new Date(b.validita_dal || b.inviata_at || b.created_at || 0) - new Date(a.validita_dal || a.inviata_at || a.created_at || 0));
+  const promoByIdHome = (id) => promoAttiveHome.find((item) => String(item.id) === String(id)) || (promo || []).find((item) => String(item.id) === String(id));
+  const interessiPromoPerimetro = (promoInteressi || []).filter((row) => {
+    const condId = Number(row?.condominio_id || 0);
+    const stato = String(row?.stato || '').toLowerCase().trim();
+    return idsCondomini.has(condId) && !['annullato', 'archiviato', 'archiviata', 'chiuso', 'chiusa'].includes(stato);
+  });
+  const richiestaPromo = interessiPromoPerimetro.find((row) => String(row?.azione || '').toLowerCase().trim() === 'interesse');
+  const votazionePromo = interessiPromoPerimetro.find((row) => {
+    const azione = String(row?.azione || '').toLowerCase().trim();
+    const stato = String(row?.stato || '').toLowerCase().trim();
+    return azione === 'votazione' || stato.includes('votazione');
+  });
+  const prenotazionePromo = interessiPromoPerimetro.find((row) => {
+    const azione = String(row?.azione || '').toLowerCase().trim();
+    const stato = String(row?.stato || '').toLowerCase().trim();
+    return azione === 'prenotazione' || stato === 'confermato' || row?.segnalazione_id;
+  });
+  const promoAttivaHome = promoAttiveHome[0] || null;
+
   const bolle = [];
   preventiviDaControllare.slice(0, 3).forEach((p) => bolle.push({
     id: `preventivo-${p.id}`,
@@ -13507,6 +13665,65 @@ function HomeIntelligenteAmministratoreCollaboratore({
     cta: 'Apri CaSeP →',
     onClick: () => onOpenCapitolato?.(c),
   }));
+
+  if (richiestaPromo) {
+    const promoItem = promoByIdHome(richiestaPromo.promo_id);
+    if (promoItem && statoPromoHome(promoItem) === 'attiva') bolle.push({
+      id: `promo-richieste-${richiestaPromo.id || promoItem.id}`,
+      priorita: 24,
+      tono: 'green',
+      icona: '🎁',
+      categoria: 'Promo Senza Pensieri',
+      titolo: 'Promo con richieste ricevute',
+      sottotitolo: nomeCondominio(richiestaPromo.condominio_id, 'Condominio'),
+      dettaglio: promoItem.titolo || 'Un condòmino ha manifestato interesse per una promo.',
+      cta: 'Apri promo →',
+      onClick: () => onOpenPromo?.(promoItem.id, richiestaPromo.condominio_id),
+    });
+  }
+  if (votazionePromo) {
+    const promoItem = promoByIdHome(votazionePromo.promo_id);
+    if (promoItem && statoPromoHome(promoItem) === 'attiva') bolle.push({
+      id: `promo-votazione-${votazionePromo.id || promoItem.id}`,
+      priorita: 25,
+      tono: 'purple',
+      icona: '🗳️',
+      categoria: 'Promo Senza Pensieri',
+      titolo: 'Promo in votazione',
+      sottotitolo: nomeCondominio(votazionePromo.condominio_id, 'Condominio'),
+      dettaglio: promoItem.titolo || 'Votazione promo in corso.',
+      cta: 'Apri votazione →',
+      onClick: () => onOpenPromo?.(promoItem.id, votazionePromo.condominio_id),
+    });
+  }
+  if (prenotazionePromo) {
+    const promoItem = promoByIdHome(prenotazionePromo.promo_id);
+    if (promoItem) bolle.push({
+      id: `promo-prenotata-${prenotazionePromo.id || promoItem.id}`,
+      priorita: 26,
+      tono: 'green',
+      icona: '✅',
+      categoria: 'Promo Senza Pensieri',
+      titolo: 'Promo prenotata',
+      sottotitolo: nomeCondominio(prenotazionePromo.condominio_id, 'Condominio'),
+      dettaglio: promoItem.titolo || 'Promo prenotata per il condominio.',
+      cta: 'Apri promo →',
+      onClick: () => onOpenPromo?.(promoItem.id, prenotazionePromo.condominio_id),
+    });
+  }
+  if (promoAttivaHome) bolle.push({
+    id: `promo-attiva-${promoAttivaHome.id}`,
+    priorita: 48,
+    tono: 'green',
+    icona: '🎁',
+    categoria: 'Promo Senza Pensieri',
+    titolo: 'Nuova promo disponibile',
+    sottotitolo: promoAttivaHome.titolo || 'Promo Senza Pensieri',
+    dettaglio: promoAttivaHome.validita_al ? `Disponibile fino al ${formatHomeIntelligenteDate(promoAttivaHome.validita_al)}.` : 'Potrebbe essere interessante per uno dei tuoi condomìni CSP.',
+    cta: 'Valuta promo →',
+    onClick: () => onOpenPromo?.(promoAttivaHome.id, condomini?.[0]?.id || ''),
+  });
+
   if (ultimaRivista) bolle.push({
     id: `rivista-${ultimaRivista.id || ultimaRivista.created_at}`,
     priorita: 50,
@@ -19047,10 +19264,14 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             capitolati={capitolatiSenzaPensieri}
             fatturePartner={fatturePartner}
             riviste={rivisteCondominio}
+            promo={promoSenzaPensieri}
+            promoInteressi={promoInteressi}
+            promoVoti={promoVoti}
             onOpenPratica={(pratica) => { setAmministratoreSection('pratiche'); setDettaglioAperto(pratica); registraNavigazioneCsp({ role: 'amministratore', section: 'pratiche', id: pratica?.id }); }}
             onOpenCapitolato={(capitolato) => { setCapitolatoSmartTargetId(capitolato?.id || null); setAmministratoreSection('capitolato'); registraNavigazioneCsp({ role: 'amministratore', section: 'capitolato', id: capitolato?.id }); }}
             onOpenFatturazione={() => { setAmministratoreSection('fatturazione'); registraNavigazioneCsp({ role: 'amministratore', section: 'fatturazione' }); }}
             onOpenRivista={(rivista) => { if (rivista?.file_url) window.open(rivista.file_url, '_blank', 'noopener,noreferrer'); else setAmministratoreSection('rivista'); }}
+            onOpenPromo={(promoId, condominioId) => { setAmministratoreSection('promo'); setPromoDeeplinkId(promoId ? String(promoId) : null); setPromoCondominioDeeplinkId(condominioId ? String(condominioId) : null); setPromoDeeplinkTick((value) => value + 1); }}
             onOpenCondomini={() => { setAmministratoreSection('condomini'); registraNavigazioneCsp({ role: 'amministratore', section: 'condomini' }); }}
           />
         )}
@@ -19414,6 +19635,9 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
               return ids.includes(Number(item?.condominio_id));
             })}
             ripartoRate={ripartoRate}
+            promo={promoSenzaPensieri}
+            promoInteressi={promoInteressi}
+            promoVoti={promoVoti}
             utentiCondomini={utentiCondomini}
             selectedCondominioId={condominioIdPerAbbonamento}
             currentUserEmail={utente?.email || userProfile?.email || ''}
@@ -19422,6 +19646,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             onOpenReport={(report) => { if (report?.file_url) window.open(report.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('report'); }}
             onOpenRivista={(rivista) => { if (rivista?.file_url) window.open(rivista.file_url, '_blank', 'noopener,noreferrer'); else setCondominoSection('rivista'); }}
             onOpenPiano={apriFullscreenPianiCsp}
+            onOpenPromo={(promoId, condominioId) => { setCondominoSection('promo'); setPromoDeeplinkId(promoId ? String(promoId) : null); setPromoCondominioDeeplinkId(condominioId ? String(condominioId) : null); setPromoDeeplinkTick((value) => value + 1); }}
             onGoToSection={setCondominoSection}
           />
         )}
