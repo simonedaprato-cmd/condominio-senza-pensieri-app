@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.25';
-const APP_VERSION_LABEL = 'CSP v1.0.25';
+const APP_VERSION = '1.0.12';
+const APP_VERSION_LABEL = 'CSP 2026 build v1.0.12';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -13534,6 +13534,13 @@ function HomeIntelligenteGestore({
   };
   const statoNorm = (value) => String(value || '').toLowerCase().trim();
   const isChiusa = (value) => ['chiusa', 'chiuso', 'rifiutata', 'rifiutato', 'archiviata', 'archiviato', 'annullata', 'annullato', 'convertita', 'convertito', 'completata', 'completato'].includes(statoNorm(value));
+  const isPraticaGenerataDaPromo = (record = {}) => {
+    if (!record) return false;
+    if (record.promo_id || record.promoId || record.promo_senza_pensieri_id || record.promo_interesse_id || record.promozione_id) return true;
+    if (isValoreVero(record.da_promo) || isValoreVero(record.is_promo) || isValoreVero(record.generata_da_promo)) return true;
+    const campiOrigine = [record.origine, record.source, record.canale, record.tipo, record.tipo_pratica, record.categoria, record.badge, record.tag, record.flusso].map(statoNorm);
+    return campiOrigine.some((value) => ['promo', 'promozione', 'promo senza pensieri', 'promo_senza_pensieri'].includes(value) || value.includes('promo'));
+  };
   const contrattiAttivi = (contratti || []).filter((c) => !['sospeso', 'annullato', 'chiuso', 'scaduto'].includes(statoNorm(c.stato || c.status)));
   const condominiCspCount = new Set(contrattiAttivi.map((c) => Number(c.condominio_id)).filter(Boolean)).size;
   const praticheCspAttive = (segnalazioni || []).filter((s) => !isValoreVero(s.archiviata) && !isChiusa(s.stato));
@@ -13552,6 +13559,7 @@ function HomeIntelligenteGestore({
     return st.includes('nuova') || st.includes('richiesta');
   });
   const preventiviDaPreparare = praticheCspAttive.filter((s) => {
+    if (isPraticaGenerataDaPromo(s)) return false;
     const st = statoNorm(s.stato);
     const haPreventivo = Boolean(s.preventivo_url || s.preventivo_pdf_url || s.offerta_pdf_url || Number(s.importo_preventivo || s.importo || 0) > 0);
     return !haPreventivo && (st.includes('presa') || st.includes('sopralluogo') || st.includes('preventivo') || st.includes('valutazione'));
@@ -13809,7 +13817,16 @@ function HomeIntelligenteAmministratoreCollaboratore({
   const condominiCspCount = new Set(contrattiAttivi.map((c) => Number(c.condominio_id)).filter(Boolean)).size;
   const praticheCspAttive = (segnalazioni || []).filter((s) => idsCondomini.has(Number(s.condominio_id)) && !isValoreVero(s.archiviata) && !['chiusa', 'rifiutata'].includes(String(s.stato || '').toLowerCase().trim()));
   const praticheCasepAttive = (capitolati || []).filter((c) => idsCondomini.has(Number(c.condominio_id)) && !['chiusa', 'rifiutata', 'archiviata', 'convertita', 'completata'].includes(String(c.stato || '').toLowerCase().trim()));
+  const statoNormHomeOperativa = (value) => String(value || '').toLowerCase().trim();
+  const isPraticaGenerataDaPromo = (record = {}) => {
+    if (!record) return false;
+    if (record.promo_id || record.promoId || record.promo_senza_pensieri_id || record.promo_interesse_id || record.promozione_id) return true;
+    if (isValoreVero(record.da_promo) || isValoreVero(record.is_promo) || isValoreVero(record.generata_da_promo)) return true;
+    const campiOrigine = [record.origine, record.source, record.canale, record.tipo, record.tipo_pratica, record.categoria, record.badge, record.tag, record.flusso].map(statoNormHomeOperativa);
+    return campiOrigine.some((value) => ['promo', 'promozione', 'promo senza pensieri', 'promo_senza_pensieri'].includes(value) || value.includes('promo'));
+  };
   const preventiviDaControllare = praticheCspAttive.filter((s) => {
+    if (isPraticaGenerataDaPromo(s)) return false;
     const stato = String(s.stato || '').toLowerCase();
     return stato.includes('preventiv') && !String(s.stato_conversione || '').trim();
   });
