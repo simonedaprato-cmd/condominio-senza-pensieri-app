@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.26';
-const APP_VERSION_LABEL = 'CSP v1.0.26';
+const APP_VERSION = '1.0.27';
+const APP_VERSION_LABEL = 'CSP v1.0.27';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -254,7 +254,8 @@ function buildPublicUrl(fileName) {
 
 function PianoCspExperienceModal({ piano = 'base', richiestaUpgradeAttiva = null, currentUserEmail = '', onClose, onOpenUpgrade, onOpenHomeIntelligente }) {
   const pianoNorm = normalizzaPianoAbbonamento(piano);
-  const richiestaAttiva = richiestaUpgradeAttiva && String(richiestaUpgradeAttiva.stato || '').toLowerCase() !== 'chiusa' ? richiestaUpgradeAttiva : null;
+  const statiUpgradeNonAttivi = ['chiusa', 'archiviata', 'annullata', 'convertita'];
+  const richiestaAttiva = richiestaUpgradeAttiva && !statiUpgradeNonAttivi.includes(String(richiestaUpgradeAttiva.stato || '').toLowerCase()) ? richiestaUpgradeAttiva : null;
   const statoRichiesta = String(richiestaAttiva?.stato || '').toLowerCase();
   const richiestaInAppuntamento = statoRichiesta === 'appuntamento';
   const richiestaUtenteCorrente = richiestaAttiva && normalizeEmail(richiestaAttiva.richiedente_email) === normalizeEmail(currentUserEmail);
@@ -12464,7 +12465,8 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
   const [appForm, setAppForm] = useState({ data: '', ora: '18:00', luogo: '' });
   const [savingAppuntamento, setSavingAppuntamento] = useState(false);
 
-  const lista = Array.isArray(richieste) ? richieste : [];
+  const statiOperativiUpgrade = ['nuova', 'contattata', 'appuntamento'];
+  const lista = Array.isArray(richieste) ? richieste.filter((item) => statiOperativiUpgrade.includes(normalizza(item?.stato || 'nuova'))) : [];
   const normalizza = (value) => String(value || '').toLowerCase().trim();
   const parseAppuntamento = (item) => {
     const note = String(item?.note || '');
@@ -12563,6 +12565,8 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
     if (stato === 'nuova') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
     if (stato === 'contattata') return 'bg-sky-100 text-sky-800 border-sky-200';
     if (stato === 'appuntamento') return 'bg-amber-100 text-amber-800 border-amber-200';
+    if (stato === 'archiviata') return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (stato === 'convertita') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
     if (stato === 'chiusa') return 'bg-slate-100 text-slate-700 border-slate-200';
     return 'bg-slate-100 text-slate-700 border-slate-200';
   };
@@ -12610,13 +12614,13 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
             <option value="nuova">Nuove</option>
             <option value="contattata">Contattate</option>
             <option value="appuntamento">Appuntamento fissato</option>
-            <option value="chiusa">Chiuse</option>
+            
           </select>
         </div>
       </div>
 
       {filtrate.length === 0 ? (
-        <EmptyState icon="💎" title="Nessuna richiesta upgrade" text="Quando un condòmino manifesterà interesse per CSP Plus o Premium, la richiesta comparirà qui." action="Pipeline pulita" tone="emerald" />
+        <EmptyState icon="💎" title="Nessuna richiesta upgrade" text="Quando un condòmino manifesterà interesse per CSP Plus o Premium, la richiesta attiva comparirà qui. Le richieste archiviate restano in memoria ma non appesantiscono il flusso operativo." action="Pipeline pulita" tone="emerald" />
       ) : (
         <div className="space-y-3">
           {filtrate.map((item) => {
@@ -12694,7 +12698,7 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                   <button type="button" onClick={async () => { await onUpdateStato?.(richiestaAperta.id, 'contattata'); setRichiestaAperta((prev) => prev ? { ...prev, stato: 'contattata' } : prev); }} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700 ring-1 ring-sky-100">Contattato</button>
                   <button type="button" onClick={async () => { await onConvertiPiano?.(richiestaAperta, 'plus'); setRichiestaAperta(null); }} className="rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-sky-900/20">Converti Plus</button>
                   <button type="button" onClick={async () => { await onConvertiPiano?.(richiestaAperta, 'premium'); setRichiestaAperta(null); }} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-900/20">Converti Premium</button>
-                  <button type="button" onClick={async () => { const ok = window.confirm('Annullare la richiesta upgrade? Il condominio potrà inviarne una nuova in futuro.'); if (!ok) return; await onAnnullaRichiesta?.(richiestaAperta); setRichiestaAperta(null); }} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 ring-1 ring-slate-200">Annulla richiesta</button>
+                  <button type="button" onClick={async () => { const ok = window.confirm('Archiviare la richiesta upgrade? Sparirà dalla lista operativa ma resterà in memoria storica e il condominio potrà inviarne una nuova in futuro.'); if (!ok) return; await onAnnullaRichiesta?.(richiestaAperta); setRichiestaAperta(null); }} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 ring-1 ring-slate-200">Archivia richiesta</button>
                 </div>
               </div>
 
@@ -12976,9 +12980,10 @@ function HomeIntelligenteCondomino({
     return 'border-emerald-100 bg-emerald-50 hover:border-emerald-200 hover:bg-emerald-50 text-emerald-700';
   };
 
+  const statiUpgradeAttiviHome = ['nuova', 'contattata', 'appuntamento'];
   const richiesteUpgradeCondominio = (richiesteUpgradeCsp || [])
     .filter(isStessoCondominio)
-    .filter((item) => String(item?.stato || '').toLowerCase() !== 'chiusa');
+    .filter((item) => statiUpgradeAttiviHome.includes(String(item?.stato || 'nuova').toLowerCase()));
 
   const richiestaUpgradeAttiva = richiesteUpgradeCondominio
     .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))[0] || null;
@@ -14060,9 +14065,10 @@ export default function App() {
     : getPianoAbbonamentoCondominio(condominioIdPerAbbonamento, contratti);
   const subscriptionFlagsCorrenti = getSubscriptionFlags(pianoAbbonamentoCorrente);
 
+  const statiUpgradeAttiviCorrente = ['nuova', 'contattata', 'appuntamento'];
   const richiestaUpgradeCspAttivaCorrente = (richiesteUpgradeCsp || []).find((item) => {
-    const stato = String(item?.stato || '').toLowerCase();
-    if (stato === 'chiusa') return false;
+    const stato = String(item?.stato || 'nuova').toLowerCase();
+    if (!statiUpgradeAttiviCorrente.includes(stato)) return false;
     return Number(item?.condominio_id) === Number(condominioIdPerAbbonamento);
   }) || null;
 
@@ -14086,8 +14092,8 @@ export default function App() {
     }
 
     const richiestaGiaAttiva = (richiesteUpgradeCsp || []).find((item) => {
-      const stato = String(item?.stato || '').toLowerCase();
-      if (stato === 'chiusa') return false;
+      const stato = String(item?.stato || 'nuova').toLowerCase();
+      if (!['nuova', 'contattata', 'appuntamento'].includes(stato)) return false;
       return Number(item?.condominio_id) === Number(condominioId);
     });
 
@@ -16680,18 +16686,21 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     const richiestaId = richiesta?.id || richiesta;
     if (!richiestaId) return;
     try {
+      const notaArchivio = `Archiviata dal gestore il ${new Date().toLocaleString('it-IT')}.`;
+      const noteEsistenti = String(richiesta?.gestore_note || '').trim();
+      const gestoreNote = [noteEsistenti, notaArchivio].filter(Boolean).join('\n');
       const { error } = await supabase
         .from('richieste_upgrade_csp')
-        .delete()
+        .update({ stato: 'archiviata', gestore_note: gestoreNote })
         .eq('id', richiestaId);
 
       if (error) throw error;
-      setRichiesteUpgradeCsp((prev) => (prev || []).filter((item) => String(item.id) !== String(richiestaId)));
-      mostraToast('Richiesta annullata', 'Il condominio potrà inviare una nuova richiesta upgrade in futuro.', 'success');
+      setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => String(item.id) === String(richiestaId) ? { ...item, stato: 'archiviata', gestore_note: gestoreNote } : item));
+      mostraToast('Richiesta archiviata', 'Sparisce dalla lista operativa, resta in memoria e il condominio potrà richiederla di nuovo.', 'success');
       await carica();
     } catch (error) {
       console.error(error);
-      mostraToast('Errore annullamento', error.message || 'Richiesta non annullata.', 'error');
+      mostraToast('Errore archiviazione', error.message || 'Richiesta non archiviata.', 'error');
       throw error;
     }
   };
@@ -16718,13 +16727,13 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     try {
       await supabase
         .from('richieste_upgrade_csp')
-        .update({ stato: 'chiusa', gestore_note: `Convertita in CSP ${String(piano).toUpperCase()}` })
+        .update({ stato: 'convertita', gestore_note: `Convertita in CSP ${String(piano).toUpperCase()}` })
         .eq('id', richiesta.id);
     } catch (error) {
-      console.warn('Richiesta upgrade convertita ma non archiviata:', error);
+      console.warn('Richiesta upgrade convertita ma stato non aggiornato:', error);
     }
 
-    setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => String(item.id) === String(richiesta.id) ? { ...item, stato: 'chiusa', gestore_note: `Convertita in CSP ${String(piano).toUpperCase()}` } : item));
+    setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => String(item.id) === String(richiesta.id) ? { ...item, stato: 'convertita', gestore_note: `Convertita in CSP ${String(piano).toUpperCase()}` } : item));
     mostraToast('Upgrade convertito', `Abbonamento CSP ${String(piano).toUpperCase()} attivato.`, 'success');
     await carica();
   };
