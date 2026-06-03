@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.20';
-const APP_VERSION_LABEL = 'CSP v1.0.20';
+const APP_VERSION = '1.0.21';
+const APP_VERSION_LABEL = 'CSP v1.0.21';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -5958,6 +5958,7 @@ function CapitolatoSenzaPensieriSuite({
   onUpdateCapitolato,
   onUploadCapitolatoPdf,
   onDeleteCapitolato,
+  initialOpenCapitolatoId = null,
 }) {
   const ruoloNorm = String(ruolo || '').toLowerCase().trim();
   const isGestore = ruoloNorm === 'gestore';
@@ -5970,11 +5971,16 @@ function CapitolatoSenzaPensieriSuite({
   const [filtroStato, setFiltroStato] = useState('');
   const [filtroSearch, setFiltroSearch] = useState('');
   const [conversioneDraft, setConversioneDraft] = useState({});
-  const [capitolatoApertoId, setCapitolatoApertoId] = useState(null);
+  const [capitolatoApertoId, setCapitolatoApertoId] = useState(initialOpenCapitolatoId || null);
   const [assembleaDraft, setAssembleaDraft] = useState({ capitolatoId: null, data: '', ora: '', luogo: '' });
   const [presentazioneAssembleaId, setPresentazioneAssembleaId] = useState(null);
   const [showNuovoCapitolatoModal, setShowNuovoCapitolatoModal] = useState(false);
   const [capitolatoSuccessMessage, setCapitolatoSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (initialOpenCapitolatoId) setCapitolatoApertoId(Number(initialOpenCapitolatoId));
+  }, [initialOpenCapitolatoId]);
+
 
   const apriPresentazioneAssemblea = (capitolatoId) => {
     try {
@@ -13353,6 +13359,244 @@ function HomeIntelligenteCondomino({
 }
 
 
+function HomeIntelligenteAmministratoreCollaboratore({
+  userProfile = {},
+  ruolo = '',
+  condomini = [],
+  contratti = [],
+  segnalazioni = [],
+  capitolati = [],
+  fatturePartner = [],
+  riviste = [],
+  onOpenPratica,
+  onOpenCapitolato,
+  onOpenFatturazione,
+  onOpenRivista,
+  onOpenCondomini,
+}) {
+  const nome = userProfile?.nome || 'benvenuto';
+  const ora = new Date().getHours();
+  const saluto = ora < 12 ? 'Buongiorno' : ora < 18 ? 'Buon pomeriggio' : 'Buonasera';
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isCollaboratore = ruoloNorm === 'collaboratore';
+  const oggi = new Date();
+  const inizioOggi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate());
+  const fineSetteGiorni = new Date(inizioOggi);
+  fineSetteGiorni.setDate(fineSetteGiorni.getDate() + 7);
+  const idsCondomini = new Set((condomini || []).map((c) => Number(c.id)).filter(Boolean));
+  const condominioById = (id) => (condomini || []).find((c) => Number(c.id) === Number(id));
+  const nomeCondominio = (id, fallback = 'Condominio') => condominioById(id)?.nome || fallback;
+  const isDataEntro = (value, giorni = 7) => {
+    if (!value) return false;
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return false;
+    const limite = new Date(inizioOggi);
+    limite.setDate(limite.getDate() + Number(giorni));
+    return data >= inizioOggi && data <= limite;
+  };
+  const giorniDa = (value) => {
+    const data = new Date(value);
+    if (Number.isNaN(data.getTime())) return null;
+    return Math.ceil((new Date(data.getFullYear(), data.getMonth(), data.getDate()) - inizioOggi) / 86400000);
+  };
+  const contrattiAttivi = (contratti || []).filter((c) => {
+    const stato = String(c.stato || c.status || '').toLowerCase();
+    return idsCondomini.has(Number(c.condominio_id)) && !['sospeso', 'annullato', 'chiuso', 'scaduto'].includes(stato);
+  });
+  const condominiCspCount = new Set(contrattiAttivi.map((c) => Number(c.condominio_id)).filter(Boolean)).size;
+  const praticheCspAttive = (segnalazioni || []).filter((s) => idsCondomini.has(Number(s.condominio_id)) && !isValoreVero(s.archiviata) && !['chiusa', 'rifiutata'].includes(String(s.stato || '').toLowerCase().trim()));
+  const praticheCasepAttive = (capitolati || []).filter((c) => idsCondomini.has(Number(c.condominio_id)) && !['chiusa', 'rifiutata', 'archiviata', 'convertita', 'completata'].includes(String(c.stato || '').toLowerCase().trim()));
+  const preventiviDaControllare = praticheCspAttive.filter((s) => {
+    const stato = String(s.stato || '').toLowerCase();
+    return stato.includes('preventiv') && !String(s.stato_conversione || '').trim();
+  });
+  const interventiProgrammati = praticheCspAttive
+    .filter((s) => s.data_inizio_lavori_presunta && isDataEntro(s.data_inizio_lavori_presunta, 14))
+    .sort((a, b) => new Date(a.data_inizio_lavori_presunta) - new Date(b.data_inizio_lavori_presunta));
+  const fattureInScadenza = isCollaboratore ? [] : (fatturePartner || [])
+    .filter((f) => {
+      const stato = String(f.stato || '').toLowerCase();
+      const condId = Number(f.condominio_id || f.condominio || f.condominioId || 0);
+      const inPerimetro = !condId || idsCondomini.has(condId);
+      return inPerimetro && f.data_scadenza && !['pagata', 'annullata', 'stornata'].includes(stato) && isDataEntro(f.data_scadenza, 7);
+    })
+    .sort((a, b) => new Date(a.data_scadenza) - new Date(b.data_scadenza));
+  const ultimaRivista = [...(riviste || [])]
+    .filter((r) => {
+      const created = new Date(r.created_at || r.data_pubblicazione || 0);
+      if (Number.isNaN(created.getTime())) return false;
+      const limite = new Date(created);
+      limite.setDate(limite.getDate() + 7);
+      return oggi <= limite;
+    })
+    .sort((a, b) => new Date(b.created_at || b.data_pubblicazione || 0) - new Date(a.created_at || a.data_pubblicazione || 0))[0];
+
+  const bolle = [];
+  preventiviDaControllare.slice(0, 3).forEach((p) => bolle.push({
+    id: `preventivo-${p.id}`,
+    priorita: 10,
+    tono: 'amber',
+    icona: '🟠',
+    categoria: 'Azione richiesta',
+    titolo: 'Preventivo CSP da controllare',
+    sottotitolo: nomeCondominio(p.condominio_id, p.condominio || p.condominio_nome),
+    dettaglio: p.titolo || p.descrizione || 'Pratica con preventivo disponibile.',
+    cta: 'Apri pratica →',
+    onClick: () => onOpenPratica?.(p),
+  }));
+  fattureInScadenza.slice(0, 2).forEach((f) => {
+    const gd = giorniDa(f.data_scadenza);
+    bolle.push({
+      id: `fattura-${f.id || f.numero || f.data_scadenza}`,
+      priorita: gd === 0 ? 5 : gd <= 2 ? 8 : 18,
+      tono: gd <= 2 ? 'red' : 'amber',
+      icona: gd <= 2 ? '🔴' : '🟠',
+      categoria: 'Promemoria',
+      titolo: gd === 0 ? 'Fattura in scadenza oggi' : `Fattura in scadenza ${gd === 1 ? 'domani' : `tra ${gd} giorni`}`,
+      sottotitolo: f.condominio_nome || nomeCondominio(f.condominio_id, 'Fatturazione CSP'),
+      dettaglio: f.importo || f.totale ? formatEuro(f.importo || f.totale) : 'Apri fatturazione per il dettaglio.',
+      cta: 'Apri fatture →',
+      onClick: () => onOpenFatturazione?.(f),
+    });
+  });
+  interventiProgrammati.slice(0, 3).forEach((p) => {
+    const gd = giorniDa(p.data_inizio_lavori_presunta);
+    bolle.push({
+      id: `intervento-${p.id}`,
+      priorita: gd === 0 ? 6 : 20,
+      tono: gd === 0 ? 'blue' : 'sky',
+      icona: '🔵',
+      categoria: 'Intervento programmato',
+      titolo: p.titolo || p.descrizione || 'Intervento CSP programmato',
+      sottotitolo: nomeCondominio(p.condominio_id, p.condominio || p.condominio_nome),
+      dettaglio: `${formatHomeIntelligenteDate(p.data_inizio_lavori_presunta)}${p.ora_inizio_lavori_presunta ? ` · ore ${formatHomeIntelligenteTime(p.ora_inizio_lavori_presunta)}` : ''}`,
+      cta: 'Apri pratica →',
+      onClick: () => onOpenPratica?.(p),
+    });
+  });
+  praticheCasepAttive.slice(0, 2).forEach((c) => bolle.push({
+    id: `casep-${c.id}`,
+    priorita: 28,
+    tono: 'purple',
+    icona: '🏗️',
+    categoria: 'CaSeP attiva',
+    titolo: c.titolo || 'Pratica CaSeP attiva',
+    sottotitolo: nomeCondominio(c.condominio_id, c.condominio_nome),
+    dettaglio: c.stato || 'In lavorazione',
+    cta: 'Apri CaSeP →',
+    onClick: () => onOpenCapitolato?.(c),
+  }));
+  if (ultimaRivista) bolle.push({
+    id: `rivista-${ultimaRivista.id || ultimaRivista.created_at}`,
+    priorita: 50,
+    tono: 'green',
+    icona: '📰',
+    categoria: 'Contenuto disponibile',
+    titolo: 'Nuova rivista disponibile',
+    sottotitolo: ultimaRivista.titolo || 'Condominio Senza Pensieri',
+    dettaglio: 'Disponibile per 7 giorni nella Home Intelligente.',
+    cta: 'Sfoglia →',
+    onClick: () => onOpenRivista?.(ultimaRivista),
+  });
+
+  const bolleOrdinate = bolle.sort((a, b) => a.priorita - b.priorita).slice(0, 5);
+  const statoLabel = bolleOrdinate.length ? `Hai ${bolleOrdinate.length} elementi che richiedono attenzione` : 'Tutto sotto controllo';
+  const statoDettaglio = bolleOrdinate[0]?.titolo || 'Nessuna attività urgente da gestire adesso.';
+  const cardTono = (tono) => {
+    if (tono === 'red') return 'border-red-100 bg-red-50 hover:border-red-200';
+    if (tono === 'amber') return 'border-amber-100 bg-amber-50 hover:border-amber-200';
+    if (tono === 'purple') return 'border-purple-100 bg-purple-50 hover:border-purple-200';
+    if (tono === 'blue' || tono === 'sky') return 'border-sky-100 bg-sky-50 hover:border-sky-200';
+    return 'border-emerald-100 bg-emerald-50 hover:border-emerald-200';
+  };
+
+  return (
+    <section className="space-y-5 pb-36 md:pb-8">
+      <div className="relative overflow-hidden rounded-[2.4rem] bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20 md:p-8">
+        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200/80">Home Intelligente</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{saluto} {nome}</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/65">Il tuo capo segreteria CSP: mostra solo ciò che aspetta la tua attenzione.</p>
+          </div>
+          <div className="shrink-0 rounded-[1.6rem] border border-amber-200/10 bg-black/20 p-2 shadow-2xl shadow-amber-950/20">
+            <LogoMark src={SPLASH_LOGO_SRC} className="h-12 w-auto opacity-90 sm:h-16 md:h-20" />
+          </div>
+        </div>
+        <div className="relative mt-5 rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-lg">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">Stato generale</p>
+          <p className="mt-2 text-lg font-black text-white">{bolleOrdinate.length ? '🟠' : '🟢'} {statoLabel}</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-white/60">{statoDettaglio}</p>
+        </div>
+      </div>
+
+      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Il tuo ecosistema CSP</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Numeri sempre sotto mano</h2>
+          </div>
+          <button type="button" onClick={() => onOpenCondomini?.()} className="rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700 ring-1 ring-emerald-100">Apri condomini →</button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Condomini CSP</p><p className="mt-2 text-3xl font-black text-slate-900">{condominiCspCount}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Pratiche CSP attive</p><p className="mt-2 text-3xl font-black text-slate-900">{praticheCspAttive.length}</p></div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Pratiche CaSeP attive</p><p className="mt-2 text-3xl font-black text-slate-900">{praticheCasepAttive.length}</p></div>
+        </div>
+      </section>
+
+      {bolleOrdinate.length > 0 && (
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Centro attenzione</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Bolle intelligenti</h2>
+              <p className="mt-1 text-xs font-bold text-slate-500">Priorità a preventivi, scadenze, interventi e pratiche attive. Deeplink diretto alla scheda quando disponibile.</p>
+            </div>
+            <span className="text-2xl">🎯</span>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {bolleOrdinate.map((item) => (
+              <button key={item.id} type="button" onClick={item.onClick} className={`rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${cardTono(item.tono)}`}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">{item.icona}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{item.categoria}</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{item.titolo}</p>
+                    {item.sottotitolo && <p className="mt-1 text-xs font-bold text-slate-600">{item.sottotitolo}</p>}
+                    {item.dettaglio && <p className="mt-2 text-xs font-black text-slate-700">{item.dettaglio}</p>}
+                  </div>
+                  <span className="shrink-0 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{item.cta}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function PromoSenzaPensieriLiteSuite({ ruolo = '' }) {
+  return (
+    <section className="space-y-4 pb-36 md:pb-8">
+      <div className="rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-5 shadow-sm">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">Promo Senza Pensieri</p>
+        <h2 className="mt-1 text-2xl font-black text-slate-900">Sezione promo ripristinata nel menu</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          La voce è nuovamente visibile per tutti i ruoli. La logica completa Promo richiede il recupero del blocco storico specifico: nell’App.jsx attuale non è presente il componente operativo originario.
+        </p>
+        <div className="mt-4 rounded-2xl border border-white bg-white/80 p-4 text-sm font-semibold leading-6 text-slate-600">
+          Per evitare regressioni, questa release non ricostruisce a memoria prenotazioni, interessati e votazioni promo. Appena abbiamo un App.jsx precedente con la sezione completa, la reintegriamo senza toccare Home Intelligente e Upgrade CSP.
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
   if (!updateInfo) return null;
 
@@ -13590,7 +13834,7 @@ export default function App() {
   const [votazioniRiepiloghi, setVotazioniRiepiloghi] = useState([]);
   const [showArchiviate, setShowArchiviate] = useState(false);
   const [gestoreSection, setGestoreSection] = useState('pratiche');
-  const [amministratoreSection, setAmministratoreSection] = useState('pratiche');
+  const [amministratoreSection, setAmministratoreSection] = useState('home-intelligente');
   const [condominoSection, setCondominoSection] = useState('home-intelligente');
   const [showPianiCspExperience, setShowPianiCspExperience] = useState(false);
   const [showUpgradeCspRequest, setShowUpgradeCspRequest] = useState(false);
@@ -13625,6 +13869,7 @@ export default function App() {
   const [reportCondominio, setReportCondominio] = useState([]);
   const [rivisteCondominio, setRivisteCondominio] = useState([]);
   const [showRivistaModal, setShowRivistaModal] = useState(false);
+  const [capitolatoSmartTargetId, setCapitolatoSmartTargetId] = useState(null);
   const [sendingRivista, setSendingRivista] = useState(false);
 
   const ruoloNormalizzato = String(ruolo || '').toLowerCase().trim();
@@ -13638,7 +13883,7 @@ export default function App() {
 
   const getCspHistoryRoute = () => {
     if (ruoloNormalizzato === 'gestore') return { role: 'gestore', section: gestoreSection || 'pratiche' };
-    if (isAmministratoreOperativo) return { role: 'amministratore', section: amministratoreSection || 'pratiche' };
+    if (isAmministratoreOperativo) return { role: 'amministratore', section: amministratoreSection || 'home-intelligente' };
     if (['condominio', 'condomino'].includes(ruoloNormalizzato)) return { role: 'condomino', section: condominoSection || 'segnalazioni' };
     return { role: ruoloNormalizzato || 'utente', section: 'home' };
   };
@@ -16950,16 +17195,19 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
     { id: 'campagne', label: 'Campagne', subtitle: 'Invii partner CaSP' },
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
+    { id: 'promo', label: '🎁 Promo Senza Pensieri', subtitle: 'Promo, interessi e opportunità' },
     { id: 'guadagni', label: '💰 Guadagni', subtitle: 'Control Room economica' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
 
   const amministratoreSections = [
+    { id: 'home-intelligente', label: '⭐ Home Intelligente', subtitle: 'Il tuo capo segreteria CSP' },
     { id: 'pratiche', label: 'Pratiche', subtitle: 'Segnalazioni e vendite' },
     { id: 'condomini', label: '🏢 Condomini', subtitle: 'Schede, statistiche e upgrade' },
     { id: 'fatturazione', label: 'Fatturazione', subtitle: 'Fatture interventi, scadenze e PDF' },
     { id: 'capitolato', label: '🏗️ Capitolato Senza Pensieri', subtitle: 'Grandi lavori e CaSP' },
+    { id: 'promo', label: '🎁 Promo Senza Pensieri', subtitle: 'Promo e opportunità condominiali' },
     ...(puoVedereGuadagniAmministratore ? [{ id: 'guadagni', label: 'Guadagni', subtitle: 'Provvigioni e fornitori' }] : []),
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
@@ -16969,6 +17217,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     { id: 'home-intelligente', label: '⭐ Home Intelligente', subtitle: 'La tua vista riepilogativa' },
     { id: 'segnalazioni', label: 'Segnalazioni condominiali', subtitle: 'Pratiche del condominio' },
     { id: 'lavori-privati', label: '🏠 La tua casa Senza Pensieri', subtitle: 'Contatto diretto con l’impresa' },
+    { id: 'promo', label: '🎁 Promo Senza Pensieri', subtitle: 'Vantaggi e opportunità' },
     { id: 'report', label: '📄 I tuoi report', subtitle: 'Archivio report semestrali' },
     { id: 'rivista', label: '📰 La tua rivista', subtitle: 'Magazine e archivio uscite' },
   ];
@@ -17199,6 +17448,15 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
 
 
 
+        {ruoloNormalizzato === 'gestore' && gestoreSection === 'promo' && (
+          <PromoSenzaPensieriLiteSuite ruolo={ruoloNormalizzato} />
+        )}
+
+        {isAmministratoreOperativo && amministratoreSection === 'promo' && (
+          <PromoSenzaPensieriLiteSuite ruolo={ruoloNormalizzato} />
+        )}
+
+
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'condomini-registrati' && (
           <GestoreCondominiRegistratiSuite
             condomini={condomini}
@@ -17221,6 +17479,25 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             onAnnullaRichiesta={annullaRichiestaUpgradeCsp}
           />
         )}
+
+        {isAmministratoreOperativo && amministratoreSection === 'home-intelligente' && (
+          <HomeIntelligenteAmministratoreCollaboratore
+            userProfile={userProfile}
+            ruolo={ruoloNormalizzato}
+            condomini={condominiVisibili}
+            contratti={contratti}
+            segnalazioni={segnalazioniVisualizzate}
+            capitolati={capitolatiSenzaPensieri}
+            fatturePartner={fatturePartner}
+            riviste={rivisteCondominio}
+            onOpenPratica={(pratica) => { setAmministratoreSection('pratiche'); setDettaglioAperto(pratica); registraNavigazioneCsp({ role: 'amministratore', section: 'pratiche', id: pratica?.id }); }}
+            onOpenCapitolato={(capitolato) => { setCapitolatoSmartTargetId(capitolato?.id || null); setAmministratoreSection('capitolato'); registraNavigazioneCsp({ role: 'amministratore', section: 'capitolato', id: capitolato?.id }); }}
+            onOpenFatturazione={() => { setAmministratoreSection('fatturazione'); registraNavigazioneCsp({ role: 'amministratore', section: 'fatturazione' }); }}
+            onOpenRivista={(rivista) => { if (rivista?.file_url) window.open(rivista.file_url, '_blank', 'noopener,noreferrer'); else setAmministratoreSection('rivista'); }}
+            onOpenCondomini={() => { setAmministratoreSection('condomini'); registraNavigazioneCsp({ role: 'amministratore', section: 'condomini' }); }}
+          />
+        )}
+
 
         {ruoloNormalizzato !== 'gestore' && (!isAmministratoreOperativo || amministratoreSection === 'pratiche') && (!['condominio', 'condomino'].includes(ruoloNormalizzato) || condominoSection === 'segnalazioni') && (
           <>
@@ -17562,6 +17839,7 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             onUpdateCapitolato={aggiornaCapitolatoSenzaPensieri}
             onDeleteCapitolato={cancellaCapitolatoSenzaPensieri}
             onUploadCapitolatoPdf={uploadCapitolatoPdf}
+            initialOpenCapitolatoId={capitolatoSmartTargetId}
           />
         )}
 
@@ -17609,6 +17887,11 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             )}
           </section>
         )}
+
+        {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'promo' && (
+          <PromoSenzaPensieriLiteSuite ruolo={ruoloNormalizzato} />
+        )}
+
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'report' && (
           contrattoCorrenteSospeso ? (
             <SubscriptionLockedCard
