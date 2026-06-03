@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.25';
-const APP_VERSION_LABEL = 'CSP v1.0.25';
+const APP_VERSION = '1.0.26';
+const APP_VERSION_LABEL = 'CSP v1.0.26';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -12457,7 +12457,7 @@ function LavoriPrivatiSuite({
 
 
 
-function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRefresh, onUpdateStato, onFissaAppuntamento }) {
+function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRefresh, onUpdateStato, onFissaAppuntamento, onConvertiPiano, onAnnullaRichiesta }) {
   const [filtroStato, setFiltroStato] = useState('tutte');
   const [search, setSearch] = useState('');
   const [richiestaAperta, setRichiestaAperta] = useState(null);
@@ -12644,26 +12644,10 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                     </div>
                     {item.note && <p className="mt-3 line-clamp-2 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{String(item.note).replace(/APPUNTAMENTO_CSP:[^\n]*/g, '').trim() || 'Appuntamento salvato.'}</p>}
                   </button>
-                  <div className="flex min-w-[220px] flex-col gap-2 rounded-3xl border border-slate-100 bg-slate-50/70 p-3">
-                    <div className={`self-start rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(stato)}`}>
+                  <div className="flex shrink-0 items-start justify-end lg:min-w-[170px]">
+                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] shadow-sm ${statoBadgeClass(stato)}`}>
                       {String(stato).toLowerCase() === 'appuntamento' ? 'Appuntamento fissato' : stato}
-                    </div>
-                    {item.richiedente_telefono && (
-                      <a href={telHref} className="group flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:text-emerald-700 hover:ring-emerald-200" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-base">📞</span>
-                        <span className="truncate">{item.richiedente_telefono}</span>
-                      </a>
-                    )}
-                    {item.richiedente_email && (
-                      <a href={mailHref} className="group flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:text-emerald-700 hover:ring-emerald-200" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-base">✉️</span>
-                        <span className="truncate">{item.richiedente_email}</span>
-                      </a>
-                    )}
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateStato?.(item.id, 'contattata'); }} className="rounded-xl bg-sky-50 px-2 py-2 text-[10px] font-black text-sky-700">Contattata</button>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onUpdateStato?.(item.id, 'chiusa'); }} className="rounded-xl bg-slate-100 px-2 py-2 text-[10px] font-black text-slate-700">Chiudi</button>
-                    </div>
+                    </span>
                   </div>
                 </div>
               </article>
@@ -12688,10 +12672,29 @@ function GestoreRichiesteUpgradeCspSuite({ richieste = [], condomini = [], onRef
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Telefono</p>
                   <p className="mt-1 text-sm font-black text-slate-800">{richiestaAperta.richiedente_telefono || 'Non indicato'}</p>
+                  {richiestaAperta.richiedente_telefono && (
+                    <a href={`tel:${String(richiestaAperta.richiedente_telefono || '').replace(/\D/g, '')}`} className="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
+                      Chiama
+                    </a>
+                  )}
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Email</p>
-                  <p className="mt-1 break-all text-sm font-black text-slate-800">{richiestaAperta.richiedente_email || 'Non indicata'}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Richiesta</p>
+                  <p className="mt-1 break-all text-sm font-black text-slate-800">{richiestaAperta.richiedente_email || 'Email non indicata'}</p>
+                  <p className="mt-2 text-xs font-bold text-slate-500">Da CSP {String(richiestaAperta.piano_attuale || 'base').toUpperCase()} a CSP {String(richiestaAperta.piano_richiesto || 'upgrade').toUpperCase()}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statoBadgeClass(richiestaAperta.stato || 'nuova')}`}>{String(richiestaAperta.stato || 'nuova').toLowerCase() === 'appuntamento' ? 'Appuntamento fissato' : richiestaAperta.stato || 'nuova'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Azioni CRM</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <button type="button" onClick={async () => { await onUpdateStato?.(richiestaAperta.id, 'contattata'); setRichiestaAperta((prev) => prev ? { ...prev, stato: 'contattata' } : prev); }} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700 ring-1 ring-sky-100">Contattato</button>
+                  <button type="button" onClick={async () => { await onConvertiPiano?.(richiestaAperta, 'plus'); setRichiestaAperta(null); }} className="rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-sky-900/20">Converti Plus</button>
+                  <button type="button" onClick={async () => { await onConvertiPiano?.(richiestaAperta, 'premium'); setRichiestaAperta(null); }} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-900/20">Converti Premium</button>
+                  <button type="button" onClick={async () => { const ok = window.confirm('Annullare la richiesta upgrade? Il condominio potrà inviarne una nuova in futuro.'); if (!ok) return; await onAnnullaRichiesta?.(richiestaAperta); setRichiestaAperta(null); }} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 ring-1 ring-slate-200">Annulla richiesta</button>
                 </div>
               </div>
 
@@ -13006,7 +13009,14 @@ function HomeIntelligenteCondomino({
           sottotitolo: `${primoCondominio} · CSP ${pianoRichiesto}`,
           dettaglio: dettaglioApp,
           cta: 'Apri Home →',
-          onClick: () => onGoToSection?.('home-intelligente'),
+          focusId: 'home-upgrade-appuntamento',
+          onClick: () => {
+            onGoToSection?.('home-intelligente');
+            window.setTimeout(() => {
+              const target = document.getElementById('home-upgrade-appuntamento');
+              target?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+            }, 120);
+          },
         });
       }
       return creaBolla({
@@ -13273,7 +13283,7 @@ function HomeIntelligenteCondomino({
           </div>
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {bolleAttenzione.map((item) => (
-              <button key={item.id} type="button" onClick={item.onClick} className={`rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${tonoBollaClass(item.tono)}`}>
+              <button key={item.id} id={item.focusId || undefined} type="button" onClick={item.onClick} className={`rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${tonoBollaClass(item.tono)}`}>
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">{item.icona}</span>
                   <div className="min-w-0 flex-1">
@@ -14369,6 +14379,21 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
   const apriNotificaCentro = (notifica) => {
     const tipo = String(notifica?.tipo || '').toLowerCase().trim();
     const riferimentoId = Number(notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || 0);
+
+    if (tipo.includes('upgrade_csp') || tipo.includes('upgrade csp')) {
+      if (['condominio', 'condomino'].includes(ruoloNormalizzato)) {
+        setCondominoSection('home-intelligente');
+        window.setTimeout(() => {
+          const target = document.getElementById('home-upgrade-appuntamento');
+          target?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        }, 160);
+      } else if (ruoloNormalizzato === 'gestore') {
+        setGestoreSection('richieste-upgrade-csp');
+      } else if (isAmministratoreOperativo) {
+        setAmministratoreSection('home-intelligente');
+      }
+      return;
+    }
 
     if (riferimentoId && !tipo.includes('rivista') && !tipo.includes('report') && !tipo.includes('contratto') && !tipo.includes('abbonamento') && !tipo.includes('casp') && !tipo.includes('casep') && !tipo.includes('capitolato') && !tipo.includes('lsp') && !tipo.includes('lavori_privati') && !tipo.includes('lavoro_privato')) {
       const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
@@ -16650,6 +16675,60 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     }
   };
 
+
+  const annullaRichiestaUpgradeCsp = async (richiesta) => {
+    const richiestaId = richiesta?.id || richiesta;
+    if (!richiestaId) return;
+    try {
+      const { error } = await supabase
+        .from('richieste_upgrade_csp')
+        .delete()
+        .eq('id', richiestaId);
+
+      if (error) throw error;
+      setRichiesteUpgradeCsp((prev) => (prev || []).filter((item) => String(item.id) !== String(richiestaId)));
+      mostraToast('Richiesta annullata', 'Il condominio potrà inviare una nuova richiesta upgrade in futuro.', 'success');
+      await carica();
+    } catch (error) {
+      console.error(error);
+      mostraToast('Errore annullamento', error.message || 'Richiesta non annullata.', 'error');
+      throw error;
+    }
+  };
+
+  const convertiRichiestaUpgradeCsp = async (richiesta, pianoFinale) => {
+    const piano = normalizzaPianoAbbonamento(pianoFinale || richiesta?.piano_richiesto || 'plus');
+    if (!richiesta?.condominio_id || !['plus', 'premium'].includes(piano)) return;
+    const condominio = (condomini || []).find((item) => Number(item.id) === Number(richiesta.condominio_id));
+    const famiglie = getNumeroFamiglieCondominio(condominio) || Number(richiesta?.famiglie || 0) || 1;
+    const config = PIANI_ABBONAMENTO[piano] || PIANI_ABBONAMENTO.plus;
+    const ricavoMensile = famiglie * Number(config.costo || 0);
+
+    await creaContratto({
+      condominio_id: Number(richiesta.condominio_id),
+      piano,
+      famiglie,
+      costo_unitario: config.costo,
+      ricavo_mensile: ricavoMensile,
+      ricavo_annuo: ricavoMensile * 12,
+      gruppo_whatsapp_attivo: config.whatsapp,
+      app_attiva: config.app,
+    });
+
+    try {
+      await supabase
+        .from('richieste_upgrade_csp')
+        .update({ stato: 'chiusa', gestore_note: `Convertita in CSP ${String(piano).toUpperCase()}` })
+        .eq('id', richiesta.id);
+    } catch (error) {
+      console.warn('Richiesta upgrade convertita ma non archiviata:', error);
+    }
+
+    setRichiesteUpgradeCsp((prev) => (prev || []).map((item) => String(item.id) === String(richiesta.id) ? { ...item, stato: 'chiusa', gestore_note: `Convertita in CSP ${String(piano).toUpperCase()}` } : item));
+    mostraToast('Upgrade convertito', `Abbonamento CSP ${String(piano).toUpperCase()} attivato.`, 'success');
+    await carica();
+  };
+
   const fissaAppuntamentoRichiestaUpgradeCsp = async (richiesta, appuntamento = {}) => {
     const richiestaId = richiesta?.id;
     if (!richiestaId || !appuntamento?.data || !appuntamento?.ora) return;
@@ -17084,6 +17163,8 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
             onRefresh={carica}
             onUpdateStato={aggiornaRichiestaUpgradeCsp}
             onFissaAppuntamento={fissaAppuntamentoRichiestaUpgradeCsp}
+            onConvertiPiano={convertiRichiestaUpgradeCsp}
+            onAnnullaRichiesta={annullaRichiestaUpgradeCsp}
           />
         )}
 
