@@ -4,8 +4,8 @@ import OneSignal from 'react-onesignal';
 
 const SUPABASE_URL = 'https://tqeiytzscddfgttgbsgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZWl5dHpzY2RkZmd0dGdic2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTg1NzgsImV4cCI6MjA5MjQ3NDU3OH0.8tn5-MZsgpY-Ql77PRI1jYTBz1FeAlf0wi2xyNVkJfU';
-const APP_VERSION = '1.0.21';
-const APP_VERSION_LABEL = 'CSP v1.0.21';
+const APP_VERSION = '1.0.22';
+const APP_VERSION_LABEL = 'CSP v1.0.22';
 const isValoreVero = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const LOGO_SRC = '/brand/csp-logo-sidebar.png';
 const SPLASH_LOGO_SRC = '/brand/csp-monogram-splash.png';
@@ -470,6 +470,27 @@ function formatEuro(value) {
 function formatCurrency(value) {
   return formatEuro(value);
 }
+
+function formatPromoPrezzo(value) {
+  if (value === null || value === undefined) return 'Su richiesta';
+  const raw = String(value).trim();
+  if (!raw) return 'Su richiesta';
+  if (raw.includes('€')) return raw;
+  const parseNumber = (text) => {
+    const cleaned = String(text || '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+  if (/^[0-9\s.,]+$/.test(raw)) {
+    const n = parseNumber(raw);
+    return n === null ? raw : formatEuro(n);
+  }
+  return raw.replace(/([0-9][0-9\s.,]*)/, (match) => {
+    const n = parseNumber(match);
+    return n === null ? match : formatEuro(n);
+  });
+}
+
 
 function formatNotificaTempo(value) {
   if (!value) return '';
@@ -13636,6 +13657,2851 @@ function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
 }
 
 
+function PromoSenzaPensieriSuite({ promo, promoInteressi = [], promoVoti = [], condomini = [], contratti = [], utentiSistema = [], utentiCondomini = [], ruolo, canCreate = false, onOpenCreate, onRiproponi, onRichiediAmministratore, onPrenotaIntervento, onConfermaPrenotazione, onAvviaVotazionePromo, onVotaPromo, currentUserEmail = '', onRefreshPromo, promoEvidenzaId = null, promoCondominioEvidenzaId = null, promoDeeplinkTick = 0 }) {
+  const [filtroGestore, setFiltroGestore] = useState('tutte');
+  const [ricercaPromo, setRicercaPromo] = useState('');
+  const [promoSchedaPopupId, setPromoSchedaPopupId] = useState(null);
+  const [promoRichiesteLocali, setPromoRichiesteLocali] = useState({});
+  const [promoActionLoading, setPromoActionLoading] = useState(null);
+  const [condominiSceltiPromo, setCondominiSceltiPromo] = useState({});
+  const [promoCondominioPopup, setPromoCondominioPopup] = useState(null);
+  const [promoPrenotaAltroCondominio, setPromoPrenotaAltroCondominio] = useState('');
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isGestore = ruoloNorm === 'gestore';
+  const isCondomino = ['condominio', 'condomino'].includes(ruoloNorm);
+  const isOperativo = ['amministratore', 'collaboratore'].includes(ruoloNorm);
+
+  const condominiDisponibili = Array.isArray(condomini) ? condomini : [];
+  const nomeCondominioPromo = (id) => condominiDisponibili.find((c) => String(c.id) === String(id))?.nome || `Condominio ${id}`;
+  const nomeCompletoUtentePromo = (email, fallback = '', condominioId = null) => {
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const utenteMatch = (utentiSistema || []).find((u) => String(u?.email || '').toLowerCase().trim() === cleanEmail);
+    const collegamentoMatch = (utentiCondomini || []).find((row) => {
+      const sameEmail = String(row?.email || '').toLowerCase().trim() === cleanEmail;
+      if (!sameEmail) return false;
+      if (condominioId === null || condominioId === undefined || condominioId === '') return true;
+      return String(row?.condominio_id) === String(condominioId);
+    });
+    const nome = String(utenteMatch?.nome || fallback || '').trim();
+    const cognome = String(collegamentoMatch?.cognome || utenteMatch?.cognome || '').trim();
+    const nomeCognome = [nome, cognome].filter(Boolean).join(' ').trim();
+    const fallbackPulito = String(fallback || '').trim();
+    return nomeCognome || fallbackPulito || cleanEmail || 'Condòmino';
+  };
+  const condominioSceltoPerPromo = (item) => {
+    const idSalvato = condominiSceltiPromo?.[item?.id];
+    if (idSalvato) return idSalvato;
+    return condominiDisponibili?.[0]?.id || '';
+  };
+  const setCondominioSceltoPerPromo = (promoId, condominioId) => {
+    setCondominiSceltiPromo((prev) => ({ ...prev, [promoId]: condominioId }));
+  };
+
+  const asNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const dataFine = (item) => item?.validita_al ? new Date(item.validita_al) : null;
+  const disponibilitaResidua = (item) => {
+    const limite = asNumber(item?.limite_quantita);
+    if (!limite) return null;
+    return Math.max(limite - asNumber(item?.prenotazioni_attuali), 0);
+  };
+
+  const statoPromo = (item) => {
+    if (!item) return 'bozza';
+    const statoManuale = String(item.stato || '').toLowerCase().trim();
+    if (['bozza', 'chiusa'].includes(statoManuale)) return statoManuale;
+
+    const limite = asNumber(item.limite_quantita);
+    const prenotate = asNumber(item.prenotazioni_attuali);
+    if (limite > 0 && prenotate >= limite) return 'esaurita';
+
+    const fine = dataFine(item);
+    if (fine && fine < oggi) return 'scaduta';
+
+    if (statoManuale === 'esaurita' || statoManuale === 'scaduta') return statoManuale;
+    if (statoManuale === 'attiva' || item.attiva !== false) return 'attiva';
+    return 'bozza';
+  };
+
+  const isAttiva = (item) => statoPromo(item) === 'attiva';
+  const formatDate = (value) => value ? new Date(value).toLocaleDateString('it-IT') : 'n.d.';
+
+  const badgeClass = (stato) => ({
+    bozza: 'bg-amber-100 text-amber-700',
+    attiva: 'bg-emerald-100 text-emerald-700',
+    esaurita: 'bg-red-100 text-red-700',
+    scaduta: 'bg-slate-200 text-slate-500',
+    chiusa: 'bg-blue-100 text-blue-700',
+  }[stato] || 'bg-slate-100 text-slate-500');
+
+  const badgeLabel = (stato) => ({
+    bozza: 'Bozza',
+    attiva: 'Attiva',
+    esaurita: 'Esaurita',
+    scaduta: 'Scaduta',
+    chiusa: 'Chiusa',
+  }[stato] || stato || 'Promo');
+
+  const promoOrdinate = [...(promo || [])].sort((a, b) => {
+    const dateA = new Date(a.validita_dal || a.inviata_at || a.created_at || 0).getTime();
+    const dateB = new Date(b.validita_dal || b.inviata_at || b.created_at || 0).getTime();
+    return dateB - dateA;
+  });
+  const promoDeeplink = promoEvidenzaId
+    ? promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId))
+    : null;
+  const promoSchedaPopup = promoSchedaPopupId
+    ? promoOrdinate.find((item) => String(item.id) === String(promoSchedaPopupId))
+    : null;
+  const promoAttiveOrdinate = promoOrdinate.filter(isAttiva);
+  // Le promo attive diventano tutte vetrine autonome: più opportunità visibili, più cross selling.
+  // L'archivio resta dedicato alle promo non più attive, apribili in scheda popup.
+  const promoAttiva = promoDeeplink && isAttiva(promoDeeplink) ? promoDeeplink : null;
+  const promoAttiveVetrina = promoAttiva
+    ? [promoAttiva, ...promoAttiveOrdinate.filter((item) => String(item.id) !== String(promoAttiva.id))]
+    : promoAttiveOrdinate;
+  const archivioBase = promoOrdinate.filter((item) => !isAttiva(item));
+  const queryPromo = ricercaPromo.toLowerCase().trim();
+  const matchRicerca = (item) => !queryPromo || [item?.titolo, item?.descrizione]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(queryPromo));
+  const archivio = isGestore
+    ? archivioBase.filter((item) => (filtroGestore === 'tutte' || statoPromo(item) === filtroGestore) && matchRicerca(item))
+    : archivioBase.filter(matchRicerca).slice(0, 5);
+
+  const prenotazioniPromo = (item) => (promoInteressi || []).filter((r) =>
+    String(r?.promo_id) === String(item?.id) &&
+    String(r?.azione || '').toLowerCase() === 'prenotazione' &&
+    String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+  );
+
+  const prenotazionePromoPerCondominio = (item, condominioId) => (promoInteressi || []).find((r) =>
+    String(r?.promo_id) === String(item?.id) &&
+    String(r?.condominio_id) === String(condominioId) &&
+    String(r?.azione || '').toLowerCase() === 'prenotazione' &&
+    String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+  ) || null;
+
+  const prenotazionePromoConPratica = (item, condominioId) => {
+    const prenotazione = prenotazionePromoPerCondominio(item, condominioId);
+    const stato = String(prenotazione?.stato || '').toLowerCase();
+    const segnalazioneId = prenotazione?.segnalazione_id || prenotazione?.segnalazioneId || null;
+    return Boolean(prenotazione && (segnalazioneId || stato === 'confermato'));
+  };
+
+  const votazionePromoPerCondominio = (item, condominioId) => (promoInteressi || []).find((r) => {
+    const azione = String(r?.azione || '').toLowerCase();
+    const stato = String(r?.stato || '').toLowerCase();
+    return String(r?.promo_id) === String(item?.id) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      (azione.includes('votazione') || stato === 'votazione_in_corso') &&
+      stato !== 'annullato';
+  }) || null;
+
+  const interessiCondominiPromo = (item) => {
+    const idsVisibili = new Set(condominiDisponibili.map((c) => String(c.id)));
+    const righe = (promoInteressi || []).filter((r) =>
+      String(r?.promo_id) === String(item?.id) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
+      (!idsVisibili.size || idsVisibili.has(String(r?.condominio_id)))
+    );
+
+    const mappa = new Map();
+
+    righe.forEach((r) => {
+      const key = String(r?.condominio_id || '');
+      if (!key) return;
+      if (!mappa.has(key)) mappa.set(key, { condominio_id: r.condominio_id, nome: nomeCondominioPromo(r.condominio_id), interessati: [] });
+      const gruppo = mappa.get(key);
+      const email = String(r?.email || '').toLowerCase();
+      if (!email || !gruppo.interessati.some((i) => String(i.email || '').toLowerCase() === email)) {
+        gruppo.interessati.push({ nome: nomeCompletoUtentePromo(r?.email, r?.nome, r?.condominio_id), email: r?.email || '' });
+      }
+    });
+
+    return Array.from(mappa.values()).sort((a, b) => {
+      if (b.interessati.length !== a.interessati.length) return b.interessati.length - a.interessati.length;
+      return a.nome.localeCompare(b.nome);
+    });
+  };
+
+  const condominioOperativoSelezionato = (item) => {
+    const id = condominioSceltoPerPromo(item);
+    const gruppi = interessiCondominiPromo(item);
+    return gruppi.find((g) => String(g.condominio_id) === String(id)) || gruppi[0] || null;
+  };
+
+  const totaleCondominiPromo = (condominioId) => {
+    const condominio = condominiDisponibili.find((c) => String(c.id) === String(condominioId));
+    return getNumeroFamiglieCondominio(condominio || {});
+  };
+
+  const percentualeInteressePromo = (gruppo) => {
+    const totale = totaleCondominiPromo(gruppo?.condominio_id);
+    if (!totale) return null;
+    return Math.min(100, Math.round(((gruppo?.interessati?.length || 0) / totale) * 100));
+  };
+
+  const pianoCondominioPromo = (condominioId) => getPianoAbbonamentoCondominio(condominioId, contratti);
+  const puoAvviareVotazionePromo = (condominioId) => canUseSubscriptionFeature(pianoCondominioPromo(condominioId), 'plus');
+
+  const votiPromoPerCondominio = (promoId, condominioId) => (promoVoti || []).filter((v) =>
+    String(v?.promo_id) === String(promoId) &&
+    String(v?.condominio_id) === String(condominioId)
+  );
+
+  const riepilogoVotiPromo = (promoId, condominioId) => {
+    const righe = votiPromoPerCondominio(promoId, condominioId);
+    const emailVotanti = new Set(righe.map((v) => String(v?.email || '').toLowerCase().trim()).filter(Boolean));
+    const interessiFavorevoli = (promoInteressi || []).filter((r) =>
+      String(r?.promo_id) === String(promoId) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
+      !emailVotanti.has(String(r?.email || '').toLowerCase().trim())
+    );
+    const favorevoliEspliciti = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+    const favorevoli = favorevoliEspliciti + interessiFavorevoli.length;
+    const contrari = righe.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
+    const totale = totaleCondominiPromo(condominioId) || 0;
+    const votanti = righe.length + interessiFavorevoli.length;
+    const partecipazione = totale ? Math.round((votanti / totale) * 100) : null;
+    return { righe, favorevoli, favorevoliEspliciti, favorevoliImpliciti: interessiFavorevoli.length, contrari, votanti, totale, partecipazione };
+  };
+
+  const votoUtentePromo = (promoId, condominioId) => {
+    const email = String(currentUserEmail || '').toLowerCase().trim();
+    if (!email) return null;
+    return votiPromoPerCondominio(promoId, condominioId).find((v) => String(v?.email || '').toLowerCase().trim() === email) || null;
+  };
+
+  const interesseUtentePromo = (promoId, condominioId) => {
+    const email = String(currentUserEmail || '').toLowerCase().trim();
+    if (!promoId || !condominioId || !email) return null;
+    const localKey = `${promoId}::${condominioId}::${email}`;
+    if (promoRichiesteLocali?.[localKey]) return promoRichiesteLocali[localKey];
+    return (promoInteressi || []).find((r) =>
+      String(r?.promo_id) === String(promoId) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato' &&
+      String(r?.email || '').toLowerCase().trim() === email
+    ) || null;
+  };
+
+  const interesseCondominioPromo = (promoId, condominioId) => {
+    if (!promoId || !condominioId) return null;
+    return (promoInteressi || []).find((r) =>
+      String(r?.promo_id) === String(promoId) &&
+      String(r?.condominio_id) === String(condominioId) &&
+      String(r?.azione || '').toLowerCase().includes('interesse') &&
+      String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+    ) || null;
+  };
+
+  const gruppoPromoPopup = (() => {
+    if (!promoCondominioPopup?.promoId || !promoCondominioPopup?.condominioId) return null;
+    const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoCondominioPopup.promoId));
+    if (!promoItem) return null;
+    const gruppo = interessiCondominiPromo(promoItem).find((g) => String(g.condominio_id) === String(promoCondominioPopup.condominioId));
+    if (gruppo) return { promo: promoItem, gruppo };
+    return {
+      promo: promoItem,
+      gruppo: {
+        condominio_id: promoCondominioPopup.condominioId,
+        nome: nomeCondominioPromo(promoCondominioPopup.condominioId),
+        interessati: [],
+      },
+    };
+  })();
+
+  useEffect(() => {
+    if (!isOperativo || !promoEvidenzaId || !promoCondominioEvidenzaId) return;
+    const promoItem = promoOrdinate.find((item) => String(item.id) === String(promoEvidenzaId));
+    if (!promoItem) return;
+    setCondominioSceltoPerPromo(promoItem.id, promoCondominioEvidenzaId);
+    setPromoCondominioPopup({ promoId: promoItem.id, condominioId: promoCondominioEvidenzaId });
+  }, [isOperativo, promoEvidenzaId, promoCondominioEvidenzaId, promoDeeplinkTick, promoInteressi, promo?.length, condominiDisponibili?.length]);
+
+  const apriPromoInEvidenza = (item) => {
+    if (!item?.id) return;
+    setPromoSchedaPopupId(item.id);
+    setPromoCondominioPopup(null);
+  };
+
+  const ctaLabelFor = (item) => {
+    const tipo = String(item?.cta_tipo || '').toLowerCase().trim();
+    if (isCondomino) return 'Chiedila al tuo amministratore';
+    if (isOperativo) return 'Prenota intervento';
+    if (tipo === 'scopri_promo') return 'Scopri la promozione';
+    if (tipo === 'richiedi_info') return 'Richiedi informazioni';
+    return item?.cta_testo || 'Apri promozione';
+  };
+
+  const handlePromoCta = async (item) => {
+    if (!item?.id) return;
+
+    if (isCondomino && typeof onRichiediAmministratore === 'function') {
+      const condominioIdRichiesta = condominioSceltoPerPromo(item);
+      try {
+        setPromoActionLoading(item.id);
+        const result = await onRichiediAmministratore(item, condominioIdRichiesta);
+        if (result !== null && result !== false) {
+          const email = String(currentUserEmail || '').toLowerCase().trim();
+          const localKey = `${item.id}::${condominioIdRichiesta}::${email}`;
+          setPromoRichiesteLocali((prev) => ({
+            ...prev,
+            [localKey]: {
+              promo_id: item.id,
+              condominio_id: condominioIdRichiesta,
+              email,
+              azione: 'interesse',
+              stato: 'richiesto',
+            },
+          }));
+          try { await onRefreshPromo?.(); } catch (_) {}
+        }
+      } finally {
+        setPromoActionLoading(null);
+      }
+      return;
+    }
+
+    if (isOperativo && typeof onPrenotaIntervento === 'function') {
+      try {
+        setPromoActionLoading(item.id);
+        await onPrenotaIntervento(item, condominioSceltoPerPromo(item));
+      } finally {
+        setPromoActionLoading(null);
+      }
+      return;
+    }
+
+    if (isOperativo) {
+      alert('Prenotazione promo predisposta, ma il collegamento al gestore non è disponibile in questo profilo.');
+      return;
+    }
+
+    alert('Azione promo predisposta.');
+  };
+
+  const PromoHero = ({ item }) => {
+    const stato = statoPromo(item);
+    const residua = disponibilitaResidua(item);
+    const ultime = residua !== null && residua > 0 && residua <= 3;
+    const esaurita = stato === 'esaurita';
+    const isVotazionePromoDeeplink = isCondomino && String(item.id) === String(promoEvidenzaId) && promoCondominioEvidenzaId;
+    const condominioVotazioneNome = isVotazionePromoDeeplink ? nomeCondominioPromo(promoCondominioEvidenzaId) : '';
+    const condominioCtaId = isCondomino ? condominioSceltoPerPromo(item) : '';
+    const richiestaUtenteInviata = isCondomino ? interesseUtentePromo(item.id, condominioCtaId) : null;
+    const interesseCondominioPresente = isCondomino ? interesseCondominioPromo(item.id, condominioCtaId) : null;
+
+    return (
+      <article id="promo-senza-pensieri-hero" className="overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 shadow-xl shadow-amber-950/10">
+        {item.immagine_url ? (
+          <div className="h-52 overflow-hidden bg-slate-100 md:h-64">
+            <img src={item.immagine_url} alt={item.titolo || 'Promo Senza Pensieri'} className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-yellow-600 to-slate-950 p-6 text-white md:p-8">
+            <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-yellow-200/25 blur-3xl" />
+            <p className="relative text-xs font-black uppercase tracking-[0.28em] text-yellow-100">Promo Senza Pensieri</p>
+            <h3 className="relative mt-3 max-w-2xl text-3xl font-black leading-tight md:text-4xl">{item.titolo}</h3>
+          </div>
+        )}
+        <div className="p-5 md:p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
+            {item.validita_al && <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Fino al {formatDate(item.validita_al)}</span>}
+            {ultime && <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-orange-700">Ultime {residua} disponibilità</span>}
+            {item.limite && <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-600">{item.limite}</span>}
+          </div>
+          {item.immagine_url && <h3 className="mt-4 text-2xl font-black text-slate-900 md:text-3xl">{item.titolo}</h3>}
+          {item.descrizione && <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{item.descrizione}</p>}
+          {isCondomino && condominiDisponibili.length > 1 && !isVotazionePromoDeeplink && (
+            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <label className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Per quale condominio vuoi richiederla?</label>
+              <select
+                value={condominioSceltoPerPromo(item)}
+                onChange={(e) => setCondominioSceltoPerPromo(item.id, e.target.value)}
+                className="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+              >
+                {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
+              </select>
+              <p className="mt-2 text-xs font-semibold text-emerald-800">La richiesta arriverà all’amministrazione del condominio selezionato.</p>
+            </div>
+          )}
+          {isVotazionePromoDeeplink && (
+            <div className="mt-4 rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4 shadow-sm">
+              {(() => {
+                const condominioVotoId = promoCondominioEvidenzaId;
+                const votoGiaDato = votoUtentePromo(item.id, condominioVotoId);
+                return (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione promo</p>
+                        <h4 className="mt-1 text-lg font-black text-slate-900">{condominioVotazioneNome}</h4>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-indigo-700 shadow-sm">Parere condòmini</span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+                      È stata avviata una votazione per valutare l'attivazione della promozione <span className="font-black text-slate-900">“{item.titolo}”</span> per il tuo condominio.
+                      {item.validita_al ? <> L'offerta è valida fino al <span className="font-black text-slate-900">{formatDate(item.validita_al)}</span>.</> : null}
+                    </p>
+                    {item.descrizione && (
+                      <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-600 shadow-sm">
+                        {item.descrizione}
+                      </div>
+                    )}
+                    {item.prezzo && (
+                      <div className="mt-3 w-fit rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Prezzo promo</p>
+                        <p className="mt-1 text-xl font-black text-slate-900">{formatPromoPrezzo(item.prezzo)}</p>
+                      </div>
+                    )}
+                    {votoGiaDato ? (
+                      <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-800 shadow-sm">Hai già votato: {String(votoGiaDato.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</p>
+                    ) : (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'favorevole')} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">👍 Favorevole</button>
+                        <button type="button" onClick={() => onVotaPromo?.(item, condominioVotoId, 'contrario')} className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-red-600 shadow-sm ring-1 ring-red-100">👎 Contrario</button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+          {esaurita && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">Tutte le disponibilità previste per questa iniziativa sono state assegnate.</p>}
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Offerta</p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{formatPromoPrezzo(item.prezzo)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Validità</p>
+              <p className="mt-1 text-sm font-black text-slate-800">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Disponibilità</p>
+              <p className="mt-1 text-sm font-black text-slate-800">{residua !== null ? `${residua} residue su ${item.limite_quantita}` : (item.limite || 'Fino a scadenza promo')}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            {!isOperativo && !isVotazionePromoDeeplink && (
+              <>
+                <button
+                  type="button"
+                  disabled={stato !== 'attiva' || Boolean(richiestaUtenteInviata)}
+                  onClick={() => handlePromoCta(item)}
+                  className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+                >
+                  {richiestaUtenteInviata
+                    ? 'Richiesta inviata'
+                    : (promoActionLoading === item.id ? 'Invio in corso...' : (stato === 'esaurita' ? 'Promo esaurita' : ctaLabelFor(item)))}
+                </button>
+                {richiestaUtenteInviata ? (
+                  <span className="rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">Richiesta già inviata per questo condominio.</span>
+                ) : interesseCondominioPresente ? (
+                  <span className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-black text-amber-700 ring-1 ring-amber-100">Un condòmino ha già manifestato interesse.</span>
+                ) : null}
+              </>
+            )}
+            {isGestore && prenotazioniPromo(item).length > 0 && typeof onConfermaPrenotazione === 'function' && (
+              <button
+                type="button"
+                onClick={() => onConfermaPrenotazione(item, prenotazioniPromo(item)[0])}
+                className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm"
+              >
+                Conferma prenotazione ({prenotazioniPromo(item).length})
+              </button>
+            )}
+            {item.cta_url && stato === 'attiva' && (
+              <a href={item.cta_url} target="_blank" rel="noreferrer" className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700">
+                {item.cta_texto || item.cta_testo || 'Scopri di più'}
+              </a>
+            )}
+          </div>
+        </div>
+      </article>
+    );
+  };
+
+
+  const PromoCondominiOperativiBox = ({ item }) => {
+    if (!isOperativo || !item) return null;
+    const gruppi = interessiCondominiPromo(item);
+    const interessatiTotali = gruppi.reduce((sum, gruppo) => sum + (gruppo.interessati?.length || 0), 0);
+    const promoPrenotabile = statoPromo(item) === 'attiva' && condominiDisponibili.length > 0;
+
+    return (
+      <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm shadow-emerald-950/5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Portafoglio amministrato</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Opportunità per i tuoi condomìni</h3>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Le richieste ricevute dai tuoi condomìni compariranno qui. Puoi inoltre valutare autonomamente questa opportunità e prenotarla direttamente per i condomìni che ritieni più adatti.
+            </p>
+          </div>
+          <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+            {interessatiTotali} interessat{interessatiTotali === 1 ? 'o' : 'i'} totali
+          </span>
+        </div>
+
+        {gruppi.length > 0 && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {gruppi.map((gruppo) => {
+              const count = gruppo.interessati?.length || 0;
+              const totale = totaleCondominiPromo(gruppo.condominio_id);
+              const percentuale = percentualeInteressePromo(gruppo);
+
+              return (
+                <button
+                  key={gruppo.condominio_id}
+                  type="button"
+                  onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: gruppo.condominio_id })}
+                  className="w-full rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-left shadow-sm shadow-emerald-950/5 transition hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-black text-slate-900">{gruppo.nome}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        {count} condòmin{count === 1 ? 'o interessato' : 'i interessati'}{totale ? ` su ${totale}` : ''}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                      {percentuale !== null ? `${percentuale}%` : 'Apri'}
+                    </span>
+                  </div>
+                  {percentuale !== null && (
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, percentuale)}%` }} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {promoPrenotabile ? (
+          <div className="mt-4 rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Prenotazione diretta</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+              <select
+                value={promoPrenotaAltroCondominio || condominiDisponibili[0]?.id || ''}
+                onChange={(e) => setPromoPrenotaAltroCondominio(e.target.value)}
+                className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+              >
+                {condominiDisponibili.map((c) => <option key={c.id} value={c.id}>{c.nome || `Condominio ${c.id}`}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={() => setPromoCondominioPopup({ promoId: item.id, condominioId: promoPrenotaAltroCondominio || condominiDisponibili[0]?.id })}
+                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white"
+              >
+                Apri scheda
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+            Questa promozione non è più prenotabile. Le eventuali richieste restano disponibili come storico della campagna.
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const filtri = ['tutte', 'attiva', 'bozza', 'esaurita', 'scaduta', 'chiusa'];
+
+  return (
+    <section className="space-y-4 pb-8">
+      {canCreate && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onOpenCreate}
+            className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+          >
+            + Nuova Promo
+          </button>
+        </div>
+      )}
+
+      {promoAttiveVetrina.length > 0 ? (
+        <div className="space-y-4">
+          {promoAttiveVetrina.map((item) => (
+            <div key={item.id} className="space-y-4">
+              <PromoHero item={item} />
+              <PromoCondominiOperativiBox item={item} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          icon="💚"
+          title="Nessuna promo attiva"
+          text={canCreate ? 'Crea la prima promozione periodica per attivare il canale commerciale interno CSP.' : 'Quando sarà disponibile una nuova opportunità, la troverai qui in evidenza.'}
+          action="Vetrina pronta"
+          tone="emerald"
+        />
+      )}
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-lg font-black text-slate-900">{isGestore ? 'Archivio Promo' : 'Archivio ultime promo'}</h3>
+          </div>
+          {isGestore ? (
+            <div className="flex flex-wrap gap-2">
+              {filtri.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFiltroGestore(f)}
+                  className={`rounded-full px-3 py-1 text-xs font-black capitalize ${filtroGestore === f ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                >
+                  {f === 'tutte' ? 'Tutte' : badgeLabel(f)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{archivio.length}/5</span>
+          )}
+        </div>
+        {isGestore && (
+          <input
+            className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+            placeholder="🔍 Cerca promo per titolo o descrizione..."
+            value={ricercaPromo}
+            onChange={(e) => setRicercaPromo(e.target.value)}
+          />
+        )}
+        {archivio.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">Archivio ancora vuoto.</div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {archivio.map((item) => {
+              const stato = statoPromo(item);
+              const residua = disponibilitaResidua(item);
+              return (
+                <article key={item.id} role="button" tabIndex={0} onClick={() => apriPromoInEvidenza(item)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apriPromoInEvidenza(item); } }} className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-emerald-200 hover:bg-white hover:shadow-md">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${badgeClass(stato)}`}>{badgeLabel(stato)}</span>
+                      <h4 className="mt-3 text-base font-black text-slate-900">{item.titolo}</h4>
+                      <p className="mt-1 text-xs font-bold text-slate-500">{formatDate(item.validita_dal)} — {formatDate(item.validita_al)}</p>
+                      {residua !== null && <p className="mt-2 text-xs font-black text-slate-500">Disponibilità residue: {residua}</p>}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <p className="rounded-xl bg-white px-3 py-2 text-sm font-black text-emerald-700 shadow-sm">{formatPromoPrezzo(item.prezzo)}</p>
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); apriPromoInEvidenza(item); }}
+                        className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
+                      >
+                        Apri promo
+                      </button>
+                      {isGestore && ['scaduta', 'esaurita', 'chiusa'].includes(stato) && (
+                        <button
+                          type="button"
+                          onClick={() => onRiproponi?.(item)}
+                          className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
+                        >
+                          Riproponi Promo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {promoSchedaPopup && (
+        <div className="fixed inset-0 z-[225] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+          <div className="mx-auto my-8 w-full max-w-4xl rounded-[2rem] border border-white/70 bg-white p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between gap-3 px-1">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">Scheda promo</p>
+                <h3 className="text-lg font-black text-slate-900">{promoSchedaPopup.titolo || 'Promo Senza Pensieri'}</h3>
+              </div>
+              <button type="button" onClick={() => setPromoSchedaPopupId(null)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
+            </div>
+            <PromoHero item={promoSchedaPopup} />
+          </div>
+        </div>
+      )}
+
+      {gruppoPromoPopup && (
+        <div className="fixed inset-0 z-[230] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+          <div className="mx-auto my-8 w-full max-w-2xl rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Scheda condominio promo</p>
+                <h3 className="mt-1 text-2xl font-black text-slate-900">{gruppoPromoPopup.gruppo.nome}</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{gruppoPromoPopup.promo.titolo}</p>
+              </div>
+              <button type="button" onClick={() => setPromoCondominioPopup(null)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Interessati</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{gruppoPromoPopup.gruppo.interessati.length}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Condòmini totali</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{totaleCondominiPromo(gruppoPromoPopup.gruppo.condominio_id) || 'n.d.'}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Incidenza</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{percentualeInteressePromo(gruppoPromoPopup.gruppo) !== null ? `${percentualeInteressePromo(gruppoPromoPopup.gruppo)}%` : 'n.d.'}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-black uppercase tracking-[0.16em] text-slate-700">Condòmini interessati</h4>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">Aggiornato ora</span>
+              </div>
+              {gruppoPromoPopup.gruppo.interessati.length ? (
+                <div className="mt-3 grid gap-2">
+                  {gruppoPromoPopup.gruppo.interessati.map((interessato) => (
+                    <div key={interessato.email || interessato.nome} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <p className="text-sm font-black text-slate-900">{interessato.nome || 'Condòmino'}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">Nessun condòmino ha ancora manifestato interesse per questo condominio.</p>
+              )}
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
+              {(() => {
+                const riepilogo = riepilogoVotiPromo(gruppoPromoPopup.promo.id, gruppoPromoPopup.gruppo.condominio_id);
+                const plusEnabled = puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id);
+                return (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Votazione condominiale</p>
+                        <h4 className="mt-1 text-lg font-black text-slate-900">Parere dei condòmini sulla promo</h4>
+                        {!plusEnabled && (
+                          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                            La votazione automatica consente di raccogliere il parere dei condòmini direttamente dall'app e attivare la promo in caso di approvazione. Funzione disponibile per condomìni Plus e Premium.
+                          </p>
+                        )}
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${plusEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500'}`}>
+                        {plusEnabled ? 'PLUS • PREMIUM' : '🔒 PLUS • PREMIUM'}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-4">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Favorevoli</p><p className="mt-1 text-2xl font-black text-emerald-700">{riepilogo.favorevoli}</p></div>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Contrari</p><p className="mt-1 text-2xl font-black text-red-600">{riepilogo.contrari}</p></div>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Votanti</p><p className="mt-1 text-2xl font-black text-slate-900">{riepilogo.votanti}/{riepilogo.totale || 'n.d.'}</p></div>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm"><p className="text-xs font-black text-slate-400 uppercase">Partecipazione</p><p className="mt-1 text-2xl font-black text-slate-900">{riepilogo.partecipazione !== null ? `${riepilogo.partecipazione}%` : 'n.d.'}</p></div>
+                    </div>
+                    {riepilogo.righe.length > 0 && (
+                      <div className="mt-3 grid gap-2">
+                        {riepilogo.righe.map((v) => (
+                          <div key={v.id || `${v.email}-${v.voto}`} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm shadow-sm">
+                            <span className="font-black text-slate-800">{nomeCompletoUtentePromo(v.email, v.nome, v.condominio_id)}</span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-black ${String(v.voto || '').toLowerCase().includes('fav') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{String(v.voto || '').toLowerCase().includes('fav') ? 'Favorevole' : 'Contrario'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            {statoPromo(gruppoPromoPopup.promo) !== 'attiva' && (
+              <p className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                Questa promozione è {badgeLabel(statoPromo(gruppoPromoPopup.promo)).toLowerCase()} e non può più essere prenotata. Gli interessi restano consultabili come storico della campagna.
+              </p>
+            )}
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {(() => {
+                const prenotazioneEsistente = prenotazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                const giaPrenotata = prenotazionePromoConPratica(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                const prenotazioneLoadingKey = `prenota-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
+                const disabledPrenota = statoPromo(gruppoPromoPopup.promo) !== 'attiva' || giaPrenotata || promoActionLoading === prenotazioneLoadingKey;
+                return (
+                  <button
+                    type="button"
+                    disabled={disabledPrenota}
+                    onClick={async () => {
+                      if (disabledPrenota) return;
+                      try {
+                        setPromoActionLoading(prenotazioneLoadingKey);
+                        const result = await onPrenotaIntervento?.(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                        if (result?.segnalazione?.id || result?.segnalazione_id) setPromoCondominioPopup(null);
+                      } finally {
+                        setPromoActionLoading(null);
+                      }
+                    }}
+                    className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+                  >
+                    {giaPrenotata ? 'Prenotata' : promoActionLoading === prenotazioneLoadingKey ? 'Prenotazione…' : statoPromo(gruppoPromoPopup.promo) === 'attiva' ? 'Prenota intervento' : 'Promo non più prenotabile'}
+                  </button>
+                );
+              })()}
+              {(() => {
+                const actionKey = `voto-${gruppoPromoPopup.promo?.id}-${gruppoPromoPopup.gruppo.condominio_id}`;
+                const votazioneInCorso = Boolean(votazionePromoPerCondominio(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id));
+                const plusEnabled = puoAvviareVotazionePromo(gruppoPromoPopup.gruppo.condominio_id);
+                const disabledVotazione = !plusEnabled || votazioneInCorso || promoActionLoading === actionKey;
+                return (
+                  <button
+                    type="button"
+                    disabled={disabledVotazione}
+                    onClick={async (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (disabledVotazione) return;
+                      if (typeof onAvviaVotazionePromo !== 'function') {
+                        console.warn('Handler onAvviaVotazionePromo non collegato alla sezione Promo.');
+                        alert('Funzione votazione non collegata alla sezione Promo.');
+                        return;
+                      }
+                      try {
+                        setPromoActionLoading(actionKey);
+                        await onAvviaVotazionePromo(gruppoPromoPopup.promo, gruppoPromoPopup.gruppo.condominio_id);
+                        await onRefreshPromo?.();
+                      } finally {
+                        setPromoActionLoading(null);
+                      }
+                    }}
+                    className="rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    {votazioneInCorso ? '🗳️ Votazione in corso' : promoActionLoading === actionKey ? 'Avvio votazione...' : (plusEnabled ? 'Avvia votazione' : '🔒 Riservato Plus/Premium')}
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function NuovaPromoModal({ onClose, onCreate, saving }) {
+  const [form, setForm] = useState({
+    titolo: '',
+    descrizione: '',
+    prezzo: '',
+    immagine_url: '',
+    validita_dal: new Date().toISOString().slice(0, 10),
+    validita_al: '',
+    cta_tipo: 'chiedi_amministratore',
+    cta_testo: 'Chiedila al tuo amministratore',
+    cta_url: '',
+    limite: '',
+    limite_quantita: '',
+    stato: 'attiva',
+    attiva: true,
+  });
+  const [errore, setErrore] = useState('');
+
+  const ctaOptions = [
+    { tipo: 'chiedi_amministratore', label: 'Chiedila al tuo amministratore' },
+    { tipo: 'prenota_intervento', label: 'Prenota intervento' },
+    { tipo: 'richiedi_info', label: 'Richiedi informazioni' },
+    { tipo: 'scopri_promo', label: 'Scopri la promozione' },
+    { tipo: 'richiedi_votazione', label: 'Richiedi votazione' },
+  ];
+
+  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const aggiornaCtaTipo = (tipo) => {
+    const selected = ctaOptions.find((item) => item.tipo === tipo) || ctaOptions[0];
+    setForm((prev) => ({ ...prev, cta_tipo: selected.tipo, cta_testo: selected.label }));
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+    if (!form.titolo.trim()) {
+      setErrore('Inserisci il titolo della promozione.');
+      return;
+    }
+    await onCreate(form);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <form onSubmit={submit} className="mx-auto my-6 w-full max-w-2xl rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Promo Senza Pensieri</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Nuova promozione</h3>
+            <p className="mt-1 text-sm text-slate-500">Crea una promo stagionale da mostrare nella vetrina interna CSP.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Chiudi</button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Titolo promo" value={form.titolo} onChange={(e) => update('titolo', e.target.value)} />
+          <textarea className="min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Descrizione" value={form.descrizione} onChange={(e) => update('descrizione', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Prezzo / offerta" value={form.prezzo} onChange={(e) => update('prezzo', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Testo limite es. Disponibilità limitata" value={form.limite} onChange={(e) => update('limite', e.target.value)} />
+          <input type="number" min="0" className="rounded-xl border border-slate-200 px-3 py-2" placeholder="Quantità massima es. 20" value={form.limite_quantita} onChange={(e) => update('limite_quantita', e.target.value)} />
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida dal<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_dal} onChange={(e) => update('validita_dal', e.target.value)} /></label>
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Valida fino al<input type="date" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.validita_al} onChange={(e) => update('validita_al', e.target.value)} /></label>
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">CTA tracciabile
+            <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.cta_tipo} onChange={(e) => aggiornaCtaTipo(e.target.value)}>
+              {ctaOptions.map((option) => <option key={option.tipo} value={option.tipo}>{option.label}</option>)}
+            </select>
+          </label>
+          <input className="rounded-xl border border-slate-200 px-3 py-2" placeholder="CTA URL opzionale" value={form.cta_url} onChange={(e) => update('cta_url', e.target.value)} />
+          <input className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" placeholder="Immagine URL opzionale" value={form.immagine_url} onChange={(e) => update('immagine_url', e.target.value)} />
+          <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:col-span-2">Stato promo
+            <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" value={form.stato} onChange={(e) => { update('stato', e.target.value); update('attiva', e.target.value === 'attiva'); }}>
+              <option value="bozza">Bozza</option>
+              <option value="attiva">Attiva</option>
+            </select>
+          </label>
+        </div>
+
+        {errore && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{errore}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600">Annulla</button>
+          <button type="submit" disabled={saving} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Salvataggio...' : (form.stato === 'attiva' ? 'Crea promo attiva' : 'Salva bozza')}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function PubblicaRivistaModal({ onClose, onPubblica, saving }) {
+  const [numero, setNumero] = useState('Numero 0');
+  const [periodo, setPeriodo] = useState('');
+  const [titolo, setTitolo] = useState('Condominio Senza Pensieri');
+  const [descrizione, setDescrizione] = useState('');
+  const [file, setFile] = useState(null);
+  const [errore, setErrore] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+
+    if (!titolo.trim() || !file) {
+      setErrore('Inserisci titolo e PDF della rivista.');
+      return;
+    }
+
+    await onPubblica({
+      numero,
+      periodo,
+      titolo,
+      descrizione,
+      file,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">La tua rivista</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Pubblica nuova uscita</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Carica il PDF della rivista e rendilo disponibile nell’archivio digitale.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+            Chiudi
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <input
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            placeholder="Numero es. Numero 0"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+          <input
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            placeholder="Periodo es. Maggio/Giugno 2026"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+          <input
+            value={titolo}
+            onChange={(e) => setTitolo(e.target.value)}
+            placeholder="Titolo uscita"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+          <textarea
+            value={descrizione}
+            onChange={(e) => setDescrizione(e.target.value)}
+            placeholder="Descrizione breve, facoltativa"
+            rows={3}
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <label className="block rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <span className="font-black">PDF rivista</span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-3 block w-full text-sm"
+            />
+            {file && <span className="mt-2 block text-xs font-semibold">{file.name}</span>}
+          </label>
+
+          {errore && (
+            <p className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {errore}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
+          >
+            {saving ? 'Pubblicazione in corso...' : 'Pubblica rivista'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ArchivioReportPremium({ reports, ruolo, canSend = false, onOpenInvia }) {
+  const canFilterCondominio = !['condominio', 'condomino'].includes(ruolo);
+  const [filtroReportCondominio, setFiltroReportCondominio] = useState('tutti');
+  const reportCondomini = Array.from(new Set((reports || [])
+    .map((report) => report.condominio || report.nome_condominio || report.condominio_nome || 'Condominio')
+    .filter(Boolean)))
+    .sort((a, b) => String(a).localeCompare(String(b), 'it'));
+  const reportsFiltrati = canFilterCondominio && filtroReportCondominio !== 'tutti'
+    ? (reports || []).filter((report) => String(report.condominio || report.nome_condominio || report.condominio_nome || 'Condominio') === String(filtroReportCondominio))
+    : (reports || []);
+  const reportsOrdinati = [...reportsFiltrati].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const ultimo = reportsOrdinati[0];
+  const memoriaLabel = canFilterCondominio ? 'La memoria dei tuoi immobili' : 'La memoria del tuo immobile';
+
+  return (
+    <section className="space-y-4">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-50 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.26em] text-emerald-700">{memoriaLabel}</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">I tuoi report</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold text-slate-600">
+              Report, aggiornamenti e documenti raccolti nel tempo in un unico spazio dedicato.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:min-w-[260px]">
+            <div className="rounded-3xl border border-white/70 bg-white/80 p-4 text-center shadow-sm backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Report</p>
+              <p className="mt-2 text-3xl font-black text-emerald-700">{reportsOrdinati.length}</p>
+            </div>
+            <div className="rounded-3xl border border-white/70 bg-white/80 p-4 text-center shadow-sm backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Ultimo</p>
+              <p className="mt-2 text-sm font-black text-slate-800">
+                {ultimo?.created_at ? new Date(ultimo.created_at).toLocaleDateString('it-IT') : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {canFilterCondominio && reportCondomini.length > 1 && (
+          <div className="mt-5 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Filtra per condominio</label>
+            <select
+              value={filtroReportCondominio}
+              onChange={(e) => setFiltroReportCondominio(e.target.value)}
+              className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-bold text-slate-700"
+            >
+              <option value="tutti">Tutti i condomìni</option>
+              {reportCondomini.map((nome) => (
+                <option key={nome} value={nome}>{nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {canSend && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onOpenInvia}
+              className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20"
+            >
+              Invia report semestrale
+            </button>
+          </div>
+        )}
+      </div>
+
+      {reportsOrdinati.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-emerald-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-3xl">📄</div>
+          <h3 className="mt-4 text-xl font-black text-slate-900">Nessun report disponibile</h3>
+          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold text-slate-500">
+            Qui troverai i report del tuo condominio appena saranno pubblicati e resi disponibili ai soggetti autorizzati.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {reportsOrdinati.map((report) => (
+            <article key={report.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Report CSP</span>
+                    {report.periodo && <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">{report.periodo}</span>}
+                  </div>
+                  <h3 className="mt-3 text-lg font-black text-slate-900">{report.titolo || 'Report condominio'}</h3>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    {report.condominio || report.nome_condominio || 'Condominio'} • {report.created_at ? new Date(report.created_at).toLocaleDateString('it-IT') : 'Data non disponibile'}
+                  </p>
+                  {report.descrizione && <p className="mt-2 text-sm font-semibold text-slate-600">{report.descrizione}</p>}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <a
+                    href={report.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-2xl bg-emerald-600 px-4 py-3 text-center text-sm font-black text-white shadow-sm"
+                  >
+                    Apri report
+                  </a>
+                  <a
+                    href={`${report.file_url}?download=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-center text-sm font-black text-emerald-700"
+                  >
+                    Apri / Scarica
+                  </a>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReportSemestraleModal({ condomini, onClose, onInvia, saving }) {
+  const [condominioId, setCondominioId] = useState(condomini?.[0]?.id ? String(condomini[0].id) : '');
+  const [periodo, setPeriodo] = useState('');
+  const [titolo, setTitolo] = useState('Report semestrale Premium');
+  const [file, setFile] = useState(null);
+  const [errore, setErrore] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+
+    if (!condominioId || !periodo.trim() || !titolo.trim() || !file) {
+      setErrore('Seleziona condominio, periodo, titolo e PDF del report.');
+      return;
+    }
+
+    await onInvia({
+      condominioId: Number(condominioId),
+      periodo: periodo.trim(),
+      titolo: titolo.trim(),
+      file,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm">
+      <div className="mx-auto my-6 w-full max-w-lg rounded-3xl border border-white/60 bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Premium</p>
+            <h3 className="mt-1 text-xl font-black text-slate-900">Invia report semestrale</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Carica il PDF e invialo via email e push ad amministratore e condòmini.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+            Chiudi
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <select
+            value={condominioId}
+            onChange={(e) => setCondominioId(e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+          >
+            <option value="">Seleziona condominio</option>
+            {(condomini || []).map((condominio) => (
+              <option key={condominio.id} value={condominio.id}>
+                {condominio.nome}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            placeholder="Periodo es. Primo semestre 2026"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <input
+            value={titolo}
+            onChange={(e) => setTitolo(e.target.value)}
+            placeholder="Titolo report"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          />
+
+          <label className="block rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <span className="font-black">PDF report</span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-3 block w-full text-sm"
+            />
+            {file && <span className="mt-2 block text-xs font-semibold">{file.name}</span>}
+          </label>
+
+          {errore && (
+            <p className="rounded-2xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {errore}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 font-black text-white shadow-lg shadow-emerald-900/20 disabled:opacity-60"
+          >
+            {saving ? 'Invio in corso...' : 'Invia report Premium'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+function ActionBar({ condomini, filtroCondominioId, onChangeFiltroCondominio, filtroStato, onChangeFiltroStato, searchTerm, onChangeSearchTerm, onRefresh, loading, ruolo, showArchiviate, onToggleArchiviate, onOpenReportPremium }) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const showCondominioSelect = ruoloNorm === 'gestore' || (Array.isArray(condomini) && condomini.length > 1);
+
+  return (
+    <section className="rounded-[2rem] border border-emerald-100 bg-white p-4 shadow-sm csp-enter">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Control Center</p>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Contesto operativo, filtri e azioni rapide in un unico pannello.</p>
+        </div>
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[1fr_1fr_1fr_auto]">
+          {showCondominioSelect && (
+            <select value={filtroCondominioId} onChange={(e) => onChangeFiltroCondominio(e.target.value)} className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm font-bold text-emerald-950 outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100">
+              <option value="">{ruoloNorm === 'gestore' ? 'Tutti i condomini' : 'Tutti i tuoi condomini'}</option>
+              {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          )}
+          {(ruolo === 'amministratore' || ruolo === 'collaboratore') && (
+            <select value={filtroStato} onChange={(e) => onChangeFiltroStato(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+              <option value="">Tutti gli stati</option>
+              <option value="Presa in carico">Presa in carico</option>
+              <option value="Sopralluogo programmato">Sopralluogo programmato</option>
+              <option value="Sopralluogo effettuato">Sopralluogo effettuato</option>
+              <option value="Preventivata">Preventivata</option>
+              <option value="Accettata">Accettata</option>
+              <option value="Pianificata">Pianificata</option>
+              <option value="Chiusa">Chiusa</option>
+              <option value="Rifiutata">Rifiutata</option>
+            </select>
+          )}
+          <input value={searchTerm} onChange={(e) => onChangeSearchTerm(e.target.value)} placeholder="Cerca pratica..." className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
+          <button type="button" className="rounded-2xl border border-emerald-100 bg-white px-5 py-3 text-sm font-black text-emerald-800 shadow-sm">
+            Vista
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        {ruolo === 'gestore' && onOpenReportPremium && (
+          <button
+            type="button"
+            onClick={onOpenReportPremium}
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-black text-emerald-700"
+          >
+            Report Premium
+          </button>
+        )}
+        {ruolo === 'gestore' && (
+          <button
+            type="button"
+            onClick={onToggleArchiviate}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 font-bold text-slate-700"
+          >
+            {showArchiviate ? 'Mostra pratiche attive' : 'Mostra archivio pratiche'}
+          </button>
+        )}
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Vista: {ruolo}</span>
+        <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-600">Condomini visibili: {condomini.length}</span>
+      </div>
+    </section>
+  );
+}
+
+function FormSegnalazione({ condomini, selectedCondominioId, onChangeCondominio, onSave, saving }) {
+  const [titolo, setTitolo] = useState('');
+  const [descrizione, setDescrizione] = useState('');
+  const [categoria, setCategoria] = useState('Infiltrazioni');
+  const [priorita, setPriorita] = useState('Media');
+  const [luogo, setLuogo] = useState('');
+  const [referente, setReferente] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [file, setFile] = useState(null);
+  const [condominioId, setCondominioId] = useState(selectedCondominioId || '');
+  const [errore, setErrore] = useState('');
+
+  const reset = () => {
+    setTitolo('');
+    setDescrizione('');
+    setCategoria('Infiltrazioni');
+    setPriorita('Media');
+    setLuogo('');
+    setReferente('');
+    setTelefono('');
+    setFile(null);
+    setErrore('');
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErrore('');
+    if (!titolo.trim() || !descrizione.trim() || !luogo.trim() || !condominioId) {
+      setErrore('Compila titolo, descrizione, luogo e condominio.');
+      return;
+    }
+    await onSave({ titolo, descrizione, categoria, priorita, luogo, referente, telefono, file, condominioId });
+    reset();
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-5">
+      <select value={condominioId} onChange={(e) => { setCondominioId(e.target.value); onChangeCondominio(e.target.value); }} className="w-full rounded-xl border px-3 py-2">
+        <option value="">Seleziona condominio</option>
+        {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+      </select>
+      <input value={titolo} onChange={(e) => setTitolo(e.target.value)} placeholder="Titolo" className="w-full rounded-xl border px-3 py-2" />
+      <textarea value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Descrizione" className="min-h-24 w-full rounded-xl border px-3 py-2" />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="rounded-xl border px-3 py-2">
+          <option>Infiltrazioni</option><option>Balconi</option><option>Facciate</option><option>Copertura</option><option>Grondaie e pluviali</option><option>Parti comuni</option>
+        </select>
+        <select value={priorita} onChange={(e) => setPriorita(e.target.value)} className="rounded-xl border px-3 py-2">
+          <option>Bassa</option><option>Media</option><option>Alta</option>
+        </select>
+      </div>
+      <input value={luogo} onChange={(e) => setLuogo(e.target.value)} placeholder="Luogo del problema" className="w-full rounded-xl border px-3 py-2" />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <input value={referente} onChange={(e) => setReferente(e.target.value)} placeholder="Referente" className="rounded-xl border px-3 py-2" />
+        <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Telefono" className="rounded-xl border px-3 py-2" />
+      </div>
+      <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      <button disabled={saving} className={`rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white disabled:opacity-60 ${MOTION_BUTTON} csp-tap csp-tap`}>
+        {saving ? 'Salvataggio...' : 'Salva segnalazione'}
+      </button>
+    </form>
+  );
+}
+
+function SegnalazioneCard({ segnalazione, onOpen, pianoAbbonamento = 'base', showSubscriptionBadge = false }) {
+  return (
+    <button onClick={() => onOpen(segnalazione)} className={`w-full overflow-hidden rounded-2xl border p-4 text-left transition hover:shadow-md ${showSubscriptionBadge ? subscriptionPlanCardClass(pianoAbbonamento) : 'border-slate-200 bg-white'}`}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-words font-semibold text-slate-900">{segnalazione.titolo}</p>
+          <p className="break-words text-sm text-slate-500">{segnalazione.condominio}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {String(segnalazione.origine || '').toLowerCase() === 'promo' && (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Promo</span>
+          )}
+          <span className={'rounded-full border px-2 py-1 text-xs ' + badgeClass(segnalazione.stato)}><StatoBadge stato={segnalazione.stato} /></span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+
+function TimelinePratica({ stato }) {
+  const steps = [
+    { key: 'Nuova', match: ['nuova', 'aperta'], icon: '1' },
+    { key: 'In carico', match: ['presa in carico', 'in corso', 'sopralluogo', 'preventivata', 'accettata'], icon: '2' },
+    { key: 'Programmata', match: ['pianificata', 'programmata'], icon: '3' },
+    { key: 'Chiusa', match: ['chiusa'], icon: '4' },
+  ];
+
+  const statoNorm = String(stato || '').toLowerCase();
+
+  let activeIndex = steps.findIndex((step) =>
+    step.match.some((term) => statoNorm.includes(term))
+  );
+
+  if (statoNorm.includes('rifiutata')) activeIndex = -1;
+  if (activeIndex < 0 && !statoNorm.includes('rifiutata')) activeIndex = 0;
+
+  return (
+    <div className="csp-enter rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/60 to-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Avanzamento pratica</p>
+          <p className="mt-1 text-xs text-slate-500">Segui il percorso operativo dalla segnalazione alla chiusura.</p>
+        </div>
+        <StatoBadge stato={stato} />
+      </div>
+
+      {statoNorm.includes('rifiutata') ? (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
+          Pratica rifiutata o archiviata.
+        </div>
+      ) : (
+        <div className="grid grid-cols-[auto_1fr_auto_1fr_auto_1fr_auto] items-start gap-2">
+          {steps.map((step, index) => {
+            const isCompleted = index < activeIndex;
+            const isActive = index === activeIndex;
+            const isDoneOrActive = isCompleted || isActive;
+
+            return (
+              <div key={step.key} className="contents">
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-2xl text-xs font-black shadow-sm transition-all duration-300 ${
+                      isActive
+                        ? 'scale-110 bg-emerald-600 text-white shadow-emerald-900/20'
+                        : isCompleted
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {isCompleted ? '✓' : step.icon}
+                  </div>
+                  <span
+                    className={`mt-2 max-w-[72px] text-[10px] font-black uppercase leading-tight ${
+                      isDoneOrActive ? 'text-emerald-800' : 'text-slate-400'
+                    }`}
+                  >
+                    {step.key}
+                  </span>
+                </div>
+
+                {index < steps.length - 1 && (
+                  <div className="pt-4">
+                    <div className={`h-1 rounded-full transition-all duration-500 ${
+                      index < activeIndex ? 'bg-emerald-500' : 'bg-slate-200'
+                    }`} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DettaglioPraticaModal({ segnalazione, onClose, onChangeStatus, onAddNote, onUploadFile, onUpdateImporto, ruolo, utenteEmail, onConversionePreventivo, onPianificaLavori, onGeneraReport, onGeneraPdfVotazioni, onCondividiCondomini, onVotoCondomino, onInviaReminderVoto, onInviaRipartoMillesimi, onDeletePratica, onRipristinaPratica, votiPreventivi, votazioniRiepiloghi = [], utentiCondomini, utentiSistema, condomini = [], onRefreshVoti, subscriptionFlags = getSubscriptionFlags('premium'), pianoAbbonamento = 'base', showSubscriptionBadge = false }) {
+  const ruoloDettaglio = String(ruolo || '').toLowerCase().trim();
+  const isAmministratoreOperativoDettaglio = ruoloDettaglio === 'amministratore' || ruoloDettaglio === 'collaboratore';
+  const [nota, setNota] = useState('');
+  const [mostraCronologia, setMostraCronologia] = useState(false);
+  const [file, setFile] = useState(null);
+  const [importo, setImporto] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [dataInizioPresunta, setDataInizioPresunta] = useState('');
+  const [importoRiparto, setImportoRiparto] = useState('');
+  const [scadenzaRiparto, setScadenzaRiparto] = useState('');
+  const [rateRiparto, setRateRiparto] = useState('1');
+  const [scadenzeRateRiparto, setScadenzeRateRiparto] = useState(['']);
+
+  if (!segnalazione) return null;
+
+  const condominioPratica = (condomini || []).find((c) => Number(c.id) === Number(segnalazione.condominio_id));
+  const isPromoPratica = String(segnalazione.origine || '').toLowerCase().trim() === 'promo';
+  const statiDisponibiliPratica = isPromoPratica ? STATI_PRATICA_PROMO : STATI_PRATICA;
+  const statiBottoniPratica = isPromoPratica
+    ? STATI_PRATICA_PROMO.filter((stato) => stato !== 'Pianificata')
+    : statiDisponibiliPratica;
+  const isPromoDaPianificare = isPromoPratica && segnalazione.stato === 'Presa in carico';
+  const isPraticaStandardDaPianificare = !isPromoPratica && segnalazione.stato === 'Accettata';
+  const mapsCspParts = [
+    segnalazione.indirizzo,
+    segnalazione.luogo,
+    condominioPratica?.indirizzo,
+    condominioPratica?.citta,
+    segnalazione.condominio,
+    condominioPratica?.nome,
+  ];
+
+  const votiPratica = (votiPreventivi || []).filter((v) => Number(v.segnalazione_id) === Number(segnalazione.id));
+  const votoUtente = votiPratica.find((v) => String(v.email || '').toLowerCase().trim() === String(utenteEmail || '').toLowerCase().trim());
+  const votiFavorevoli = votiPratica.filter((v) => v.voto === 'favorevole').length;
+  const votiContrari = votiPratica.filter((v) => v.voto === 'contrario').length;
+  const votiIndecisi = votiPratica.filter((v) => v.voto === 'indeciso').length;
+  const totaleVoti = votiPratica.length;
+  const consensoPercentuale = totaleVoti ? Math.round((votiFavorevoli / totaleVoti) * 100) : 0;
+  const partecipazionePercentuale = Math.min(100, totaleVoti * 10);
+  const ultimoVoto = votiPratica
+    .slice()
+    .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime())[0];
+
+  const emailCondominiAbilitati = new Set(
+    (utentiSistema || [])
+      .filter((utente) => ['condominio', 'condomino'].includes(String(utente.ruolo || '').toLowerCase().trim()))
+      .map((utente) => String(utente.email || '').toLowerCase().trim())
+      .filter(Boolean)
+  );
+
+  const aventiDirittoVoto = [...new Set(
+    (utentiCondomini || [])
+      .filter((item) => Number(item.condominio_id) === Number(segnalazione.condominio_id))
+      .map((item) => String(item.email || '').toLowerCase().trim())
+      .filter((email) => email && emailCondominiAbilitati.has(email))
+  )];
+
+  const emailVotanti = new Set(votiPratica.map((voto) => String(voto.email || '').toLowerCase().trim()).filter(Boolean));
+  const totaleAventiDiritto = aventiDirittoVoto.length;
+  const votiMancanti = Math.max(totaleAventiDiritto - totaleVoti, 0);
+  const nonVotanti = aventiDirittoVoto.filter((email) => !emailVotanti.has(email));
+  const partecipazioneRealePercentuale = totaleAventiDiritto ? Math.round((totaleVoti / totaleAventiDiritto) * 100) : 0;
+  const consultazioneCompletata = totaleAventiDiritto > 0 && votiMancanti === 0;
+
+  const riepilogoAggregato = (votazioniRiepiloghi || []).find((item) => Number(item.segnalazione_id) === Number(segnalazione.id));
+  const sintesiFavorevoli = Number(riepilogoAggregato?.favorevoli ?? votiFavorevoli);
+  const sintesiContrari = Number(riepilogoAggregato?.contrari ?? votiContrari);
+  const sintesiIndecisi = Number(riepilogoAggregato?.indecisi ?? votiIndecisi);
+  const sintesiTotaleVoti = Number(riepilogoAggregato?.totale_voti ?? totaleVoti);
+  const sintesiAventiDiritto = Number(riepilogoAggregato?.totale_aventi_diritto ?? totaleAventiDiritto);
+  const sintesiVotiMancanti = Math.max(Number(riepilogoAggregato?.voti_mancanti ?? votiMancanti), 0);
+  const sintesiPartecipazione = Number(riepilogoAggregato?.partecipazione_percentuale ?? partecipazioneRealePercentuale);
+  const sintesiCompletata = Boolean(riepilogoAggregato?.completata ?? consultazioneCompletata);
+
+  const condominiRiparto = (utentiCondomini || [])
+    .filter((item) => Number(item.condominio_id) === Number(segnalazione.condominio_id))
+    .map((item) => {
+      const email = String(item.email || '').toLowerCase().trim();
+      const utente = (utentiSistema || []).find((u) => String(u.email || '').toLowerCase().trim() === email);
+      const ruoloRiparto = String(item.ruolo || utente?.ruolo || '').toLowerCase().trim();
+      return {
+        email,
+        nome: utente?.nome || email,
+        ruolo: ruoloRiparto,
+        millesimi: Number(item.millesimi || 0),
+      };
+    })
+    .filter((item) => item.email && ['condominio', 'condomino'].includes(item.ruolo));
+
+  const totaleMillesimi = condominiRiparto.reduce((sum, item) => sum + Number(item.millesimi || 0), 0);
+  const importoRipartoNumero = Number(importoRiparto || segnalazione.importo_preventivo || 0);
+  const numeroRateRiparto = Math.max(1, Number(rateRiparto || 1));
+  const scadenzeRateComplete = scadenzeRateRiparto.slice(0, numeroRateRiparto).every(Boolean);
+
+  const aggiornaNumeroRateRiparto = (value) => {
+    const numero = Math.max(1, Number(value || 1));
+    setRateRiparto(String(numero));
+    setScadenzeRateRiparto((prev) => {
+      const prossime = [...prev];
+      while (prossime.length < numero) prossime.push('');
+      return prossime.slice(0, numero);
+    });
+  };
+
+  const aggiornaScadenzaRata = (index, value) => {
+    setScadenzeRateRiparto((prev) => {
+      const prossime = [...prev];
+      prossime[index] = value;
+      return prossime;
+    });
+
+    if (index === 0) {
+      setScadenzaRiparto(value);
+    }
+  };
+
+  const quotePerRata = numeroRateRiparto > 0 ? importoRipartoNumero / numeroRateRiparto : importoRipartoNumero;
+  const quoteRiparto = condominiRiparto.map((item) => ({
+    ...item,
+    quota: importoRipartoNumero * Number(item.millesimi || 0) / 1000,
+    quota_rata: quotePerRata * Number(item.millesimi || 0) / 1000,
+  }));
+
+  const ripartoSalvato = (() => {
+    const raw = segnalazione.riparto_millesimale;
+
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })();
+
+  const noteRipartoStorico = (segnalazione.note || []).some((nota) =>
+    String(nota?.testo || '').toLowerCase().includes('riparto millesimale inviato')
+  );
+
+  const emailUtentePulita = String(utenteEmail || '').toLowerCase().trim();
+  const ruoloRipartoVisibile = ['condominio', 'condomino'].includes(String(ruolo || '').toLowerCase().trim());
+  const canUseRipartoMillesimale = subscriptionFlags?.isPlus || subscriptionFlags?.isPremium;
+  const quotaUtenteRiparto = ripartoSalvato?.quote?.find((item) => {
+    const emailQuota = String(item.email || item.utente_email || item.email_condomino || '').toLowerCase().trim();
+    return emailQuota && emailQuota === emailUtentePulita;
+  });
+
+  return (
+    <div className="fixed inset-0 z-[220] overflow-y-auto bg-black/40 p-2 md:flex md:items-center md:justify-center md:overflow-hidden md:p-4">
+      <div className="min-h-full w-full max-w-4xl rounded-2xl border border-white/60 bg-white shadow-2xl md:flex md:h-[90vh] md:min-h-0 md:flex-col md:overflow-hidden md:rounded-3xl">
+        <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur-xl md:p-5">
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="break-words text-lg font-bold leading-tight md:text-xl">{segnalazione.titolo}</h3>
+              {showSubscriptionBadge && <SubscriptionPlanBadge piano={pianoAbbonamento} />}
+            </div>
+            <p className="mt-1 text-sm text-slate-500">{segnalazione.condominio}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ruolo === 'gestore' && !segnalazione.archiviata && (
+              <button
+                onClick={() => onDeletePratica(segnalazione)}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
+              >
+                Archivia pratica
+              </button>
+            )}
+            {ruolo === 'gestore' && segnalazione.archiviata && (
+              <button
+                onClick={() => onRipristinaPratica(segnalazione)}
+                className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white"
+              >
+                Ripristina pratica
+              </button>
+            )}
+            <button
+              onClick={() => onGeneraReport(segnalazione)}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
+            >
+              Genera report
+            </button>
+            {segnalazione.preventivo_condiviso_condomini && (
+              <button
+                onClick={() => onGeneraPdfVotazioni(segnalazione, ruolo)}
+                className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-bold text-white"
+              >
+                Export PDF votazioni
+              </button>
+            )}
+            <button onClick={onClose} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Chiudi</button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 p-4 md:flex-1 md:grid-cols-2 md:overflow-y-auto md:p-5">
+          <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1 csp-scroll">
+            <p><span className="text-slate-500">Descrizione:</span> {segnalazione.descrizione}</p>
+            <p><span className="text-slate-500">Categoria:</span> {segnalazione.categoria || 'n.d.'}</p>
+            <p><span className="text-slate-500">Luogo:</span> {segnalazione.luogo || 'n.d.'}</p>
+            <GoogleMapsButton parts={mapsCspParts} className="mt-1" />
+            <p><span className="text-slate-500">Referente:</span> {segnalazione.referente || 'n.d.'}</p>
+            <p><span className="text-slate-500">Telefono:</span> {segnalazione.telefono || 'n.d.'}</p>
+            {(ruolo === 'gestore' || isAmministratoreOperativoDettaglio) && (
+              <p><span className="text-slate-500">Importo preventivo:</span> {formatEuro(segnalazione.importo_preventivo || 0)}</p>
+            )}
+            {segnalazione.data_inizio_lavori_presunta && (
+              <p><span className="text-slate-500">Inizio lavori presunto:</span> {new Date(segnalazione.data_inizio_lavori_presunta).toLocaleDateString('it-IT')}</p>
+            )}
+            {segnalazione.allegatoUrl && <img src={segnalazione.allegatoUrl} alt="Allegato" className="w-full rounded-xl border border-slate-200" />}
+            {segnalazione.fotosopralluogourl && <img src={segnalazione.fotosopralluogourl} alt="Sopralluogo" className="w-full rounded-xl border border-purple-200" />}
+            {segnalazione.fotolavorifinitiurl && (
+              <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="mb-2 text-sm font-black text-emerald-800">Foto lavoro finito</p>
+                <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
+              </div>
+            )}
+            {segnalazione.preventivourl && (!['condominio', 'condomino'].includes(ruolo) || segnalazione.preventivo_condiviso_condomini) && (
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <a href={segnalazione.preventivourl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-bold text-emerald-700 underline">
+                  Apri preventivo
+                </a>
+
+                {(['condominio', 'condomino'].includes(ruolo) || isAmministratoreOperativoDettaglio || ruolo === 'gestore') && segnalazione.preventivo_condiviso_condomini && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-sky-800">
+                        Preventivo condiviso dall’amministratore
+                      </p>
+                      <p className="mt-1 text-xs text-sky-700">
+                        Documento disponibile per consultazione diretta.
+                      </p>
+                    </div>
+
+                    {['condominio', 'condomino'].includes(ruolo) && (
+                      <div className="space-y-2 border-t border-sky-200 pt-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-sky-800">
+                          Voto consultivo condomino
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onVotoCondomino(segnalazione.id, 'favorevole')}
+                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Favorevole
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onVotoCondomino(segnalazione.id, 'contrario')}
+                            className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Contrario
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onVotoCondomino(segnalazione.id, 'indeciso')}
+                            className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Indeciso
+                          </button>
+                        </div>
+                        {votoUtente && (
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Votato</p>
+                            <p className="mt-1 text-sm font-bold text-emerald-800">Il tuo voto: {votoUtente.voto}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {(['condominio', 'condomino'].includes(ruolo) || ruolo === 'gestore') && (
+                      <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-sky-800">Riepilogo votazione</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              Esito consultivo aggiornato in tempo reale.
+                            </p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-black ${sintesiCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {sintesiCompletata ? 'Completata' : 'In corso'}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="rounded-xl bg-emerald-50 p-3 text-center border border-emerald-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
+                            <p className="text-lg font-black text-emerald-700">{sintesiFavorevoli}</p>
+                          </div>
+                          <div className="rounded-xl bg-red-50 p-3 text-center border border-red-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Contrari</p>
+                            <p className="text-lg font-black text-red-600">{sintesiContrari}</p>
+                          </div>
+                          <div className="rounded-xl bg-amber-50 p-3 text-center border border-amber-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Indecisi</p>
+                            <p className="text-lg font-black text-amber-600">{sintesiIndecisi}</p>
+                          </div>
+                          <div className="rounded-xl bg-sky-50 p-3 text-center border border-sky-100">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Voti</p>
+                            <p className="text-lg font-black text-sky-700">{sintesiTotaleVoti}/{sintesiAventiDiritto || sintesiTotaleVoti}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+                            <span>Partecipazione</span>
+                            <span>{sintesiPartecipazione}%</span>
+                          </div>
+                          <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${sintesiPartecipazione}%` }} />
+                          </div>
+                        </div>
+
+                        <p className="mt-3 text-xs font-semibold text-slate-600">
+                          {sintesiCompletata
+                            ? 'La votazione è completa. Push ed email finali vengono inviate automaticamente dal sistema.'
+                            : `La votazione non è ancora completa: mancano ${sintesiVotiMancanti} voti.`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isAmministratoreOperativoDettaglio && segnalazione.stato === 'Preventivata' && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onConversionePreventivo(segnalazione.id, 'accettato');
+                      }}
+                      className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white"
+                    >
+                      Accetta preventivo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onConversionePreventivo(segnalazione.id, 'rifiutato');
+                      }}
+                      className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
+                    >
+                      Rifiuta preventivo
+                    </button>
+                  </div>
+                )}
+
+                {segnalazione.stato_conversione && (
+                  <p className="text-sm font-semibold text-slate-700">
+                    Stato preventivo: {segnalazione.stato_conversione}
+                  </p>
+                )}
+
+                {isAmministratoreOperativoDettaglio && segnalazione.stato === 'Preventivata' && !segnalazione.preventivo_condiviso_condomini && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onCondividiCondomini(segnalazione);
+                    }}
+                    className="w-full rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700"
+                  >
+                    Condividi con i condomini
+                  </button>
+                )}
+
+                {segnalazione.preventivo_condiviso_condomini && isAmministratoreOperativoDettaglio && (
+                  <div className="rounded-xl bg-sky-100 px-3 py-3 text-sm font-semibold text-sky-700">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p>Preventivo condiviso con i condomini</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onRefreshVoti(segnalazione.id)}
+                          className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-sky-700 border border-sky-200 hover:bg-sky-50"
+                        >
+                          Aggiorna voti
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onInviaReminderVoto(segnalazione)}
+                          className="rounded-xl bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-800"
+                        >
+                          Invia reminder non votanti
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Favorevoli</p>
+                        <p className="text-lg font-black text-emerald-700">{sintesiFavorevoli}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Contrari</p>
+                        <p className="text-lg font-black text-red-600">{sintesiContrari}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Indecisi</p>
+                        <p className="text-lg font-black text-amber-600">{sintesiIndecisi}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-center border border-sky-100">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Consenso</p>
+                        <p className="text-lg font-black text-sky-700">{consensoPercentuale}%</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
+                      <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+                        <span>Partecipazione consultiva</span>
+                        <span>{totaleVoti}/{totaleAventiDiritto} voti</span>
+                      </div>
+                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-sky-600 transition-all duration-500" style={{ width: `${sintesiPartecipazione}%` }} />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Aventi diritto</p>
+                          <p className="font-black text-slate-800">{totaleAventiDiritto}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Ricevuti</p>
+                          <p className="font-black text-sky-700">{totaleVoti}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Mancanti</p>
+                          <p className="font-black text-amber-600">{votiMancanti}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
+                          <p className="text-[10px] uppercase text-slate-500">Partecipazione</p>
+                          <p className="font-black text-emerald-700">{partecipazioneRealePercentuale}%</p>
+                        </div>
+                      </div>
+                      <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-black ${sintesiCompletata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {consultazioneCompletata ? 'Consultazione completata' : `In attesa di ${votiMancanti} voti`}
+                      </div>
+                      {ultimoVoto && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          Ultimo voto: {ultimoVoto.voto} • {ultimoVoto.email}
+                        </p>
+                      )}
+                    </div>
+
+                    {isAmministratoreOperativoDettaglio && nonVotanti.length > 0 && (
+                      <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 md:max-h-32 md:overflow-auto">
+                        <p className="border-b border-amber-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-amber-700">Non votanti</p>
+                        {nonVotanti.map((email) => (
+                          <p key={email} className="border-b border-amber-100 px-3 py-2 text-xs font-semibold text-amber-800 last:border-b-0">{email}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mt-3 rounded-xl border border-white/70 bg-white md:max-h-40 md:overflow-y-auto md:csp-scroll">
+                      {votiPratica.length === 0 ? (
+                        <EmptyState icon="🗳️" title="Nessun voto ancora registrato" text="Quando i condòmini voteranno, il riepilogo apparirà qui in tempo reale." action="Votazione in attesa" tone="blue" />
+                      ) : (
+                        votiPratica.map((voto) => (
+                          <div key={`${voto.segnalazione_id}-${voto.email}`} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                            <p className="truncate text-xs font-semibold text-slate-700">{voto.email}</p>
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700">{voto.voto}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="md:hidden">
+              <TimelinePratica stato={segnalazione.stato} />
+            </div>
+            <div className="hidden md:block">
+              <TimelinePratica stato={segnalazione.stato} />
+            </div>
+            {isPromoPratica && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                Pratica generata da Promo Senza Pensieri: flusso semplificato senza fase preventivo. Stati previsti: Nuova, Presa in carico, Pianificata tramite calendario e Chiusa.
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {ruolo === 'gestore' && statiBottoniPratica.map((stato) => (
+                <button
+                  key={stato}
+                  onClick={() => onChangeStatus(segnalazione.id, stato)}
+                  className={statoButtonClass(stato, segnalazione.stato)}
+                  title={stato === segnalazione.stato ? 'Stato attuale' : `Passa a ${stato}`}
+                >
+                  {stato === segnalazione.stato ? '● ' : ''}{stato}
+                </button>
+              ))}
+            </div>
+
+            {ruolo === 'gestore' && segnalazione.stato === 'Sopralluogo effettuato' && (
+              <div className="space-y-2 rounded-2xl border border-purple-100 bg-purple-50 p-4">
+                <p className="font-semibold text-purple-800">Foto sopralluogo</p>
+                <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <button disabled={!file || uploading} onClick={async () => { setUploading(true); await onUploadFile(segnalazione.id, file, 'fotosopralluogonome', 'sopralluogo'); setFile(null); setUploading(false); }} className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                  Carica foto
+                </button>
+              </div>
+            )}
+
+            {ruolo === 'gestore' && (isPraticaStandardDaPianificare || isPromoDaPianificare) && (
+              <div className={`space-y-3 rounded-2xl border p-4 ${isPromoPratica ? 'border-amber-200 bg-amber-50' : 'border-sky-100 bg-sky-50'}`}>
+                <p className={`font-semibold ${isPromoPratica ? 'text-amber-900' : 'text-sky-800'}`}>{isPromoPratica ? 'Pianificazione intervento promo' : 'Pianificazione lavori'}</p>
+                <p className={`text-sm ${isPromoPratica ? 'text-amber-800' : 'text-sky-700'}`}>
+                  {isPromoPratica
+                    ? 'Inserisci la data dell’intervento: la pratica passerà automaticamente a Pianificata e i condòmini riceveranno la comunicazione.'
+                    : 'Inserisci la data presunta di inizio lavori e comunica la pianificazione all’amministratore.'}
+                </p>
+                <input
+                  type="date"
+                  value={dataInizioPresunta}
+                  onChange={(e) => setDataInizioPresunta(e.target.value)}
+                  className={`w-full rounded-xl border px-3 py-2 text-sm ${isPromoPratica ? 'border-amber-200' : 'border-sky-200'}`}
+                />
+                <button
+                  type="button"
+                  disabled={!dataInizioPresunta}
+                  onClick={() => onPianificaLavori(segnalazione.id, dataInizioPresunta)}
+                  className={`rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-60 ${isPromoPratica ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'}`}
+                >
+                  {isPromoPratica ? 'Pianifica intervento promo' : 'Pianifica lavori'}
+                </button>
+              </div>
+            )}
+
+            {ruolo === 'gestore' && segnalazione.stato === 'Chiusa' && (
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <div>
+                  <p className="font-semibold text-emerald-900">Foto lavoro finito</p>
+                  <p className="mt-1 text-sm text-emerald-800">Carica una o più immagini rappresentative del lavoro concluso.</p>
+                </div>
+                {segnalazione.fotolavorifinitiurl && (
+                  <img src={segnalazione.fotolavorifinitiurl} alt="Lavoro finito" className="w-full rounded-xl border border-emerald-200" />
+                )}
+                <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <button
+                  disabled={!file || uploading}
+                  onClick={async () => {
+                    setUploading(true);
+                    await onUploadFile(segnalazione.id, file, 'fotolavorifinitinome', 'lavoro-finito');
+                    setFile(null);
+                    setUploading(false);
+                  }}
+                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  Carica foto lavoro finito
+                </button>
+              </div>
+            )}
+
+            {ruolo === 'gestore' && segnalazione.stato === 'Preventivata' && (
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="font-semibold text-emerald-800">Preventivo</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                  <input type="number" min="0" step="0.01" value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="Importo €" className="rounded-xl border border-emerald-200 px-3 py-2 text-sm" />
+                  <button onClick={async () => { await onUpdateImporto(segnalazione.id, importo); setImporto(''); }} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white">Salva importo</button>
+                </div>
+                <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <button disabled={!file || uploading} onClick={async () => { setUploading(true); await onUploadFile(segnalazione.id, file, 'preventivonome', 'preventivo'); setFile(null); setUploading(false); }} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                  Carica preventivo
+                </button>
+              </div>
+            )}
+
+            {!ripartoSalvato && noteRipartoStorico && (
+              <div className="space-y-2 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <p className="font-semibold text-amber-900">Riparto millesimale inviato</p>
+                <p className="text-sm text-amber-800">
+                  Per questa pratica risulta un riparto già inviato, ma non è presente il dettaglio strutturato delle rate.
+                  Per visualizzare importi rata e scadenze nella scheda del condomino, reinvia il riparto con la nuova versione.
+                </p>
+              </div>
+            )}
+
+            {ruoloRipartoVisibile && ripartoSalvato && !canUseRipartoMillesimale && (
+              <SubscriptionLockedCard
+                required="plus"
+                compact
+                title="Riparto millesimale disponibile con CSP Plus"
+                text="Il dettaglio quote, rate e scadenze personali è una funzione Plus e Premium. Il condominio resta operativo in Base, ma senza riparto automatico e reminder dedicati."
+              />
+            )}
+
+            {ruoloRipartoVisibile && ripartoSalvato && canUseRipartoMillesimale && (
+              <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <div>
+                  <p className="font-semibold text-amber-900">Riparto millesimale</p>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Consulta il riepilogo riservato della tua quota e delle scadenze di pagamento.
+                  </p>
+                </div>
+
+                {quotaUtenteRiparto ? (
+                  <>
+                    <div className="grid grid-cols-1 gap-2 text-xs font-bold sm:grid-cols-2 lg:grid-cols-4">
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Importo totale: {formatEuro(ripartoSalvato.importo_totale || 0)}</span>
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">I tuoi millesimi: {Number(quotaUtenteRiparto.millesimi || 0).toLocaleString('it-IT')}</span>
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Tua quota totale: {formatEuro(quotaUtenteRiparto.quota || 0)}</span>
+                      <span className="rounded-xl bg-white px-3 py-2 text-amber-700">Rate: {ripartoSalvato.rate || 1}</span>
+                    </div>
+
+                    <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">Piano rate personale</p>
+                      <div className="mt-2 space-y-2">
+                        {(ripartoSalvato.scadenze_rate || [ripartoSalvato.scadenza]).filter(Boolean).map((scadenza, index) => {
+                          const rateCount = Math.max(1, Number(ripartoSalvato.rate || 1));
+                          const importoRata = rateCount > 1
+                            ? Number(quotaUtenteRiparto.quota_rata || 0)
+                            : Number(quotaUtenteRiparto.quota || 0);
+
+                          return (
+                            <div key={`${scadenza}-${index}`} className="grid grid-cols-3 items-center gap-3 rounded-xl bg-amber-50 px-3 py-2">
+                              <span className="text-xs font-black text-amber-800">Rata {index + 1}</span>
+                              <span className="text-xs font-semibold text-slate-600">Scadenza: {new Date(scadenza).toLocaleDateString('it-IT')}</span>
+                              <span className="text-right text-sm font-black text-amber-700">{formatEuro(importoRata)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Quota personale non disponibile</p>
+                    <p className="mt-1 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                      La tua quota personale non è stata trovata nel riparto. Verifica che la tua email sia associata correttamente al condominio.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && !canUseRipartoMillesimale && (
+              <SubscriptionLockedCard
+                required="plus"
+                compact
+                title="Riparto millesimale disponibile con CSP Plus"
+                text="Con Plus e Premium l’amministratore può calcolare quote, rate e scadenze in automatico, riducendo lavoro manuale e richieste di chiarimento."
+              />
+            )}
+
+            {isAmministratoreOperativoDettaglio && ['Accettata', 'Pianificata', 'Chiusa'].includes(segnalazione.stato) && canUseRipartoMillesimale && (
+              <div className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <div>
+                  <p className="font-semibold text-amber-900">Riparto costi per millesimi</p>
+                  <p className="mt-1 text-sm text-amber-800">Calcola e invia ai soli condomini la quota individuale della pratica deliberata.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input type="number" min="0" step="0.01" value={importoRiparto} onChange={(e) => setImportoRiparto(e.target.value)} placeholder={`Importo totale ${formatEuro(segnalazione.importo_preventivo || 0)}`} className="rounded-xl border border-amber-200 px-3 py-2 text-sm" />
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-white px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => aggiornaNumeroRateRiparto(Math.max(1, numeroRateRiparto - 1))}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-lg font-black text-amber-800"
+                      aria-label="Diminuisci rate"
+                    >
+                      −
+                    </button>
+                    <div className="text-center">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">Rate</p>
+                      <p className="text-lg font-black text-slate-900">{numeroRateRiparto}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => aggiornaNumeroRateRiparto(numeroRateRiparto + 1)}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-600 text-lg font-black text-white"
+                      aria-label="Aumenta rate"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 bg-white/70 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-700">Scadenze rate</p>
+                  <p className="mt-1 text-xs text-amber-700">Inserisci una data per ogni rata prevista.</p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {Array.from({ length: numeroRateRiparto }).map((_, index) => (
+                      <label key={index} className="text-xs font-bold text-slate-600">
+                        Rata {index + 1}
+                        <input
+                          type="date"
+                          value={scadenzeRateRiparto[index] || ''}
+                          onChange={(e) => aggiornaScadenzaRata(index, e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-amber-200 px-3 py-2 text-sm"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-white p-3 text-sm">
+                  <div className="flex flex-wrap gap-2 text-xs font-bold">
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Aventi diritto: {condominiRiparto.length}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Totale millesimi: {totaleMillesimi}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Importo: {formatEuro(importoRipartoNumero)}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Rate: {numeroRateRiparto}</span>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Importo rata: {formatEuro(quotePerRata)}</span>
+                  </div>
+                  {totaleMillesimi !== 1000 && (
+                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Attenzione: il totale millesimi non è 1000. Verifica i dati prima dell’invio.</p>
+                  )}
+                  <div className="mt-3 rounded-xl border border-slate-100 md:max-h-40 md:overflow-y-auto md:csp-scroll">
+                    {quoteRiparto.length === 0 ? (
+                      <EmptyState icon="📐" title="Millesimi non configurati" text="Configura i millesimi dei condòmini per ottenere un riparto chiaro e pronto da condividere." action="Configurazione richiesta" tone="amber" />
+                    ) : quoteRiparto.map((item) => (
+                      <div key={item.email} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-slate-800">{item.nome}</p>
+                          <p className="truncate text-[11px] text-slate-500">{item.email} • {item.millesimi} millesimi</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-black text-amber-700">{formatEuro(item.quota)}</p>
+                          {numeroRateRiparto > 1 && <p className="text-[11px] font-semibold text-amber-600">{formatEuro(item.quota_rata)} / rata</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="button" disabled={!importoRipartoNumero || !scadenzeRateComplete || quoteRiparto.length === 0 || totaleMillesimi <= 0} onClick={() => onInviaRipartoMillesimi(segnalazione, { importo_totale: importoRipartoNumero, scadenza: scadenzeRateRiparto[0] || '', scadenze_rate: scadenzeRateRiparto.slice(0, numeroRateRiparto), rate: numeroRateRiparto, quote: quoteRiparto, totale_millesimi: totaleMillesimi })} className="w-full rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                  Invia riparto ai condomini
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="font-semibold">Aggiungi nota</p>
+              <textarea value={nota} onChange={(e) => setNota(e.target.value)} className="min-h-24 w-full rounded-xl border px-3 py-2" placeholder="Scrivi una nota..." />
+              <button onClick={() => { if (!nota.trim()) return; onAddNote(segnalazione.id, nota.trim()); setNota(''); }} className="rounded-xl bg-slate-900 px-4 py-2 text-white">Aggiungi nota</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 bg-white px-4 py-2 md:px-5">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setMostraCronologia((prev) => !prev)}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm">📝</span>
+              <span className="min-w-0">
+                <span className="block text-xs font-black uppercase tracking-wide text-slate-700">Cronologia note</span>
+                <span className="block truncate text-[11px] text-slate-500">
+                  {(segnalazione.note || []).length === 0
+                    ? 'Nessuna nota presente'
+                    : mostraCronologia
+                      ? `${(segnalazione.note || []).length} aggiornamenti registrati`
+                      : `Ultima: ${(segnalazione.note || [])[0]?.testo || 'nota disponibile'}`}
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMostraCronologia((prev) => !prev)}
+              className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600"
+            >
+              {mostraCronologia ? 'Nascondi' : 'Mostra'}
+            </button>
+          </div>
+
+          {mostraCronologia && (
+            <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 md:max-h-40 md:overflow-y-auto md:csp-scroll">
+              {(segnalazione.note || []).length === 0 ? (
+                <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  Nessuna nota presente.
+                </p>
+              ) : (
+                (segnalazione.note || []).map((n) => (
+                  <div key={n.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-xs text-slate-700">{n.testo}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">{n.data}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function LavoriPrivatiSuite({
+  ruolo,
+  userProfile,
+  condomini = [],
+  lavoriPrivati = [],
+  fattureLavoriPrivati = [],
+  aziendePartner = [],
+  lavoroApertoId = null,
+  onClearDeepLink = () => {},
+  onCreateLavoro,
+  onUpdateLavoro,
+  onCreateFattura,
+  onUpdateFattura,
+  onUploadFile,
+  onRefresh,
+  subscriptionFlags = getSubscriptionFlags('premium'),
+}) {
+  const ruoloNorm = String(ruolo || '').toLowerCase().trim();
+  const isGestore = ruoloNorm === 'gestore';
+  const isCondomino = ruoloNorm === 'condominio' || ruoloNorm === 'condomino';
+  const [showForm, setShowForm] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [lavoroAperto, setLavoroAperto] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [drafts, setDrafts] = useState({});
+  const [form, setForm] = useState({
+    condominio_id: userProfile?.condominiIds?.[0] || '',
+    titolo: '',
+    descrizione: '',
+    categoria: 'Manutenzione privata',
+    priorita: 'Normale',
+    telefono: userProfile?.telefono || '',
+    file: null,
+  });
+
+  const flussoLspSteps = [
+    { label: 'Nuova richiesta', text: 'Richiesta ricevuta', aliases: ['nuovo'] },
+    { label: 'Preventivo caricato', text: 'Valutazione disponibile' },
+    { label: 'Preventivo accettato', text: 'Conferma cliente', aliases: ['accettato'] },
+    { label: 'Intervento pianificato', text: 'Data fissata', aliases: ['pianificato'] },
+    { label: 'Intervento chiuso', text: 'Lavoro completato', aliases: ['chiuso', 'chiusa'] },
+    { label: 'Preventivo rifiutato', text: 'Pratica conclusa', aliases: ['rifiutato'] },
+  ];
+
+  useEffect(() => {
+    if (!lavoroApertoId || !lavoriPrivati.length) return;
+    const trovato = lavoriPrivati.find((item) => Number(item.id) === Number(lavoroApertoId));
+    if (trovato) {
+      setLavoroAperto(trovato);
+      onClearDeepLink();
+    }
+  }, [lavoroApertoId, lavoriPrivati, onClearDeepLink]);
+
+  const lavoriVisibili = useMemo(() => {
+    const email = String(userProfile?.email || '').toLowerCase();
+    if (isGestore) return lavoriPrivati;
+    return lavoriPrivati.filter((item) => String(item.condomino_email || '').toLowerCase() === email);
+  }, [isGestore, lavoriPrivati, userProfile]);
+
+  const getCondominioInfo = (id) => condomini.find((c) => Number(c.id) === Number(id));
+  const getCondominioNome = (id) => getCondominioInfo(id)?.nome || 'Condominio non indicato';
+  const fatturaDelLavoro = (id) => fattureLavoriPrivati.find((f) => Number(f.lavoro_privato_id) === Number(id));
+  const updateDraft = (id, patch) => setDrafts((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
+  const imponibileDaLordo22 = (valoreLordo) => Math.round((Number(valoreLordo || 0) / 1.22) * 100) / 100;
+  const isFatturaPagata = (fattura) => String(fattura?.stato || '').toLowerCase().includes('pagat');
+  const giorniAllaScadenza = (dataScadenza) => {
+    if (!dataScadenza) return null;
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    const scadenza = new Date(dataScadenza);
+    scadenza.setHours(0, 0, 0, 0);
+    if (Number.isNaN(scadenza.getTime())) return null;
+    return Math.ceil((scadenza.getTime() - oggi.getTime()) / (1000 * 60 * 60 * 24));
+  };
+  const lavoroDaFattura = (fattura) => lavoriPrivati.find((item) => Number(item.id) === Number(fattura?.lavoro_privato_id));
+  const fattureVisibili = useMemo(() => {
+    const email = String(userProfile?.email || '').toLowerCase();
+    if (isGestore) return fattureLavoriPrivati || [];
+    return (fattureLavoriPrivati || []).filter((fattura) => String(fattura.condomino_email || '').toLowerCase() === email);
+  }, [fattureLavoriPrivati, isGestore, userProfile]);
+  const fattureAperte = useMemo(() => fattureVisibili.filter((fattura) => !isFatturaPagata(fattura)), [fattureVisibili]);
+  const fattureInScadenza = useMemo(() => fattureAperte.filter((fattura) => {
+    const giorni = giorniAllaScadenza(fattura.data_scadenza);
+    return giorni !== null && giorni >= 0 && giorni <= 15;
+  }).sort((a, b) => new Date(a.data_scadenza || 0) - new Date(b.data_scadenza || 0)), [fattureAperte]);
+  const fattureScadute = useMemo(() => fattureAperte.filter((fattura) => {
+    const giorni = giorniAllaScadenza(fattura.data_scadenza);
+    return giorni !== null && giorni < 0;
+  }).sort((a, b) => new Date(a.data_scadenza || 0) - new Date(b.data_scadenza || 0)), [fattureAperte]);
+  const totaleFattureAperte = fattureAperte.reduce((sum, fattura) => sum + Number(fattura.importo || 0), 0);
+  const totaleFattureInScadenza = fattureInScadenza.reduce((sum, fattura) => sum + Number(fattura.importo || 0), 0);
+  const totaleFattureScadute = fattureScadute.reduce((sum, fattura) => sum + Number(fattura.importo || 0), 0);
+  const renderMiniFattura = (fattura, tone = 'amber') => {
+    const lavoro = lavoroDaFattura(fattura);
+    const giorni = giorniAllaScadenza(fattura.data_scadenza);
+    const toneClass = tone === 'red'
+      ? 'border-red-200 bg-red-50 text-red-800'
+      : 'border-amber-200 bg-amber-50 text-amber-800';
+    return (
+      <div key={fattura.id} className={`rounded-2xl border p-3 ${toneClass}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.15em] opacity-70">Fattura #{fattura.numero_fattura || fattura.id}</p>
+            <p className="mt-1 text-sm font-black">{lavoro?.titolo || 'Lavoro privato'}</p>
+            <p className="mt-1 text-xs font-bold opacity-80">{fattura.fornitore || 'Fornitore non indicato'} • scadenza {fattura.data_scadenza || 'n.d.'}</p>
+            {isGestore && <p className="mt-1 text-xs font-semibold opacity-70">{fattura.condomino_email}</p>}
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-black">{formatEuro(fattura.importo || 0)}</p>
+            <p className="text-[11px] font-black">{giorni === null ? 'scadenza n.d.' : giorni < 0 ? `${Math.abs(giorni)} gg scaduta` : `${giorni} gg`}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {fattura.file_url && <a href={fattura.file_url} target="_blank" rel="noreferrer" className="rounded-xl bg-white/80 px-3 py-1.5 text-xs font-black shadow-sm">Apri fattura</a>}
+          {isGestore && lavoro && <button type="button" onClick={() => setLavoroAperto(lavoro)} className="rounded-xl bg-white/80 px-3 py-1.5 text-xs font-black shadow-sm">Apri lavoro</button>}
+        </div>
+      </div>
+    );
+  };
+
+  const creaRichiesta = async (e) => {
+    e.preventDefault();
+    if (!form.titolo || !form.descrizione) {
+      alert('Inserisci almeno titolo e descrizione del lavoro.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onCreateLavoro({
+        condominio_id: form.condominio_id ? Number(form.condominio_id) : null,
+        condomino_email: userProfile?.email || '',
+        condomino_nome: userProfile?.nome || '',
+        condomino_telefono: form.telefono || userProfile?.telefono || '',
+        titolo: form.titolo,
+        descrizione: form.descrizione,
+        categoria: form.categoria,
+        priorita: form.priorita,
+        stato: 'Nuova richiesta',
+      }, form.file);
+      setForm({ condominio_id: userProfile?.condominiIds?.[0] || '', titolo: '', descrizione: '', categoria: 'Manutenzione privata', priorita: 'Normale', telefono: userProfile?.telefono || '', file: null });
+      setShowForm(false);
+      setSuccessMessage('Richiesta inviata correttamente. Ti terremo aggiornato direttamente da questo spazio.');
+      window.setTimeout(() => setSuccessMessage(''), 4500);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const caricaPreventivo = async (lavoro) => {
+    const draft = drafts[lavoro.id] || {};
+    if (!draft.preventivoFile && !draft.importo_preventivo) {
+      alert('Inserisci almeno il PDF del preventivo o l’importo.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        stato: 'Preventivo caricato',
+        importo_preventivo: draft.importo_preventivo ? Number(String(draft.importo_preventivo).replace(',', '.')) : lavoro.importo_preventivo,
+        data_preventivo: new Date().toISOString(),
+      };
+      if (draft.preventivoFile) {
+        const uploaded = await onUploadFile(draft.preventivoFile, `lavori-privati/preventivi/${lavoro.id}`);
+        payload.preventivo_url = uploaded.url;
+        payload.preventivo_nome = uploaded.name;
+      }
+      await onUpdateLavoro(lavoro.id, payload, 'preventivo_caricato');
+      updateDraft(lavoro.id, { preventivoFile: null, importo_preventivo: '' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const aggiornaEsito = async (lavoro, esito) => {
+    setSaving(true);
+    try {
+      await onUpdateLavoro(lavoro.id, {
+        esito_preventivo: esito,
+        data_esito_preventivo: new Date().toISOString(),
+        stato: esito === 'accettato' ? 'Preventivo accettato' : 'Preventivo rifiutato',
+      }, esito === 'accettato' ? 'preventivo_accettato' : 'preventivo_rifiutato');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pianifica = async (lavoro) => {
+    const draft = drafts[lavoro.id] || {};
+    if (!draft.data_pianificazione) {
+      alert('Inserisci la data pianificazione.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onUpdateLavoro(lavoro.id, {
+        stato: 'Intervento pianificato',
+        data_pianificazione: draft.data_pianificazione,
+        ora_pianificazione: draft.ora_pianificazione || null,
+        note_pianificazione: draft.note_pianificazione || '',
+      }, 'intervento_pianificato');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chiudi = async (lavoro) => {
+    const draft = drafts[lavoro.id] || {};
+    setSaving(true);
+    try {
+      await onUpdateLavoro(lavoro.id, {
+        stato: 'Intervento chiuso',
+        data_chiusura: new Date().toISOString(),
+        note_chiusura: draft.note_chiusura || '',
+      }, 'intervento_chiuso');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const salvaFattura = async (lavoro) => {
+    const draft = drafts[lavoro.id] || {};
+    if (!draft.numero_fattura || !draft.importo || !draft.data_scadenza) {
+      alert('Inserisci numero fattura, importo e scadenza.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        lavoro_privato_id: lavoro.id,
+        condomino_email: lavoro.condomino_email,
+        numero_fattura: draft.numero_fattura,
+        azienda_partner_id: draft.azienda_partner_id ? Number(draft.azienda_partner_id) : null,
+        fornitore: draft.azienda_partner_id ? ((aziendePartner || []).find((azienda) => Number(azienda.id) === Number(draft.azienda_partner_id))?.ragione_sociale || '') : '',
+        importo: Number(String(draft.importo).replace(',', '.')),
+        importo_imponibile: Math.round((Number(String(draft.importo).replace(',', '.')) / 1.22) * 100) / 100,
+        data_fattura: draft.data_fattura || new Date().toISOString().slice(0, 10),
+        data_scadenza: draft.data_scadenza,
+        stato: draft.stato_fattura || 'Da pagare',
+        note: draft.note_fattura || '',
+      };
+      if (draft.fatturaFile) {
+        const uploaded = await onUploadFile(draft.fatturaFile, `lavori-privati/fatture/${lavoro.id}`);
+        payload.file_url = uploaded.url;
+        payload.file_nome = uploaded.name;
+      }
+      await onCreateFattura(payload, lavoro);
+      updateDraft(lavoro.id, { numero_fattura: '', importo: '', data_scadenza: '', fatturaFile: null });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const aggiornaFattura = async (fattura, patch, lavoro) => {
+    setSaving(true);
+    try {
+      await onUpdateFattura(fattura.id, patch, lavoro);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderCard = (lavoro) => {
+    const fattura = fatturaDelLavoro(lavoro.id);
+    return (
+      <article
+        key={lavoro.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => setLavoroAperto(lavoro)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setLavoroAperto(lavoro);
+          }
+        }}
+        className={`cursor-pointer rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-md ${MOTION_CARD}`}
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Lavoro privato #{lavoro.id}</p>
+            <h3 className="mt-1 text-lg font-black text-slate-900">{lavoro.titolo}</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{getCondominioNome(lavoro.condominio_id)} • {lavoro.categoria || 'Lavoro privato'}</p>
+            {isGestore && <p className="mt-1 text-xs font-semibold text-slate-400">{lavoro.condomino_nome || lavoro.condomino_email} • {lavoro.condomino_telefono || 'telefono non indicato'}</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{lavoro.stato}</span>
+            {lavoro.importo_preventivo ? <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">{formatEuro(lavoro.importo_preventivo)} compreso IVA 22%</span> : null}
+            {fattura ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Fattura: {fattura.stato}</span> : null}
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white shadow-md shadow-emerald-900/20 transition group-hover:scale-105">›</span>
+          </div>
+        </div>
+        <p className="mt-3 line-clamp-2 text-sm text-slate-600">{lavoro.descrizione}</p>
+      </article>
+    );
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Lavori Privati Senza Pensieri</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">Contatto diretto con l’impresa</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Uno spazio dedicato ai lavori e alla cura della tua casa. Richieste, preventivi, documenti e aggiornamenti sempre disponibili in modo semplice e ordinato.</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onRefresh} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">Aggiorna</button>
+            {isCondomino && <button onClick={() => setShowForm(true)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-emerald-700">Richiedi un preventivo</button>}
+          </div>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-800 shadow-sm">
+          {successMessage}
+        </div>
+      )}
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Fatture aperte</p>
+          <p className="mt-2 text-2xl font-black text-slate-900">{fattureAperte.length}</p>
+          <p className="mt-1 text-sm font-bold text-slate-500">{formatEuro(totaleFattureAperte)} da monitorare</p>
+        </div>
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">In scadenza</p>
+          <p className="mt-2 text-2xl font-black text-amber-900">{fattureInScadenza.length}</p>
+          <p className="mt-1 text-sm font-bold text-amber-800">Entro 15 giorni • {formatEuro(totaleFattureInScadenza)}</p>
+        </div>
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Scadute</p>
+          <p className="mt-2 text-2xl font-black text-red-900">{fattureScadute.length}</p>
+          <p className="mt-1 text-sm font-bold text-red-800">Da sollecitare • {formatEuro(totaleFattureScadute)}</p>
+        </div>
+      </div>
+
+      {(fattureInScadenza.length > 0 || fattureScadute.length > 0 || fattureVisibili.length > 0) && (
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Control room fatture private</p>
+              <h3 className="mt-1 text-xl font-black text-slate-900">Scadenze e fatture lavori privati</h3>
+            </div>
+            <p className="text-sm font-bold text-slate-500">State sereni, vi ricordiamo noi le scadenze.</p>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <h4 className="mb-2 text-sm font-black text-amber-800">Fatture in scadenza entro 15 giorni</h4>
+              <div className="space-y-2">
+                {fattureInScadenza.length ? fattureInScadenza.map((fattura) => renderMiniFattura(fattura, 'amber')) : <p className="rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">Nessuna fattura in scadenza nei prossimi 15 giorni.</p>}
+              </div>
+            </div>
+            <div>
+              <h4 className="mb-2 text-sm font-black text-red-800">Fatture scadute</h4>
+              <div className="space-y-2">
+                {fattureScadute.length ? fattureScadute.map((fattura) => renderMiniFattura(fattura, 'red')) : <p className="rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">Nessuna fattura scaduta.</p>}
+              </div>
+            </div>
+          </div>
+          <details className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+            <summary className="cursor-pointer text-sm font-black text-slate-700">Mostra elenco completo fatture private ({fattureVisibili.length})</summary>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {fattureVisibili.length ? fattureVisibili.map((fattura) => renderMiniFattura(fattura, giorniAllaScadenza(fattura.data_scadenza) < 0 ? 'red' : 'amber')) : <p className="text-sm font-semibold text-slate-500">Nessuna fattura privata presente.</p>}
+            </div>
+          </details>
+        </div>
+      )}
+
+      {showForm && isCondomino && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-3">
+          <form onSubmit={creaRichiesta} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-5 shadow-2xl csp-scroll">
+            <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">La tua casa Senza Pensieri</p>
+                <h3 className="mt-1 text-xl font-black text-slate-900">Richiedi un preventivo</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Compila la richiesta: il form si chiude dopo l’invio e riceverai gli aggiornamenti in app.</p>
+              </div>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
+            </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="text-sm font-bold text-slate-700">Condominio
+              <select value={form.condominio_id} onChange={(e) => setForm({ ...form, condominio_id: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2">
+                {condomini.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-bold text-slate-700">Telefono
+              <input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Recapito per sopralluogo" />
+            </label>
+            <label className="text-sm font-bold text-slate-700 md:col-span-2">Titolo richiesta
+              <input value={form.titolo} onChange={(e) => setForm({ ...form, titolo: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Es. Ripristino bagno, infiltrazione, imbiancatura..." />
+            </label>
+            <label className="text-sm font-bold text-slate-700">Categoria
+              <input value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" />
+            </label>
+            <label className="text-sm font-bold text-slate-700">Priorità
+              <select value={form.priorita} onChange={(e) => setForm({ ...form, priorita: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2">
+                <option>Normale</option><option>Alta</option><option>Bassa</option>
+              </select>
+            </label>
+            <label className="text-sm font-bold text-slate-700 md:col-span-2">Descrizione
+              <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} rows={4} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Descrivi il lavoro e allega eventuali foto." />
+            </label>
+            <label className="text-sm font-bold text-slate-700 md:col-span-2">Foto / allegato
+              <input type="file" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" />
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setShowForm(false)} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">Annulla</button>
+            <button disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60">{saving ? 'Invio...' : 'Invia richiesta'}</button>
+          </div>
+          </form>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {lavoriVisibili.length === 0 ? (
+          <EmptyState icon="🏠" title="Nessun lavoro privato" text={isCondomino ? 'Richiedi un preventivo per i lavori e la cura della tua casa.' : 'Le nuove richieste private dei condòmini compariranno qui.'} action="Canale pronto" tone="emerald" />
+        ) : (
+          groupItemsByWorkflowStatus(lavoriVisibili, flussoLspSteps).map((group) => (
+            <WorkflowStatusGroup key={group.step.label} step={group.step} count={group.items.length} tone="emerald">
+              {group.items.map(renderCard)}
+            </WorkflowStatusGroup>
+          ))
+        )}
+      </div>
+
+      {lavoroAperto && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/45 p-3">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-white/60 bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 p-4 backdrop-blur-xl">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Lavoro privato #{lavoroAperto.id}</p>
+                <h3 className="text-xl font-black text-slate-900">{lavoroAperto.titolo}</h3>
+                <p className="text-sm font-semibold text-slate-500">{getCondominioNome(lavoroAperto.condominio_id)} • {lavoroAperto.stato}</p>
+                <GoogleMapsButton parts={[getCondominioInfo(lavoroAperto.condominio_id)?.indirizzo, getCondominioInfo(lavoroAperto.condominio_id)?.citta, getCondominioNome(lavoroAperto.condominio_id)]} className="mt-3" />
+              </div>
+              <button onClick={() => setLavoroAperto(null)} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi</button>
+            </div>
+            <div className="px-4 pt-4">
+              <FlussoOperativoPratica
+                titolo="Avanzamento LSP"
+                stato={lavoroAperto.stato || 'Nuova richiesta'}
+                steps={flussoLspSteps}
+              />
+            </div>
+            <div className="grid gap-4 p-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <h4 className="font-black text-slate-900">Richiesta</h4>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{lavoroAperto.descrizione}</p>
+                  {lavoroAperto.allegato_url && <a href={lavoroAperto.allegato_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">Apri allegato</a>}
+                </div>
+                {lavoroAperto.preventivo_url && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                    <h4 className="font-black text-emerald-900">Preventivo disponibile</h4>
+                    <p className="mt-1 text-sm font-bold text-emerald-700">{formatEuro(lavoroAperto.importo_preventivo)} <span className="text-xs font-black uppercase tracking-wide text-emerald-600">compreso IVA 22%</span></p>
+                    <a href={lavoroAperto.preventivo_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">Apri preventivo</a>
+                    {isCondomino && !lavoroAperto.esito_preventivo && (
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => aggiornaEsito(lavoroAperto, 'accettato')} disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white">Accetta</button>
+                        <button onClick={() => aggiornaEsito(lavoroAperto, 'rifiutato')} disabled={saving} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white">Rifiuta</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {lavoroAperto.data_pianificazione && (
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                    <h4 className="font-black text-sky-900">Intervento pianificato</h4>
+                    <p className="mt-1 text-sm font-bold text-sky-800">
+                      Data: {lavoroAperto.data_pianificazione || 'n.d.'}{lavoroAperto.ora_pianificazione ? ` • Ore ${String(lavoroAperto.ora_pianificazione).slice(0, 5)}` : ''}
+                    </p>
+                    {lavoroAperto.note_pianificazione && <p className="mt-2 whitespace-pre-wrap text-sm text-sky-800">{lavoroAperto.note_pianificazione}</p>}
+                  </div>
+                )}
+                {fatturaDelLavoro(lavoroAperto.id) && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <h4 className="font-black text-amber-900">Fattura</h4>
+                    <p className="mt-1 text-sm font-bold text-amber-800">Stato: {fatturaDelLavoro(lavoroAperto.id)?.stato} • Scadenza: {fatturaDelLavoro(lavoroAperto.id)?.data_scadenza || 'n.d.'}</p>
+                    {fatturaDelLavoro(lavoroAperto.id)?.file_url && <a href={fatturaDelLavoro(lavoroAperto.id).file_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-xl bg-amber-600 px-3 py-2 text-xs font-black text-white">Apri fattura</a>}
+                  </div>
+                )}
+              </div>
+
+              {isGestore && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <h4 className="font-black text-slate-900">Carica preventivo</h4>
+                    <div className="mt-3 grid gap-2">
+                      <input type="number" step="0.01" placeholder="Importo preventivo compreso IVA 22%" value={drafts[lavoroAperto.id]?.importo_preventivo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo_preventivo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <p className="text-xs font-bold text-slate-500">Importo da mostrare al condòmino: totale compreso IVA 22%. La provvigione interna verrà calcolata sull’imponibile.</p>
+                      <input type="file" onChange={(e) => updateDraft(lavoroAperto.id, { preventivoFile: e.target.files?.[0] || null })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <button onClick={() => caricaPreventivo(lavoroAperto)} disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white">Invia preventivo</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <h4 className="font-black text-slate-900">Pianificazione</h4>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      <input type="date" value={drafts[lavoroAperto.id]?.data_pianificazione || ''} onChange={(e) => updateDraft(lavoroAperto.id, { data_pianificazione: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <input type="time" value={drafts[lavoroAperto.id]?.ora_pianificazione || ''} onChange={(e) => updateDraft(lavoroAperto.id, { ora_pianificazione: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <textarea placeholder="Note pianificazione" value={drafts[lavoroAperto.id]?.note_pianificazione || ''} onChange={(e) => updateDraft(lavoroAperto.id, { note_pianificazione: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 md:col-span-2" />
+                      <button onClick={() => pianifica(lavoroAperto)} disabled={saving} className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-black text-white md:col-span-2">Pianifica intervento</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <h4 className="font-black text-slate-900">Chiusura e fattura</h4>
+                    <div className="mt-3 grid gap-2">
+                      <textarea placeholder="Note chiusura" value={drafts[lavoroAperto.id]?.note_chiusura || ''} onChange={(e) => updateDraft(lavoroAperto.id, { note_chiusura: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <button onClick={() => chiudi(lavoroAperto)} disabled={saving} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Chiudi intervento</button>
+                      <input placeholder="Numero fattura" value={drafts[lavoroAperto.id]?.numero_fattura || ''} onChange={(e) => updateDraft(lavoroAperto.id, { numero_fattura: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <select value={drafts[lavoroAperto.id]?.azienda_partner_id || ''} onChange={(e) => updateDraft(lavoroAperto.id, { azienda_partner_id: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="">Seleziona fornitore</option>
+                        {(aziendePartner || []).map((azienda) => <option key={azienda.id} value={azienda.id}>{azienda.ragione_sociale}</option>)}
+                      </select>
+                      <input type="number" step="0.01" placeholder="Importo fattura compreso IVA 22%" value={drafts[lavoroAperto.id]?.importo || ''} onChange={(e) => updateDraft(lavoroAperto.id, { importo: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <input type="date" value={drafts[lavoroAperto.id]?.data_scadenza || ''} onChange={(e) => updateDraft(lavoroAperto.id, { data_scadenza: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <input type="file" onChange={(e) => updateDraft(lavoroAperto.id, { fatturaFile: e.target.files?.[0] || null })} className="rounded-xl border border-slate-200 px-3 py-2" />
+                      <button onClick={() => salvaFattura(lavoroAperto)} disabled={saving} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-black text-white">Salva fattura</button>
+                      {fatturaDelLavoro(lavoroAperto.id) && <button onClick={() => aggiornaFattura(fatturaDelLavoro(lavoroAperto.id), { stato: 'Pagata', data_pagamento: new Date().toISOString().slice(0, 10) }, lavoroAperto)} disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white">Segna fattura pagata</button>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+
+function AppHardUpdateBanner({ updateInfo, onUpdate, onDismiss }) {
+  if (!updateInfo) return null;
+
+  return (
+    <div className="fixed inset-x-3 bottom-3 z-[230] mx-auto max-w-4xl rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl shadow-emerald-950/20 backdrop-blur md:bottom-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-900">Nuova versione disponibile</p>
+          <p className="text-xs font-semibold text-slate-500">
+            È disponibile una versione aggiornata di CSP. Premi “Aggiorna ora” per caricare l’ultima release.
+          </p>
+          {updateInfo?.serverVersion && (
+            <p className="mt-1 text-[11px] font-bold text-emerald-700">
+              Versione disponibile: {updateInfo.serverVersion}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600"
+          >
+            Dopo
+          </button>
+          <button
+            type="button"
+            onClick={onUpdate}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-emerald-900/20"
+          >
+            Aggiorna ora
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const generaPdfVotazioni = (pratica, ruoloExport = ruoloNormalizzato) => {
     if (!pratica) return;
@@ -13868,6 +16734,14 @@ export default function App() {
 
   const [reportCondominio, setReportCondominio] = useState([]);
   const [rivisteCondominio, setRivisteCondominio] = useState([]);
+  const [promoSenzaPensieri, setPromoSenzaPensieri] = useState([]);
+  const [promoInteressi, setPromoInteressi] = useState([]);
+  const [promoVoti, setPromoVoti] = useState([]);
+  const [promoDeeplinkId, setPromoDeeplinkId] = useState(null);
+  const [promoCondominioDeeplinkId, setPromoCondominioDeeplinkId] = useState(null);
+  const [promoDeeplinkTick, setPromoDeeplinkTick] = useState(0);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [savingPromo, setSavingPromo] = useState(false);
   const [showRivistaModal, setShowRivistaModal] = useState(false);
   const [capitolatoSmartTargetId, setCapitolatoSmartTargetId] = useState(null);
   const [sendingRivista, setSendingRivista] = useState(false);
@@ -14032,6 +16906,11 @@ export default function App() {
         setShowRivistaModal(false);
         return;
       }
+
+      if (showPromoModal) {
+        setShowPromoModal(false);
+        return;
+      }
       const route = event.state?.cspRoute;
       if (route?.section) {
         applicaCspHistoryRoute(route);
@@ -14044,7 +16923,7 @@ export default function App() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal]);
+  }, [utente, showSplash, ruoloNormalizzato, gestoreSection, amministratoreSection, condominoSection, menuLateraleAperto, menuLateraleInChiusura, showNuovaSegnalazione, showReportSemestrale, showRivistaModal, showPromoModal]);
 
 
   useEffect(() => {
@@ -14671,7 +17550,39 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     }
   };
 
-  const apriNotificaCentro = (notifica) => {
+
+
+  const aggiornaPromoSenzaPensieriDati = async () => {
+    try {
+      const { data: promoData, error: promoError } = await supabase
+        .from('promo_senza_pensieri')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!promoError) setPromoSenzaPensieri(promoData || []);
+      else if (promoError.code !== 'PGRST116' && promoError.code !== '42P01') console.warn('Errore refresh promo:', promoError);
+
+      const { data: interessiData, error: interessiError } = await supabase
+        .from('promo_interessi')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!interessiError) setPromoInteressi(interessiData || []);
+      else if (interessiError.code !== 'PGRST116' && interessiError.code !== '42P01') console.warn('Errore refresh interessi promo:', interessiError);
+
+      const { data: votiPromoData, error: votiPromoError } = await supabase
+        .from('promo_voti')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!votiPromoError) setPromoVoti(votiPromoData || []);
+      else if (votiPromoError.code !== 'PGRST116' && votiPromoError.code !== '42P01') console.warn('Errore refresh voti promo:', votiPromoError);
+    } catch (error) {
+      console.warn('Errore aggiornamento Promo Senza Pensieri:', error);
+    }
+  };
+
+  const apriNotificaCentro = async (notifica) => {
     const tipo = String(notifica?.tipo || '').toLowerCase().trim();
     const riferimentoId = Number(notifica?.riferimento_id || notifica?.segnalazione_id || notifica?.pratica_id || 0);
 
@@ -14687,6 +17598,42 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
       } else if (isAmministratoreOperativo) {
         setAmministratoreSection('home-intelligente');
       }
+      return;
+    }
+
+    const isPromoPraticaCsp = riferimentoId && (
+      tipo.includes('promo_pratica') ||
+      tipo.includes('promo_prenotazione_confermata') ||
+      tipo.includes('promo_attivata')
+    );
+
+    if (isPromoPraticaCsp) {
+      const pratica = (segnalazioni || []).find((item) => Number(item.id) === riferimentoId);
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+      else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+      else setCondominoSection('segnalazioni');
+      if (pratica) {
+        setDettaglioAperto(pratica);
+      } else {
+        mostraToast('Pratica in caricamento', 'La pratica collegata alla promo sarà disponibile appena terminato l’aggiornamento dati.', 'info');
+        await carica();
+      }
+      return;
+    }
+
+    if (tipo.includes('promo')) {
+      await aggiornaPromoSenzaPensieriDati();
+      if (ruoloNormalizzato === 'gestore') setGestoreSection('promo');
+      else if (isAmministratoreOperativo) setAmministratoreSection('promo');
+      else setCondominoSection('promo');
+
+      const promoIdNotifica = notifica?.promo_id || notifica?.promoId || notifica?.promo || notifica?.metadata?.promo_id || notifica?.metadata?.promoId || '';
+      if (promoIdNotifica) setPromoDeeplinkId(String(promoIdNotifica));
+      else if (riferimentoId && String(notifica?.riferimento_id || '').includes('-')) setPromoDeeplinkId(String(notifica?.riferimento_id || ''));
+
+      const condominioPromoNotifica = notifica?.promo_condominio_id || notifica?.promoCondominio || notifica?.metadata?.promo_condominio_id || notifica?.metadata?.promoCondominio || notifica?.condominio_id || '';
+      if (condominioPromoNotifica) setPromoCondominioDeeplinkId(String(condominioPromoNotifica));
+      setPromoDeeplinkTick((value) => value + 1);
       return;
     }
 
@@ -14753,6 +17700,425 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
     else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
     else setCondominoSection('segnalazioni');
   };
+
+  const inviaNotificaPromoSenzaPensieri = async (promoRecord = {}) => {
+    if (!promoRecord?.id) return null;
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        evento: 'promo_senza_pensieri',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-senza-pensieri', {
+        body: {
+          promoId: promoRecord.id,
+          title: 'Nuova Promo Senza Pensieri',
+          message: `È disponibile una nuova opportunità CSP: ${promoRecord.titolo || 'scoprila in app'}. Apri l’app per visualizzarla.`,
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Promo creata, ma notifica promo non completata:', error || data);
+        mostraToast('Promo salvata', 'La promo è visibile in app, ma l’invio notifiche non è stato completato.', 'warning');
+        return null;
+      }
+
+      mostraToast('Promo pubblicata', `Invio completato: ${data?.emails_found || 0} destinatari unici raggiunti.`, 'success');
+      return data;
+    } catch (error) {
+      console.warn('Errore invio notifica promo:', error);
+      mostraToast('Promo salvata', 'La promo è visibile in app, ma l’invio notifiche non è stato completato.', 'warning');
+      return null;
+    }
+  };
+
+
+  const creaPromoSenzaPensieri = async (promo) => {
+    setSavingPromo(true);
+    try {
+      const payload = {
+        titolo: promo.titolo?.trim(),
+        descrizione: promo.descrizione?.trim() || null,
+        prezzo: promo.prezzo?.trim() || null,
+        immagine_url: promo.immagine_url?.trim() || null,
+        validita_dal: promo.validita_dal || null,
+        validita_al: promo.validita_al || null,
+        cta_tipo: promo.cta_tipo || 'chiedi_amministratore',
+        cta_testo: promo.cta_testo?.trim() || null,
+        cta_url: promo.cta_url?.trim() || null,
+        limite: promo.limite?.trim() || null,
+        limite_quantita: promo.limite_quantita ? Number(promo.limite_quantita) : null,
+        prenotazioni_attuali: 0,
+        stato: promo.stato || (promo.attiva !== false ? 'attiva' : 'bozza'),
+        attiva: (promo.stato || '').toLowerCase() === 'attiva' || promo.attiva === true,
+        created_by: utente?.email || userProfile?.email || null,
+      };
+
+      const { data: insertedPromo, error } = await supabase
+        .from('promo_senza_pensieri')
+        .insert(payload)
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      setShowPromoModal(false);
+      setToastInterno({ tipo: 'success', titolo: 'Promo creata', messaggio: 'La promozione è stata salvata nella vetrina Promo Senza Pensieri.' });
+      if ((insertedPromo?.stato || '').toLowerCase() === 'attiva' || insertedPromo?.attiva === true) {
+        await inviaNotificaPromoSenzaPensieri(insertedPromo);
+      }
+      await carica();
+    } catch (error) {
+      console.error('Errore creazione promo:', error);
+      alert(error?.message || 'Impossibile creare la promozione.');
+    } finally {
+      setSavingPromo(false);
+    }
+  };
+
+
+  const riproponiPromoSenzaPensieri = async (promo) => {
+    if (!promo?.id) return;
+    setSavingPromo(true);
+    try {
+      const payload = {
+        titolo: promo.titolo || 'Nuova promo',
+        descrizione: promo.descrizione || null,
+        prezzo: promo.prezzo || null,
+        immagine_url: promo.immagine_url || null,
+        validita_dal: new Date().toISOString().slice(0, 10),
+        validita_al: null,
+        cta_tipo: promo.cta_tipo || 'chiedi_amministratore',
+        cta_testo: promo.cta_testo || 'Chiedila al tuo amministratore',
+        cta_url: promo.cta_url || null,
+        limite: promo.limite || null,
+        limite_quantita: promo.limite_quantita || null,
+        prenotazioni_attuali: 0,
+        stato: 'bozza',
+        attiva: false,
+        inviata: false,
+        inviata_at: null,
+        riproposta_da: promo.id,
+        created_by: utente?.email || userProfile?.email || null,
+      };
+
+      const { error } = await supabase.from('promo_senza_pensieri').insert(payload);
+      if (error) throw error;
+
+      setToastInterno({ tipo: 'success', titolo: 'Promo riproposta', messaggio: 'È stata creata una nuova bozza partendo dalla promozione selezionata.' });
+      await carica();
+    } catch (error) {
+      console.error('Errore riproposizione promo:', error);
+      alert(error?.message || 'Impossibile riproporre la promozione.');
+    } finally {
+      setSavingPromo(false);
+    }
+  };
+
+  const richiediPromoAlTuoAmministratore = async (promoRecord = {}, condominioIdRichiesto = null) => {
+    if (!promoRecord?.id) return null;
+    const condominioId = Number(condominioIdRichiesto || condominioIdPerAbbonamento || userProfile?.condominiIds?.[0] || 0);
+    if (!condominioId) {
+      mostraToast('Condominio non trovato', 'Non riesco a collegare la richiesta a un condominio. Verifica il profilo utente.', 'warning');
+      return null;
+    }
+
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        promoCondominio: condominioId,
+        evento: 'promo_interesse_condomino',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-interesse-condomino', {
+        body: {
+          promoId: promoRecord.id,
+          condominioId,
+          condominoEmail: utente?.email || userProfile?.email || '',
+          condominoNome: userProfile?.nome || utente?.user_metadata?.name || '',
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Richiesta promo non completata:', error || data);
+        mostraToast('Richiesta non completata', data?.error || error?.message || 'Non è stato possibile inviare la richiesta all’amministratore.', 'error');
+        return null;
+      }
+
+      mostraToast('Richiesta inviata', 'Il tuo amministratore è stato avvisato della promozione che ti interessa.', 'success');
+      await carica();
+      return data;
+    } catch (error) {
+      console.error('Errore richiesta promo:', error);
+      mostraToast('Errore richiesta', error?.message || 'Non è stato possibile inviare la richiesta promo.', 'error');
+      return null;
+    }
+  };
+
+
+  const prenotaInterventoPromo = async (promoRecord = {}, condominioIdRichiesto = null) => {
+    if (!promoRecord?.id) return null;
+
+    const condominioId = Number(condominioIdRichiesto || filtroCondominioId || selectedCondominioId || userProfile?.condominiIds?.[0] || condominiVisibili?.[0]?.id || 0);
+    if (!condominioId) {
+      mostraToast('Condominio non selezionato', 'Seleziona un condominio prima di prenotare l’intervento promo.', 'warning');
+      return null;
+    }
+
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        promoCondominio: condominioId,
+        evento: 'promo_prenotazione_amministratore',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
+        body: {
+          promoId: promoRecord.id,
+          condominioId,
+          richiedenteEmail: utente?.email || userProfile?.email || '',
+          richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
+          ruolo: ruoloNormalizzato,
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false || (data?.skipped && !data?.segnalazione?.id && !data?.segnalazione_id)) {
+        console.warn('Prenotazione promo non completata:', error || data);
+        mostraToast('Prenotazione non completata', data?.error || data?.reason || error?.message || 'Non è stato possibile generare la pratica CSP.', 'error');
+        return null;
+      }
+
+      const segnalazioneId = data?.segnalazione?.id || data?.segnalazione_id || data?.booking?.data?.segnalazione_id || null;
+      mostraToast(data?.alreadyBooked ? 'Promo già prenotata' : 'Pratica CSP aperta', data?.alreadyBooked ? 'La promo risultava già prenotata: apro la pratica collegata.' : 'La prenotazione promo è stata trasformata automaticamente in una nuova pratica CSP.', 'success');
+      await carica();
+      if (segnalazioneId) {
+        const { data: praticaDb, error: praticaError } = await supabase
+          .from('segnalazioni')
+          .select('*, condomini(id, nome, indirizzo)')
+          .eq('id', segnalazioneId)
+          .maybeSingle();
+        if (praticaError) console.warn('Pratica promo creata ma non riletta:', praticaError);
+        const praticaDaAprire = praticaDb ? normalizzaSegnalazioni([praticaDb])[0] : data?.segnalazione;
+        if (praticaDaAprire) {
+          setDettaglioAperto(praticaDaAprire);
+          if (ruoloNormalizzato === 'gestore') setGestoreSection('pratiche');
+          else if (isAmministratoreOperativo) setAmministratoreSection('pratiche');
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error('Errore prenotazione promo:', error);
+      mostraToast('Errore prenotazione', error?.message || 'Non è stato possibile inviare la prenotazione promo.', 'error');
+      return null;
+    }
+  };
+
+
+  const confermaPrenotazionePromo = async (promoRecord = {}, interesseRecord = {}) => {
+    if (!promoRecord?.id || !interesseRecord?.id) {
+      mostraToast('Prenotazione non selezionata', 'Non riesco a individuare la prenotazione da confermare.', 'warning');
+      return null;
+    }
+
+    try {
+      const promoDeepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        promoCondominio: interesseRecord.condominio_id,
+        evento: 'promo_confermata',
+      });
+
+      const { data, error } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
+        body: {
+          promoId: promoRecord.id,
+          interesseId: interesseRecord.id,
+          condominioId: interesseRecord.condominio_id,
+          deepLink: promoDeepLink,
+          url: promoDeepLink,
+        },
+      });
+
+      if (error || data?.success === false) {
+        console.warn('Conferma promo non completata:', error || data);
+        mostraToast('Conferma non completata', data?.error || error?.message || 'Non è stato possibile confermare la prenotazione promo.', 'error');
+        return null;
+      }
+
+      mostraToast('Prenotazione confermata', 'È stata aperta una pratica CSP collegata alla promo.', 'success');
+      await carica();
+      if (data?.segnalazione?.id) {
+        const pratica = segnalazioni.find((s) => Number(s.id) === Number(data.segnalazione.id));
+        if (pratica) setDettaglioAperto(pratica);
+      }
+      return data;
+    } catch (error) {
+      console.error('Errore conferma prenotazione promo:', error);
+      mostraToast('Errore conferma', error?.message || 'Non è stato possibile confermare la prenotazione promo.', 'error');
+      return null;
+    }
+  };
+
+
+  const avviaVotazionePromo = async (promoRecord = {}, condominioIdRichiesto = null) => {
+    if (!promoRecord?.id) return null;
+    const condominioId = Number(condominioIdRichiesto || 0);
+    if (!condominioId) {
+      mostraToast('Condominio non selezionato', 'Seleziona il condominio per avviare la votazione promo.', 'warning');
+      return null;
+    }
+    const piano = getPianoAbbonamentoCondominio(condominioId, contratti);
+    if (!canUseSubscriptionFeature(piano, 'plus')) {
+      mostraToast('Funzione Plus/Premium', 'La votazione automatica è riservata ai condomìni Plus e Premium.', 'warning');
+      return null;
+    }
+    try {
+      mostraToast('Avvio votazione', 'Sto preparando la votazione promo per i condòmini.', 'info');
+      const deepLink = buildAppDeepLink({
+        fromPush: '1',
+        section: 'promo',
+        promo: promoRecord.id,
+        promoCondominio: condominioId,
+        evento: 'promo_votazione',
+      });
+      const { data, error } = await supabase.functions.invoke('notify-promo-votazione', {
+        body: {
+          promoId: promoRecord.id,
+          condominioId,
+          richiedenteEmail: utente?.email || userProfile?.email || '',
+          richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
+          deepLink,
+          url: deepLink,
+        },
+      });
+      if (error || data?.success === false) {
+        console.warn('Avvio votazione promo non completato:', error || data);
+        mostraToast('Votazione non avviata', data?.error || error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
+        return null;
+      }
+      mostraToast('Votazione avviata', 'I condòmini sono stati avvisati e potranno esprimere il proprio parere dall’app.', 'success');
+      await aggiornaPromoSenzaPensieriDati();
+      await aggiornaNotificheCentro();
+      return data;
+    } catch (error) {
+      console.error('Errore avvio votazione promo:', error);
+      mostraToast('Errore votazione', error?.message || 'Non è stato possibile avviare la votazione promo.', 'error');
+      return null;
+    }
+  };
+
+  const totaleCondominiPromo = (condominioId) => {
+    const condominio = (condominiVisibili || condomini || []).find((c) => String(c?.id) === String(condominioId));
+    const totale = Number(condominio?.famiglie || condominio?.numero_condomini || condominio?.numero_famiglie || condominio?.totale_famiglie || 0);
+    return Number.isFinite(totale) && totale > 0 ? totale : 0;
+  };
+
+  const registraVotoPromo = async (promoRecord = {}, condominioIdRichiesto = null, voto = '') => {
+    if (!promoRecord?.id) return null;
+    const condominioId = Number(condominioIdRichiesto || 0);
+    const votoNorm = String(voto || '').toLowerCase().includes('fav') ? 'favorevole' : 'contrario';
+    const email = String(utente?.email || userProfile?.email || '').toLowerCase().trim();
+    if (!condominioId || !email) {
+      mostraToast('Voto non registrato', 'Non riesco a collegare il voto al condominio o al tuo profilo.', 'warning');
+      return null;
+    }
+    try {
+      const payload = {
+        promo_id: promoRecord.id,
+        condominio_id: condominioId,
+        email,
+        nome: userProfile?.nome || utente?.user_metadata?.name || '',
+        voto: votoNorm,
+      };
+      const { error } = await supabase
+        .from('promo_voti')
+        .upsert(payload, { onConflict: 'promo_id,condominio_id,email' });
+      if (error) throw error;
+
+      const { data: votiAggiornati, error: votiAggiornatiError } = await supabase
+        .from('promo_voti')
+        .select('*')
+        .eq('promo_id', promoRecord.id)
+        .eq('condominio_id', condominioId);
+      if (votiAggiornatiError && votiAggiornatiError.code !== 'PGRST116') throw votiAggiornatiError;
+
+      const votiUnici = Array.from(new Map((votiAggiornati || []).map((v) => [String(v?.email || '').toLowerCase().trim(), v])).values());
+      const emailVotantiAggiornati = new Set(votiUnici.map((v) => String(v?.email || '').toLowerCase().trim()).filter(Boolean));
+      const favorevoliEspliciti = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('fav')).length;
+      const contrari = votiUnici.filter((v) => String(v?.voto || '').toLowerCase().includes('contr')).length;
+      const { data: interessiAggiornati, error: interessiAggiornatiError } = await supabase
+        .from('promo_interessi')
+        .select('email, azione, stato')
+        .eq('promo_id', promoRecord.id)
+        .eq('condominio_id', condominioId);
+      if (interessiAggiornatiError && interessiAggiornatiError.code !== 'PGRST116') throw interessiAggiornatiError;
+      const interessiFavorevoliImpliciti = Array.from(new Map((interessiAggiornati || [])
+        .filter((r) =>
+          String(r?.azione || '').toLowerCase().includes('interesse') &&
+          String(r?.stato || 'richiesto').toLowerCase() !== 'annullato'
+        )
+        .map((r) => [String(r?.email || '').toLowerCase().trim(), r])
+        .filter(([email]) => email && !emailVotantiAggiornati.has(email))
+      ).values()).length;
+      const favorevoli = favorevoliEspliciti + interessiFavorevoliImpliciti;
+      const totaleFamiglieCondominio = Number(totaleCondominiPromo(condominioId) || 0);
+      const sogliaMaggioranza = totaleFamiglieCondominio ? Math.floor(totaleFamiglieCondominio / 2) + 1 : 1;
+      const maggioranzaAssolutaRaggiunta = favorevoli >= sogliaMaggioranza && favorevoli > contrari;
+      const unanimitaRaggiunta = totaleFamiglieCondominio > 0 && contrari === 0 && favorevoli >= totaleFamiglieCondominio;
+
+      mostraToast('Voto registrato', `Hai espresso voto ${votoNorm}.`, 'success');
+
+      if (unanimitaRaggiunta) {
+        try {
+          const deepLink = buildAppDeepLink({ fromPush: '1', section: 'promo', promo: promoRecord.id, promoCondominio: condominioId, evento: 'promo_votazione_approvata' });
+          const { data: autoData, error: autoError } = await supabase.functions.invoke('notify-promo-conferma-prenotazione', {
+            body: {
+              promoId: promoRecord.id,
+              condominioId,
+              viaVotazione: true,
+              richiedenteEmail: email,
+              richiedenteNome: userProfile?.nome || utente?.user_metadata?.name || '',
+              ruolo: 'votazione',
+              deepLink,
+              url: deepLink,
+            },
+          });
+          if (autoError || autoData?.success === false) {
+            console.warn('Creazione pratica da votazione promo non completata:', autoError || autoData);
+          } else if (autoData?.segnalazione?.id || autoData?.segnalazione_id) {
+            mostraToast('Promo approvata all’unanimità', 'Tutti i pareri risultano favorevoli: è stata aperta automaticamente una pratica CSP.', 'success');
+          }
+        } catch (autoError) {
+          console.warn('Errore creazione automatica pratica promo:', autoError);
+        }
+      }
+
+      if (!unanimitaRaggiunta && maggioranzaAssolutaRaggiunta) {
+        mostraToast('Maggioranza raggiunta', 'La maggioranza favorevole è stata raggiunta. L’amministratore può procedere con Prenota intervento.', 'info');
+      }
+
+      await aggiornaPromoSenzaPensieriDati();
+      await carica();
+      return true;
+    } catch (error) {
+      console.error('Errore voto promo:', error);
+      mostraToast('Errore voto', error?.message || 'Non è stato possibile registrare il voto promo.', 'error');
+      return null;
+    }
+  };
+
+
 
   const carica = async () => {
     setLoading(true);
@@ -14842,6 +18208,28 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
 
       if (rivisteError && rivisteError.code !== 'PGRST116' && rivisteError.code !== '42P01') throw rivisteError;
       setRivisteCondominio(rivisteData || []);
+
+      const { data: promoData, error: promoError } = await supabase
+        .from('promo_senza_pensieri')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (promoError && promoError.code !== 'PGRST116' && promoError.code !== '42P01') throw promoError;
+      setPromoSenzaPensieri(promoData || []);
+
+      const { data: promoInteressiData, error: promoInteressiError } = await supabase
+        .from('promo_interessi')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (promoInteressiError && promoInteressiError.code !== 'PGRST116' && promoInteressiError.code !== '42P01') throw promoInteressiError;
+      setPromoInteressi(promoInteressiData || []);
+
+      const { data: promoVotiData, error: promoVotiError } = await supabase
+        .from('promo_voti')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (promoVotiError && promoVotiError.code !== 'PGRST116' && promoVotiError.code !== '42P01') throw promoVotiError;
+      setPromoVoti(promoVotiData || []);
 
       const { data: leadData, error: leadError } = await supabase
         .from('lead_amministratori')
@@ -15161,6 +18549,34 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
   }, [utente?.email]);
 
 
+
+
+
+  useEffect(() => {
+    if (!utente) return undefined;
+
+    const channel = supabase
+      .channel('promo-senza-pensieri-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promo_interessi' },
+        () => {
+          aggiornaPromoSenzaPensieriDati();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promo_senza_pensieri' },
+        () => {
+          aggiornaPromoSenzaPensieriDati();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [utente]);
 
   const uploadFile = async (file, prefix) => {
     if (!file) return '';
@@ -17300,6 +20716,15 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
           saving={sendingReportSemestrale}
         />
       )}
+
+      {showPromoModal && (
+        <NuovaPromoModal
+          onClose={() => setShowPromoModal(false)}
+          onCreate={creaPromoSenzaPensieri}
+          saving={savingPromo}
+        />
+      )}
+
       {showRivistaModal && (
         <PubblicaRivistaModal
           onClose={() => setShowRivistaModal(false)}
@@ -17449,11 +20874,52 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
 
 
         {ruoloNormalizzato === 'gestore' && gestoreSection === 'promo' && (
-          <PromoSenzaPensieriLiteSuite ruolo={ruoloNormalizzato} />
+          <>
+            {renderGestoreSectionTitle('Promo Senza Pensieri', 'Vetrina commerciale CSP, promozioni stagionali e opportunità dedicate.')}
+            <PromoSenzaPensieriSuite
+              promo={promoSenzaPensieri}
+              promoInteressi={promoInteressi}
+              promoVoti={promoVoti}
+              condomini={condominiVisibili}
+              contratti={contratti}
+              utentiSistema={utentiSistema}
+              utentiCondomini={utentiCondomini}
+              ruolo={ruoloNormalizzato}
+              canCreate={true}
+              onOpenCreate={() => setShowPromoModal(true)}
+              onRiproponi={riproponiPromoSenzaPensieri}
+              onConfermaPrenotazione={confermaPrenotazionePromo}
+              onAvviaVotazionePromo={avviaVotazionePromo}
+              onVotaPromo={registraVotoPromo}
+              currentUserEmail={utente?.email || userProfile?.email || ''}
+              onRefreshPromo={aggiornaPromoSenzaPensieriDati}
+              promoEvidenzaId={promoDeeplinkId}
+              promoCondominioEvidenzaId={promoCondominioDeeplinkId}
+              promoDeeplinkTick={promoDeeplinkTick}
+            />
+          </>
         )}
 
         {isAmministratoreOperativo && amministratoreSection === 'promo' && (
-          <PromoSenzaPensieriLiteSuite ruolo={ruoloNormalizzato} />
+          <PromoSenzaPensieriSuite
+            promo={promoSenzaPensieri}
+            promoInteressi={promoInteressi}
+            promoVoti={promoVoti}
+            condomini={condominiVisibili}
+            contratti={contratti}
+            utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
+            ruolo={ruoloNormalizzato}
+            canCreate={false}
+            promoEvidenzaId={promoDeeplinkId}
+            promoCondominioEvidenzaId={promoCondominioDeeplinkId}
+            promoDeeplinkTick={promoDeeplinkTick}
+            onPrenotaIntervento={prenotaInterventoPromo}
+            onAvviaVotazionePromo={avviaVotazionePromo}
+            onVotaPromo={registraVotoPromo}
+            currentUserEmail={utente?.email || userProfile?.email || ''}
+            onRefreshPromo={aggiornaPromoSenzaPensieriDati}
+          />
         )}
 
 
@@ -17889,7 +21355,24 @@ Il gestore riceverà una richiesta dedicata e potrà fissare un appuntamento vis
         )}
 
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'promo' && (
-          <PromoSenzaPensieriLiteSuite ruolo={ruoloNormalizzato} />
+          <PromoSenzaPensieriSuite
+            promo={promoSenzaPensieri}
+            promoInteressi={promoInteressi}
+            promoVoti={promoVoti}
+            condomini={condominiVisibili}
+            contratti={contratti}
+            utentiSistema={utentiSistema}
+            utentiCondomini={utentiCondomini}
+            ruolo={ruoloNormalizzato}
+            canCreate={false}
+            promoEvidenzaId={promoDeeplinkId}
+            promoCondominioEvidenzaId={promoCondominioDeeplinkId}
+            promoDeeplinkTick={promoDeeplinkTick}
+            onRichiediAmministratore={richiediPromoAlTuoAmministratore}
+            onVotaPromo={registraVotoPromo}
+            currentUserEmail={utente?.email || userProfile?.email || ''}
+            onRefreshPromo={aggiornaPromoSenzaPensieriDati}
+          />
         )}
 
         {['condominio', 'condomino'].includes(ruoloNormalizzato) && condominoSection === 'report' && (
